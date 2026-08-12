@@ -7,7 +7,7 @@ export const tileLayoutRoutes = new Hono();
 // Fixed allowlist rather than accepting any string -- keeps the table from
 // accumulating rows for typos/old page names, and matches the fixed set of
 // pages that actually render a customizable tile grid.
-const KNOWN_PAGES = new Set(['home', 'tools', 'electronics']);
+const KNOWN_PAGES = new Set(['home', 'tools', 'electronics', 'nav']);
 
 // GET is public, same reasoning as station-location: every visitor's page
 // render needs it to know the saved order, and none of this is sensitive.

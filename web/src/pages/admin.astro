@@ -59,13 +59,14 @@ import Base from '../layouts/Base.astro';
       <div class="card">
         <h2>Page Layout</h2>
         <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">
-          Reorder or hide the tiles on the Home, Tools, and Electronics pages. Drag a row by its handle to reorder; uncheck a tile to hide it. Changes apply to every visitor once saved.
+          Reorder or hide the tiles on the Home, Tools, and Electronics pages, or the links in the site's top navigation bar. Drag a row by its handle to reorder; uncheck a tile to hide it. Changes apply to every visitor once saved.
         </p>
         <label style="display:block;max-width:280px;margin-bottom:0.75rem;">Page
           <select id="tl-page">
             <option value="home">Home</option>
             <option value="tools">Tools</option>
             <option value="electronics">Electronics</option>
+            <option value="nav">Navigation Bar</option>
           </select>
         </label>
         <ul id="tl-list" style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0.4rem;max-width:480px;"></ul>
@@ -582,6 +583,22 @@ import Base from '../layouts/Base.astro';
         { id: 'capacitor-code', label: 'Capacitor Code' },
         { id: 'coil-winding', label: 'Coil Winding (Air-Core)' },
         { id: 'battery-runtime', label: 'Battery Runtime' },
+      ],
+      nav: [
+        { id: 'about', label: 'About' },
+        { id: 'photos', label: 'Photos' },
+        { id: 'log', label: 'QSO Log' },
+        { id: 'map', label: 'QSO Map' },
+        { id: 'awards', label: 'Awards' },
+        { id: 'stats', label: 'Stats' },
+        { id: 'activations', label: 'Activations' },
+        { id: 'conditions', label: 'Conditions' },
+        { id: 'radio', label: 'Radio' },
+        { id: 'satellites', label: 'Satellites' },
+        { id: 'tools', label: 'Tools' },
+        { id: 'electronics', label: 'Electronics' },
+        { id: 'reference', label: 'Reference' },
+        { id: 'admin', label: 'Admin' },
       ],
     };
 
