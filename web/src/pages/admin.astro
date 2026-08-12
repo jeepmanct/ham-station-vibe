@@ -611,6 +611,12 @@ import Base from '../layouts/Base.astro';
     // handle icon) so any part of the row starts a drag -- a handle-only
     // hit target turned out to be too easy to miss. The "Visible" checkbox
     // opts itself out below so it still just toggles normally.
+    //
+    // move/up/cancel are tracked on `document`, not the row itself -- an
+    // earlier version relied on setPointerCapture() retargeting events back
+    // to the row, but that turned out not to reliably deliver pointermove
+    // in practice. Listening globally and filtering by pointerId sidesteps
+    // that entirely and needs no capture API at all.
     function makeRowDraggable(row: HTMLLIElement) {
       row.addEventListener('pointerdown', (e) => {
         const ev = e as PointerEvent;
@@ -620,10 +626,11 @@ import Base from '../layouts/Base.astro';
         // chance to fire; on desktop it also stops an accidental text
         // selection drag from competing with the reorder.
         ev.preventDefault();
-        row.setPointerCapture(ev.pointerId);
+        const draggingPointerId = ev.pointerId;
         row.classList.add('dragging');
 
         function onMove(moveEv: PointerEvent) {
+          if (moveEv.pointerId !== draggingPointerId) return;
           const rows = Array.from(tlList.querySelectorAll<HTMLLIElement>('.tl-row:not(.dragging)'));
           const after = rows.find((r) => {
             const box = r.getBoundingClientRect();
@@ -632,14 +639,16 @@ import Base from '../layouts/Base.astro';
           if (after) tlList.insertBefore(row, after);
           else tlList.appendChild(row);
         }
-        function onUp(upEv: PointerEvent) {
+        function onEnd(endEv: PointerEvent) {
+          if (endEv.pointerId !== draggingPointerId) return;
           row.classList.remove('dragging');
-          row.releasePointerCapture(upEv.pointerId);
-          row.removeEventListener('pointermove', onMove);
-          row.removeEventListener('pointerup', onUp);
+          document.removeEventListener('pointermove', onMove);
+          document.removeEventListener('pointerup', onEnd);
+          document.removeEventListener('pointercancel', onEnd);
         }
-        row.addEventListener('pointermove', onMove);
-        row.addEventListener('pointerup', onUp);
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onEnd);
+        document.addEventListener('pointercancel', onEnd);
       });
     }
 
@@ -1368,7 +1377,14 @@ import Base from '../layouts/Base.astro';
     });
   </script>
 
-  <style>
+  <style is:global>
+    /* is:global -- these rows are created dynamically via
+       document.createElement() in client JS, not present in this file's
+       static markup, so Astro's default scoped-style hash attribute never
+       gets attached to them and a normal scoped <style> block silently
+       fails to match them at all (confirmed via the compiled output:
+       .tl-row[data-astro-cid-...] {...} -- an attribute selector no
+       dynamically-created element can ever satisfy). */
     .tl-row {
       display: flex;
       align-items: center;
