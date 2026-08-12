@@ -5,8 +5,8 @@ import Base from '../layouts/Base.astro';
   <h1>Electronics</h1>
   <p class="lede">General-purpose electronics calculators &mdash; bench work, not specifically ham radio.</p>
 
-  <div class="tools-grid">
-    <div class="tool-card">
+  <div class="tools-grid" id="electronics-tiles">
+    <div class="tool-card" data-tile-id="resistor-code">
       <h2><span>Resistor Color Code</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <div class="tool-field">
         <label for="res-bands">Bands</label>
@@ -43,7 +43,7 @@ import Base from '../layouts/Base.astro';
       </div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="ohms-law">
       <h2><span>Ohm's Law</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Enter any two values to solve for the rest.</p>
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
@@ -70,7 +70,7 @@ import Base from '../layouts/Base.astro';
       </div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="dbm-watts-volts">
       <h2><span>dBm / Watts / Volts</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <div style="display:flex;gap:0.5rem;">
         <div class="tool-field" style="flex:1;">
@@ -92,7 +92,7 @@ import Base from '../layouts/Base.astro';
       </div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="led-resistor">
       <h2><span>LED Series Resistor</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <div style="display:flex;gap:0.5rem;">
         <div class="tool-field" style="flex:1;">
@@ -114,7 +114,7 @@ import Base from '../layouts/Base.astro';
       </div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="voltage-divider">
       <h2><span>Voltage Divider</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <div style="display:flex;gap:0.5rem;">
         <div class="tool-field" style="flex:1;">
@@ -136,7 +136,7 @@ import Base from '../layouts/Base.astro';
       </div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="capacitor-code">
       <h2><span>Capacitor Code</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <div style="display:flex;gap:0.5rem;">
         <div class="tool-field" style="flex:1;">
@@ -166,7 +166,7 @@ import Base from '../layouts/Base.astro';
       </div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="coil-winding">
       <h2><span>Coil Winding (Air-Core)</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Wheeler's formula for a single-layer air-core solenoid &mdash; nominal, most accurate when coil length &gt; ~0.4&times; diameter.</p>
       <div style="display:flex;gap:0.5rem;">
@@ -189,7 +189,7 @@ import Base from '../layouts/Base.astro';
       </div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="battery-runtime">
       <h2><span>Battery Runtime</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <div style="display:flex;gap:0.5rem;">
         <div class="tool-field" style="flex:1;">
@@ -213,6 +213,10 @@ import Base from '../layouts/Base.astro';
   </div>
 
   <script>
+    import { applyTileLayout } from '../lib/tileLayout';
+
+    applyTileLayout('electronics', document.getElementById('electronics-tiles')!);
+
     // --- Resistor color code ---
     type ResColor = { name: string; digit?: number; mult?: number; tol?: number };
     const RESISTOR_COLORS: ResColor[] = [

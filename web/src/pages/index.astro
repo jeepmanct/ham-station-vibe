@@ -10,56 +10,56 @@ import Base from '../layouts/Base.astro';
       On the air now &mdash; <span id="ota-detail"></span>
     </div>
   </section>
-  <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;">
-    <a class="card" href="/about" style="text-decoration:none;display:block;">
+  <section id="home-tiles" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;">
+    <a class="card" data-tile-id="about" href="/about" style="text-decoration:none;display:block;">
       <h2 style="margin-bottom:0.35rem;">About</h2>
       <p style="margin:0;color:var(--muted);">Station info and ham radio resources.</p>
     </a>
-    <a class="card" href="/photos" style="text-decoration:none;display:block;">
+    <a class="card" data-tile-id="photos" href="/photos" style="text-decoration:none;display:block;">
       <h2 style="margin-bottom:0.35rem;">Photos</h2>
       <p style="margin:0;color:var(--muted);">Gallery of shack, antenna, and field photos.</p>
     </a>
-    <a class="card" href="/log" style="text-decoration:none;display:block;">
+    <a class="card" data-tile-id="log" href="/log" style="text-decoration:none;display:block;">
       <h2 style="margin-bottom:0.35rem;">QSO Log</h2>
       <p style="margin:0;color:var(--muted);">Full station log &mdash; imported from LoTW/QRZ, or logged directly.</p>
     </a>
-    <a class="card" href="/map" style="text-decoration:none;display:block;">
+    <a class="card" data-tile-id="map" href="/map" style="text-decoration:none;display:block;">
       <h2 style="margin-bottom:0.35rem;">QSO Map</h2>
       <p style="margin:0;color:var(--muted);">Great-circle paths to your logged contacts &mdash; pick a band, mode, or country to plot.</p>
     </a>
-    <a class="card" href="/awards" style="text-decoration:none;display:block;">
+    <a class="card" data-tile-id="awards" href="/awards" style="text-decoration:none;display:block;">
       <h2 style="margin-bottom:0.35rem;">Awards</h2>
       <p style="margin:0;color:var(--muted);">DXCC, WAS, WAC, VUCC, WAZ, WPX, and more.</p>
     </a>
-    <a class="card" href="/stats" style="text-decoration:none;display:block;">
+    <a class="card" data-tile-id="stats" href="/stats" style="text-decoration:none;display:block;">
       <h2 style="margin-bottom:0.35rem;">Stats</h2>
       <p style="margin:0;color:var(--muted);">QSO trends, breakdowns, and solar cycle history.</p>
     </a>
-    <a class="card" href="/activations" style="text-decoration:none;display:block;">
+    <a class="card" data-tile-id="activations" href="/activations" style="text-decoration:none;display:block;">
       <h2 style="margin-bottom:0.35rem;">Activations</h2>
       <p style="margin:0;color:var(--muted);">POTA activator &amp; hunter activity.</p>
     </a>
-    <a class="card" href="/conditions" style="text-decoration:none;display:block;">
+    <a class="card" data-tile-id="conditions" href="/conditions" style="text-decoration:none;display:block;">
       <h2 style="margin-bottom:0.35rem;">Conditions</h2>
       <p style="margin:0;color:var(--muted);">Live solar data, DX spots, and contests.</p>
     </a>
-    <a class="card" href="/radio" style="text-decoration:none;display:block;">
+    <a class="card" data-tile-id="radio" href="/radio" style="text-decoration:none;display:block;">
       <h2 style="margin-bottom:0.35rem;">Radio</h2>
       <p style="margin:0;color:var(--muted);">Live status from the FlexRadio 6400, remote tuning, and who's hearing the signal.</p>
     </a>
-    <a class="card" href="/satellites" style="text-decoration:none;display:block;">
+    <a class="card" data-tile-id="satellites" href="/satellites" style="text-decoration:none;display:block;">
       <h2 style="margin-bottom:0.35rem;">Satellites</h2>
       <p style="margin:0;color:var(--muted);">Live tracking &amp; pass predictions for Voice ham satellites.</p>
     </a>
-    <a class="card" href="/tools" style="text-decoration:none;display:block;">
+    <a class="card" data-tile-id="tools" href="/tools" style="text-decoration:none;display:block;">
       <h2 style="margin-bottom:0.35rem;">Tools</h2>
       <p style="margin:0;color:var(--muted);">Grid converter, distance/bearing, log lookup.</p>
     </a>
-    <a class="card" href="/electronics" style="text-decoration:none;display:block;">
+    <a class="card" data-tile-id="electronics" href="/electronics" style="text-decoration:none;display:block;">
       <h2 style="margin-bottom:0.35rem;">Electronics</h2>
       <p style="margin:0;color:var(--muted);">Resistor codes, Ohm's Law, and other bench calculators.</p>
     </a>
-    <a class="card" href="/reference" style="text-decoration:none;display:block;">
+    <a class="card" data-tile-id="reference" href="/reference" style="text-decoration:none;display:block;">
       <h2 style="margin-bottom:0.35rem;">Reference</h2>
       <p style="margin:0;color:var(--muted);">Morse code trainer, US band plan, Q-codes, and prosigns.</p>
     </a>
@@ -73,6 +73,10 @@ import Base from '../layouts/Base.astro';
   </section>
 
   <script>
+    import { applyTileLayout } from '../lib/tileLayout';
+
+    applyTileLayout('home', document.getElementById('home-tiles')!);
+
     fetch('/api/station-location')
       .then((r) => r.json())
       .then((data: { callsign: string | null }) => {

@@ -6,8 +6,8 @@ import '../styles/tools.css';
   <h1>Tools</h1>
   <p class="lede">Quick calculators and log lookups for operating.</p>
 
-  <div class="tools-grid">
-    <div class="tool-card">
+  <div class="tools-grid" id="tools-tiles">
+    <div class="tool-card" data-tile-id="grid-converter">
       <h2><span>Grid Square Converter</span><button type="button" class="tool-reset-btn" id="grid-reset-btn">Reset</button></h2>
       <div class="tool-field">
         <label for="grid-input">Maidenhead grid locator</label>
@@ -40,7 +40,7 @@ import '../styles/tools.css';
       </div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="distance-bearing">
       <h2><span>Distance &amp; Bearing</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <div class="tool-field">
         <label for="dist-from">From grid square</label>
@@ -56,7 +56,7 @@ import '../styles/tools.css';
       </div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="antenna-length">
       <h2><span>Antenna Length</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <div class="tool-field">
         <label for="ant-type">Antenna type</label>
@@ -80,7 +80,7 @@ import '../styles/tools.css';
       </div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="antenna-takeoff">
       <h2><span>Antenna Takeoff Angle</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Lowest-angle major lobe for a horizontal antenna (dipole/Yagi) over flat ground &mdash; idealized, real terrain varies.</p>
       <div style="display:flex;gap:0.5rem;">
@@ -99,7 +99,7 @@ import '../styles/tools.css';
       </div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="swr">
       <h2><span>SWR Calculator</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <div class="tool-field">
         <label for="swr-fwd">Forward power (W)</label>
@@ -115,7 +115,7 @@ import '../styles/tools.css';
       </div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="coax-loss">
       <h2><span>Coax Feedline Loss</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <div class="tool-field">
         <label for="coax-type">Cable type</label>
@@ -143,7 +143,7 @@ import '../styles/tools.css';
       </div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="wavelength-freq">
       <h2><span>Wavelength &amp; Frequency</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <div style="display:flex;gap:0.5rem;">
         <div class="tool-field" style="flex:1;">
@@ -161,7 +161,7 @@ import '../styles/tools.css';
       </div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="erp-eirp">
       <h2><span>ERP / EIRP Calculator</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <div class="tool-field">
         <label for="erp-power">TX power at radio (W)</label>
@@ -190,7 +190,7 @@ import '../styles/tools.css';
       </div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="antenna-gain">
       <h2><span>Antenna Gain (dBi &harr; dBd)</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <div style="display:flex;gap:0.5rem;">
         <div class="tool-field" style="flex:1;">
@@ -205,7 +205,7 @@ import '../styles/tools.css';
       <p style="margin:0.5rem 0 0;color:var(--muted);font-size:0.8rem;">dBi = dBd + 2.15</p>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="fspl">
       <h2><span>Free Space Path Loss</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <div class="tool-field">
         <label for="fspl-freq">Frequency (MHz)</label>
@@ -221,7 +221,7 @@ import '../styles/tools.css';
       </div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="vhf-los">
       <h2><span>VHF/UHF Line-of-Sight Range</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <div style="display:flex;gap:0.5rem;">
         <div class="tool-field" style="flex:1;">
@@ -239,7 +239,7 @@ import '../styles/tools.css';
       </div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="rf-exposure">
       <h2><span>RF Exposure (MPE) Estimate</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.8rem;">Simplified far-field estimate per FCC OET Bulletin 65 formulas &mdash; not a substitute for a full station evaluation. See <a href="https://www.arrl.org/rf-exposure" target="_blank" rel="noopener">arrl.org/rf-exposure</a>.</p>
       <div style="display:flex;gap:0.5rem;">
@@ -279,7 +279,7 @@ import '../styles/tools.css';
       </div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="utc-clock">
       <h2><span>UTC / Local Time</span><button type="button" class="tool-reset-btn" id="clock-reset-btn">Reset</button></h2>
       <div class="tool-result" id="utc-clock" style="margin-top:0;padding-top:0;border-top:none;">
         <div class="big" id="utc-clock-value">&mdash;</div>
@@ -298,7 +298,7 @@ import '../styles/tools.css';
       </div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="worked-lookup">
       <h2><span>Have I Worked This Call?</span><button type="button" class="tool-reset-btn" id="call-reset-btn">Reset</button></h2>
       <div class="tool-field">
         <label for="call-search">Callsign</label>
@@ -308,7 +308,7 @@ import '../styles/tools.css';
       <div id="call-results"></div>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="callsign-lookup">
       <h2><span>Callsign Lookup</span><button type="button" class="tool-reset-btn" id="hamqth-reset-btn">Reset</button></h2>
       <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Look up any callsign's name, QTH, country, and grid square.</p>
       <div class="tool-field">
@@ -327,7 +327,7 @@ import '../styles/tools.css';
       <p style="margin:0.75rem 0 0;color:var(--muted);font-size:0.75rem;">Data courtesy of <a href="https://www.hamqth.com" target="_blank" rel="noopener">HamQTH.com</a></p>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="oqrs-check">
       <h2><span>Club Log OQRS Check</span><button type="button" class="tool-reset-btn" id="oqrs-reset-btn">Reset</button></h2>
       <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Worked stations whose operator has Club Log's Online QSL Request System enabled &mdash; a checklist to visit and see if you've missed requesting a card. This can't tell whether you've already requested one, and not every station with a Club Log account has OQRS turned on.</p>
       <div class="status-filter" role="group" aria-label="Filter by confirmation status">
@@ -340,7 +340,7 @@ import '../styles/tools.css';
       <p class="status-line" id="oqrs-synced"></p>
     </div>
 
-    <div class="tool-card">
+    <div class="tool-card" data-tile-id="confirmed-nowhere">
       <h2><span>Confirmed Nowhere</span></h2>
       <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Worked stations with no confirmation yet on LoTW or eQSL &mdash; most of these are just too recent for either network to have caught up, not a real problem, but worth a glance for anything old enough that it probably should have confirmed by now.</p>
       <input type="text" id="unconfirmed-search" class="entity-search" placeholder="Search calls…" />
@@ -351,6 +351,9 @@ import '../styles/tools.css';
 
   <script>
     import { gridToLatLon, latLonToGrid, distanceKm, bearingDeg } from '../lib/maidenhead';
+    import { applyTileLayout } from '../lib/tileLayout';
+
+    applyTileLayout('tools', document.getElementById('tools-tiles')!);
 
     // --- Grid <-> Lat/Lon ---
     const gridInput = document.getElementById('grid-input') as HTMLInputElement;

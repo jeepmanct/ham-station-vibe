@@ -262,6 +262,18 @@ db.exec(`
     lotw_username TEXT,
     lotw_password TEXT
   );
+
+  -- Admin-configurable tile order/visibility for a page's card grid (home,
+  -- tools, electronics). No row for a given page means "use the default
+  -- markup order, nothing hidden" -- rows only appear once an admin actually
+  -- customizes that page, so a fresh install needs no seed data here.
+  CREATE TABLE IF NOT EXISTS tile_layout (
+    page TEXT NOT NULL,
+    tile_id TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    hidden INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (page, tile_id)
+  );
 `);
 
 const SEED_SATELLITES: {

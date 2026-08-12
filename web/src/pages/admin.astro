@@ -57,6 +57,28 @@ import Base from '../layouts/Base.astro';
 
     <section>
       <div class="card">
+        <h2>Page Layout</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">
+          Reorder or hide the tiles on the Home, Tools, and Electronics pages. Drag a row by its handle to reorder; uncheck a tile to hide it. Changes apply to every visitor once saved.
+        </p>
+        <label style="display:block;max-width:280px;margin-bottom:0.75rem;">Page
+          <select id="tl-page">
+            <option value="home">Home</option>
+            <option value="tools">Tools</option>
+            <option value="electronics">Electronics</option>
+          </select>
+        </label>
+        <ul id="tl-list" style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0.4rem;max-width:480px;"></ul>
+        <p id="tl-status" class="status-line"></p>
+        <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+          <button type="button" id="tl-save" class="btn">Save order</button>
+          <button type="button" id="tl-reset" class="btn secondary">Reset to default</button>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
         <h2>FlexRadio Hardware Status</h2>
         <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">
           Whether the Monitor toggle, On the Air, meters, and Recent Sessions show up on /radio at all &mdash; if you don't own a FlexRadio, turn this off instead of leaving a non-functional dashboard visible. Turning it off also turns monitoring off. PSK Reporter/WSPR/RBN reception reports stay up regardless &mdash; they're independent of this station's own radio.
@@ -378,6 +400,7 @@ import Base from '../layouts/Base.astro';
       loadRadioControlVisibility();
       loadRadioHardwareVisibility();
       loadStationLocation();
+      loadTileLayout(tlPageSelect.value);
     }
 
     if (sessionStorage.getItem(TOKEN_KEY)) {
@@ -508,6 +531,164 @@ import Base from '../layouts/Base.astro';
         renderStationInfoStatus(data);
       } else {
         stationLocationStatus.textContent = 'Clear failed.';
+      }
+    });
+
+    // --- Page Layout (tile order/visibility for Home, Tools, Electronics) ---
+    // Each page's own tile IDs/labels are duplicated here since there's no
+    // dynamic component registry to read them from -- keep in sync with the
+    // data-tile-id attributes in index.astro/tools.astro/electronics.astro.
+    const PAGE_TILES: Record<string, { id: string; label: string }[]> = {
+      home: [
+        { id: 'about', label: 'About' },
+        { id: 'photos', label: 'Photos' },
+        { id: 'log', label: 'QSO Log' },
+        { id: 'map', label: 'QSO Map' },
+        { id: 'awards', label: 'Awards' },
+        { id: 'stats', label: 'Stats' },
+        { id: 'activations', label: 'Activations' },
+        { id: 'conditions', label: 'Conditions' },
+        { id: 'radio', label: 'Radio' },
+        { id: 'satellites', label: 'Satellites' },
+        { id: 'tools', label: 'Tools' },
+        { id: 'electronics', label: 'Electronics' },
+        { id: 'reference', label: 'Reference' },
+      ],
+      tools: [
+        { id: 'grid-converter', label: 'Grid Square Converter' },
+        { id: 'distance-bearing', label: 'Distance & Bearing' },
+        { id: 'antenna-length', label: 'Antenna Length' },
+        { id: 'antenna-takeoff', label: 'Antenna Takeoff Angle' },
+        { id: 'swr', label: 'SWR Calculator' },
+        { id: 'coax-loss', label: 'Coax Feedline Loss' },
+        { id: 'wavelength-freq', label: 'Wavelength & Frequency' },
+        { id: 'erp-eirp', label: 'ERP / EIRP Calculator' },
+        { id: 'antenna-gain', label: 'Antenna Gain (dBi ↔ dBd)' },
+        { id: 'fspl', label: 'Free Space Path Loss' },
+        { id: 'vhf-los', label: 'VHF/UHF Line-of-Sight Range' },
+        { id: 'rf-exposure', label: 'RF Exposure (MPE) Estimate' },
+        { id: 'utc-clock', label: 'UTC / Local Time' },
+        { id: 'worked-lookup', label: 'Have I Worked This Call?' },
+        { id: 'callsign-lookup', label: 'Callsign Lookup' },
+        { id: 'oqrs-check', label: 'Club Log OQRS Check' },
+        { id: 'confirmed-nowhere', label: 'Confirmed Nowhere' },
+      ],
+      electronics: [
+        { id: 'resistor-code', label: 'Resistor Color Code' },
+        { id: 'ohms-law', label: "Ohm's Law" },
+        { id: 'dbm-watts-volts', label: 'dBm / Watts / Volts' },
+        { id: 'led-resistor', label: 'LED Series Resistor' },
+        { id: 'voltage-divider', label: 'Voltage Divider' },
+        { id: 'capacitor-code', label: 'Capacitor Code' },
+        { id: 'coil-winding', label: 'Coil Winding (Air-Core)' },
+        { id: 'battery-runtime', label: 'Battery Runtime' },
+      ],
+    };
+
+    const tlPageSelect = document.getElementById('tl-page') as HTMLSelectElement;
+    const tlList = document.getElementById('tl-list')!;
+    const tlStatus = document.getElementById('tl-status')!;
+
+    // Pointer-based drag reorder -- works for mouse and touch alike, no
+    // library needed. Pointer capture on the row itself (not the handle)
+    // means the row keeps receiving move/up events even once the pointer
+    // strays off the handle mid-drag.
+    function makeRowDraggable(row: HTMLLIElement) {
+      const handle = row.querySelector('.tl-handle')!;
+      handle.addEventListener('pointerdown', (e) => {
+        const ev = e as PointerEvent;
+        // Without this, iOS Safari claims the gesture for its own touch
+        // handling (text-selection callout on the handle glyph) before
+        // pointermove ever gets a chance to fire.
+        ev.preventDefault();
+        row.setPointerCapture(ev.pointerId);
+        row.classList.add('dragging');
+
+        function onMove(moveEv: PointerEvent) {
+          const rows = Array.from(tlList.querySelectorAll<HTMLLIElement>('.tl-row:not(.dragging)'));
+          const after = rows.find((r) => {
+            const box = r.getBoundingClientRect();
+            return moveEv.clientY < box.top + box.height / 2;
+          });
+          if (after) tlList.insertBefore(row, after);
+          else tlList.appendChild(row);
+        }
+        function onUp(upEv: PointerEvent) {
+          row.classList.remove('dragging');
+          row.releasePointerCapture(upEv.pointerId);
+          row.removeEventListener('pointermove', onMove);
+          row.removeEventListener('pointerup', onUp);
+        }
+        row.addEventListener('pointermove', onMove);
+        row.addEventListener('pointerup', onUp);
+      });
+    }
+
+    function renderTileRow(id: string, label: string, hidden: boolean): HTMLLIElement {
+      const row = document.createElement('li');
+      row.className = 'tl-row';
+      row.dataset.id = id;
+      row.innerHTML = `
+        <span class="tl-handle">&#9776;</span>
+        <span class="tl-label">${label}</span>
+        <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;color:var(--muted);white-space:nowrap;">
+          <input type="checkbox" class="tl-visible" ${hidden ? '' : 'checked'} /> Visible
+        </label>
+      `;
+      makeRowDraggable(row);
+      return row;
+    }
+
+    async function loadTileLayout(page: string) {
+      tlStatus.textContent = 'Loading…';
+      tlList.innerHTML = '';
+      const manifest = PAGE_TILES[page] ?? [];
+      let saved: { tileId: string; hidden: boolean }[] = [];
+      try {
+        const res = await fetch(`/api/tile-layout/${page}`);
+        if (res.ok) saved = await res.json();
+      } catch {
+        // fall through with an empty saved layout -- default order, nothing hidden
+      }
+      const hiddenById = new Map(saved.map((e) => [e.tileId, e.hidden]));
+      const orderedIds = [...saved.map((e) => e.tileId), ...manifest.map((t) => t.id)];
+      const finalOrder = [...new Set(orderedIds)];
+      const byId = new Map(manifest.map((t) => [t.id, t.label]));
+      for (const id of finalOrder) {
+        const label = byId.get(id);
+        if (!label) continue; // saved layout referenced a tile that no longer exists on this page
+        tlList.appendChild(renderTileRow(id, label, hiddenById.get(id) ?? false));
+      }
+      tlStatus.textContent = '';
+    }
+
+    tlPageSelect.addEventListener('change', () => loadTileLayout(tlPageSelect.value));
+
+    document.getElementById('tl-save')!.addEventListener('click', async () => {
+      const tiles = Array.from(tlList.querySelectorAll<HTMLLIElement>('.tl-row')).map((row) => ({
+        id: row.dataset.id!,
+        hidden: !(row.querySelector('.tl-visible') as HTMLInputElement).checked,
+      }));
+      tlStatus.textContent = 'Saving…';
+      const res = await fetch(`/api/tile-layout/${tlPageSelect.value}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ tiles }),
+      });
+      tlStatus.textContent = res.ok ? 'Saved.' : 'Save failed.';
+    });
+
+    document.getElementById('tl-reset')!.addEventListener('click', async () => {
+      tlStatus.textContent = 'Resetting…';
+      const res = await fetch(`/api/tile-layout/${tlPageSelect.value}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (res.ok) {
+        await loadTileLayout(tlPageSelect.value);
+        tlStatus.textContent = 'Reset to default.';
+      } else {
+        tlStatus.textContent = 'Reset failed.';
       }
     });
 
@@ -1167,4 +1348,35 @@ import Base from '../layouts/Base.astro';
       }
     });
   </script>
+
+  <style>
+    .tl-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.5rem 0.7rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      touch-action: none;
+    }
+    .tl-row.dragging {
+      opacity: 0.5;
+    }
+    .tl-handle {
+      cursor: grab;
+      color: var(--muted);
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: none;
+      font-size: 1.3rem;
+      line-height: 1;
+      padding: 0.5rem;
+      margin: -0.5rem;
+    }
+    .tl-label {
+      flex: 1;
+    }
+  </style>
 </Base>
