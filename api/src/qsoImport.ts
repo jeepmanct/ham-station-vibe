@@ -1,6 +1,7 @@
 import { db } from './db';
 import type { AdifRecord } from './adif';
 import { resolveLatLon } from './maidenhead';
+import { resolveCallsignEntity } from './dxccPrefixes';
 import { invalidateCache } from './ttlCache';
 
 // ADIF's STATE field is reused by many DXCC entities for their own primary
@@ -59,6 +60,7 @@ const insertStmt = db.query(`
   ON CONFLICT(call, qso_date, time_on, band, mode) DO UPDATE SET
     lotw_qsl_rcvd = excluded.lotw_qsl_rcvd,
     lotw_qsl_rcvd_date = excluded.lotw_qsl_rcvd_date,
+    country = excluded.country,
     lat = excluded.lat,
     lon = excluded.lon,
     my_lat = excluded.my_lat,
@@ -79,6 +81,16 @@ export function importAdifRecords(records: AdifRecord[]): number {
       if (!r.CALL || !r.QSO_DATE) continue;
       const contact = resolveLatLon(r.LAT, r.LON, r.GRIDSQUARE);
       const home = resolveLatLon(r.MY_LAT, r.MY_LON, r.MY_GRIDSQUARE);
+      // LoTW's own ADIF export is sparse -- call/band/mode/date/time and QSL
+      // status only, none of country/gridsquare/continent/CQ-zone (QRZ's
+      // export includes all of these, since it's the logger's own recorded
+      // data). Without this fallback, a QSO whose only source is LoTW (not
+      // also synced via QRZ) got Awards-country-blind and invisible on the
+      // map forever. cty.dat's own per-entity reference coordinate is an
+      // approximation (not the actual contacted station's QTH), same
+      // "pragmatic, not certified" tradeoff dxccPrefixes.ts already makes
+      // elsewhere -- better than no dot on the map at all.
+      const fallback = r.COUNTRY && r.CONT && r.CQZ && contact ? null : resolveCallsignEntity(r.CALL);
       insertStmt.run(
         r.CALL,
         r.QSO_DATE,
@@ -89,18 +101,18 @@ export function importAdifRecords(records: AdifRecord[]): number {
         r.RST_SENT ?? null,
         r.RST_RCVD ?? null,
         r.GRIDSQUARE ?? null,
-        r.COUNTRY ?? null,
+        r.COUNTRY ?? fallback?.entity ?? null,
         r.LOTW_QSL_RCVD ?? null,
         r.LOTW_QSLRDATE ?? null,
         JSON.stringify(r),
-        contact?.lat ?? null,
-        contact?.lon ?? null,
+        contact?.lat ?? fallback?.lat ?? null,
+        contact?.lon ?? fallback?.lon ?? null,
         home?.lat ?? null,
         home?.lon ?? null,
         r.MY_GRIDSQUARE ?? null,
         usState(r.COUNTRY, r.STATE),
-        normalizeContinent(r.CONT),
-        normalizeCqz(r.CQZ),
+        normalizeContinent(r.CONT) ?? fallback?.continent ?? null,
+        normalizeCqz(r.CQZ) ?? (fallback ? String(fallback.cqZone) : null),
         normalizeCnty(r.CNTY),
         normalizeIota(r.IOTA),
       );

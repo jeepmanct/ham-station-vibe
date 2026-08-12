@@ -14,7 +14,12 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-type PrefixEntry = { entity: string; continent: string };
+// lat/lon are cty.dat's own per-entity reference coordinate (roughly the
+// entity's population center or a well-known reference station) -- not a
+// specific station's real QTH, but a reasonable approximate fallback for
+// plotting a QSO on the map when nothing more precise (an explicit
+// LAT/LON, or a GRIDSQUARE) came with the record. See qsoImport.ts.
+type PrefixEntry = { entity: string; continent: string; cqZone: number; lat: number; lon: number };
 
 // Same slash-side classification wpx.ts uses (bare location prefix vs. full
 // home callsign) — deliberately NOT reusing wpxPrefix() itself, since its
@@ -53,10 +58,17 @@ function operatingCallPart(rawCall: string): string {
 function parseCtyDat(raw: string): Map<string, PrefixEntry> {
   const prefixes = new Map<string, PrefixEntry>();
   const lines = raw.split('\n');
-  const headerRe = /^(.+?):\s*\d+:\s*\d+:\s*(\S+):\s*[\d.+-]+:\s*[\d.+-]+:\s*[\d.+-]+:\s*(\S+):$/;
+  // cty.dat's per-entity header: Name: CQ Zone: ITU Zone: Continent:
+  // Latitude: Longitude: UTC offset: Primary Prefix: -- longitude is
+  // stored as *positive = West* (the opposite of the usual positive =
+  // East convention), negated below when read.
+  const headerRe = /^(.+?):\s*(\d+):\s*\d+:\s*(\S+):\s*([\d.+-]+):\s*([\d.+-]+):\s*[\d.+-]+:\s*(\S+):$/;
 
   let entity: string | null = null;
   let continent = '';
+  let cqZone = 0;
+  let lat = 0;
+  let lon = 0;
   let buffer = '';
 
   const flush = () => {
@@ -69,7 +81,7 @@ function parseCtyDat(raw: string): Map<string, PrefixEntry> {
     for (const token of tokens) {
       if (token.startsWith('=')) continue; // exact-callsign override, not a prefix — skipped, see file header note
       const prefix = token.replace(/\(.*?\)|\[.*?\]|<.*?>/g, '').trim().toUpperCase();
-      if (prefix && !prefixes.has(prefix)) prefixes.set(prefix, { entity, continent });
+      if (prefix && !prefixes.has(prefix)) prefixes.set(prefix, { entity, continent, cqZone, lat, lon });
     }
   };
 
@@ -81,7 +93,10 @@ function parseCtyDat(raw: string): Map<string, PrefixEntry> {
       if (header) {
         flush();
         entity = header[1].trim();
-        continent = header[2].trim();
+        cqZone = Number(header[2]);
+        continent = header[3].trim();
+        lat = Number(header[4]);
+        lon = -Number(header[5]);
         buffer = '';
         continue;
       }
