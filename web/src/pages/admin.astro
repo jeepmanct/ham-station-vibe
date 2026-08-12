@@ -607,16 +607,18 @@ import Base from '../layouts/Base.astro';
     const tlStatus = document.getElementById('tl-status')!;
 
     // Pointer-based drag reorder -- works for mouse and touch alike, no
-    // library needed. Pointer capture on the row itself (not the handle)
-    // means the row keeps receiving move/up events even once the pointer
-    // strays off the handle mid-drag.
+    // library needed. The listener is on the whole row (not just the
+    // handle icon) so any part of the row starts a drag -- a handle-only
+    // hit target turned out to be too easy to miss. The "Visible" checkbox
+    // opts itself out below so it still just toggles normally.
     function makeRowDraggable(row: HTMLLIElement) {
-      const handle = row.querySelector('.tl-handle')!;
-      handle.addEventListener('pointerdown', (e) => {
+      row.addEventListener('pointerdown', (e) => {
         const ev = e as PointerEvent;
+        if ((ev.target as HTMLElement).closest('label')) return; // let the checkbox's own click through
         // Without this, iOS Safari claims the gesture for its own touch
-        // handling (text-selection callout on the handle glyph) before
-        // pointermove ever gets a chance to fire.
+        // handling (text-selection callout) before pointermove ever gets a
+        // chance to fire; on desktop it also stops an accidental text
+        // selection drag from competing with the reorder.
         ev.preventDefault();
         row.setPointerCapture(ev.pointerId);
         row.classList.add('dragging');
@@ -648,7 +650,7 @@ import Base from '../layouts/Base.astro';
       row.innerHTML = `
         <span class="tl-handle">&#9776;</span>
         <span class="tl-label">${label}</span>
-        <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;color:var(--muted);white-space:nowrap;">
+        <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;color:var(--muted);white-space:nowrap;cursor:default;">
           <input type="checkbox" class="tl-visible" ${hidden ? '' : 'checked'} /> Visible
         </label>
       `;
@@ -1375,22 +1377,20 @@ import Base from '../layouts/Base.astro';
       border: 1px solid var(--border);
       border-radius: 8px;
       background: var(--bg);
-      touch-action: none;
-    }
-    .tl-row.dragging {
-      opacity: 0.5;
-    }
-    .tl-handle {
       cursor: grab;
-      color: var(--muted);
+      touch-action: none;
       user-select: none;
       -webkit-user-select: none;
       -webkit-touch-callout: none;
-      touch-action: none;
+    }
+    .tl-row.dragging {
+      opacity: 0.5;
+      cursor: grabbing;
+    }
+    .tl-handle {
+      color: var(--muted);
       font-size: 1.3rem;
       line-height: 1;
-      padding: 0.5rem;
-      margin: -0.5rem;
     }
     .tl-label {
       flex: 1;
