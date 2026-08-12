@@ -1,0 +1,23 @@
+__DOMAIN__ {
+	# Photo/log data and admin actions go to the Hono API.
+	handle /api/* {
+		reverse_proxy localhost:3000
+	}
+	handle /media/* {
+		reverse_proxy localhost:3000
+	}
+	# Radio audio relay -- a real WebSocket, not request/response, so it
+	# needs the same proxy treatment as the API rather than falling through
+	# to the static file server below. Caddy's reverse_proxy handles the
+	# Upgrade handshake automatically, no extra config needed for that part.
+	handle /ws/* {
+		reverse_proxy localhost:3000
+	}
+
+	# Everything else is the prebuilt Astro static site.
+	handle {
+		root * __APP_DIR__/web/dist
+		file_server
+		try_files {path} {path}/ /index.html
+	}
+}

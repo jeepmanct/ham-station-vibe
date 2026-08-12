@@ -1,0 +1,512 @@
+---
+import Base from '../layouts/Base.astro';
+import '../styles/satellites.css';
+---
+<Base title="Satellites" active="satellites">
+  <h1>Satellites</h1>
+  <p class="lede">Amateur satellites with a Voice repeater or transponder, tracked live for this station's QTH.</p>
+
+  <section>
+    <button type="button" id="config-toggle" class="btn secondary">Configure Tracked Satellites</button>
+
+    <div id="config-panel" class="card" style="margin-top:1rem;" hidden>
+      <div id="config-login">
+        <h2>Log in to configure</h2>
+        <form id="login-form">
+          <input type="password" id="password" placeholder="Admin password" autocomplete="current-password" required />
+          <p id="login-status" class="status-line"></p>
+          <button type="submit" class="btn">Log in</button>
+        </form>
+      </div>
+
+      <div id="config-list-wrap" hidden>
+        <h2>Tracked Satellites</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Turn any of these on or off &mdash; disabled satellites stop showing on the map and cards above.</p>
+        <div id="config-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="card" style="padding:0;overflow:hidden;margin-top:1.5rem;">
+    <div id="sat-map"></div>
+  </div>
+
+  <div class="satellite-grid" id="satellite-cards"></div>
+  <p class="status-line" id="sat-status"></p>
+
+  <script>
+    import 'leaflet/dist/leaflet.css';
+    import L from 'leaflet';
+    import * as satellite from 'satellite.js';
+
+    const TOKEN_KEY = 'hamstation_admin_token';
+
+    type Sat = {
+      noradId: number;
+      name: string;
+      mode: string;
+      uplink: string | null;
+      downlink: string | null;
+      notes: string | null;
+      enabled: boolean;
+      tle: { line1: string; line2: string; updatedAt: string } | null;
+    };
+
+    type Tracked = {
+      sat: Sat;
+      satrec: satellite.SatRec;
+      color: string;
+      marker: L.CircleMarker | null;
+      footprint: L.Circle | null;
+      pastTrack: L.Polyline[];
+      futureTrack: L.Polyline[];
+      aos: Date | null;
+      los: Date | null;
+      nextAos: Date | null;
+      visible: boolean;
+    };
+
+    // --- Map ---
+    const map = L.map('sat-map', { worldCopyJump: true }).setView([20, 0], 2);
+    const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const cartoStyle = isDarkMode ? 'dark_all' : 'light_all';
+    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${cartoStyle}/{z}/{x}/{y}{r}.png`, {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 19,
+    }).addTo(map);
+
+    const style = getComputedStyle(document.documentElement);
+    const ACCENT = style.getPropertyValue('--accent').trim();
+
+    // Self-assigning per-satellite color from the site's fixed categorical
+    // palette (same --band-N vars /map and /stats already use) — assigned in
+    // order of first appearance, so it stays consistent across reloads as
+    // long as the API returns satellites in the same order.
+    const SAT_COLOR_VARS = ['--band-1', '--band-2', '--band-3', '--band-4', '--band-5', '--band-6', '--band-7', '--band-8'];
+    const satColorIndex = new Map<number, number>();
+    function colorForSatellite(noradId: number): string {
+      if (!satColorIndex.has(noradId) && satColorIndex.size < SAT_COLOR_VARS.length) {
+        satColorIndex.set(noradId, satColorIndex.size);
+      }
+      const idx = satColorIndex.get(noradId);
+      return idx === undefined ? ACCENT : style.getPropertyValue(SAT_COLOR_VARS[idx]).trim() || ACCENT;
+    }
+
+    let home = { lat: 41.19, lon: -73.14 };
+    fetch('/api/conditions/home')
+      .then((r) => r.json())
+      .then((h: { lat: number; lon: number; grid: string | null } | null) => {
+        if (!h) return;
+        home = h;
+        L.circleMarker([home.lat, home.lon], { radius: 5, color: '#fff', weight: 2, fillColor: ACCENT, fillOpacity: 1 })
+          .addTo(map)
+          .bindTooltip('Station QTH');
+      });
+
+    // --- Orbital math helpers ---
+    function elevationDeg(satrec: satellite.SatRec, observerGd: satellite.GeodeticLocation, date: Date): number | null {
+      const pv = satellite.propagate(satrec, date);
+      if (!pv || !pv.position) return null;
+      const gmst = satellite.gstime(date);
+      const ecf = satellite.eciToEcf(pv.position as satellite.EciVec3<number>, gmst);
+      const look = satellite.ecfToLookAngles(observerGd, ecf);
+      return (look.elevation * 180) / Math.PI;
+    }
+
+    function refineCrossing(
+      satrec: satellite.SatRec,
+      observerGd: satellite.GeodeticLocation,
+      tLow: Date,
+      tHigh: Date,
+      rising: boolean,
+    ): Date {
+      let lo = tLow.getTime();
+      let hi = tHigh.getTime();
+      for (let i = 0; i < 20; i++) {
+        const mid = (lo + hi) / 2;
+        const elev = elevationDeg(satrec, observerGd, new Date(mid));
+        if (elev === null) break;
+        const above = elev >= 0;
+        if (rising ? above : !above) hi = mid;
+        else lo = mid;
+      }
+      return new Date((lo + hi) / 2);
+    }
+
+    function findNextAos(satrec: satellite.SatRec, observerGd: satellite.GeodeticLocation, from: Date, maxHours = 48): Date | null {
+      const stepSec = 30;
+      let t = from.getTime();
+      let prevElev = elevationDeg(satrec, observerGd, new Date(t));
+      const maxSteps = (maxHours * 3600) / stepSec;
+      for (let i = 0; i < maxSteps; i++) {
+        t += stepSec * 1000;
+        const elev = elevationDeg(satrec, observerGd, new Date(t));
+        if (prevElev !== null && elev !== null && prevElev < 0 && elev >= 0) {
+          return refineCrossing(satrec, observerGd, new Date(t - stepSec * 1000), new Date(t), true);
+        }
+        prevElev = elev;
+      }
+      return null;
+    }
+
+    function findLos(satrec: satellite.SatRec, observerGd: satellite.GeodeticLocation, from: Date, maxHours = 3): Date | null {
+      const stepSec = 15;
+      let t = from.getTime();
+      let prevElev = elevationDeg(satrec, observerGd, new Date(t));
+      const maxSteps = (maxHours * 3600) / stepSec;
+      for (let i = 0; i < maxSteps; i++) {
+        t += stepSec * 1000;
+        const elev = elevationDeg(satrec, observerGd, new Date(t));
+        if (prevElev !== null && elev !== null && prevElev >= 0 && elev < 0) {
+          return refineCrossing(satrec, observerGd, new Date(t - stepSec * 1000), new Date(t), false);
+        }
+        prevElev = elev;
+      }
+      return null;
+    }
+
+    // --- Rendering ---
+    function formatClock(d: Date | null): string {
+      if (!d) return '—';
+      return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    }
+
+    function formatCountdown(d: Date | null): string {
+      if (!d) return '—';
+      const ms = d.getTime() - Date.now();
+      if (ms <= 0) return 'now';
+      const totalSec = Math.floor(ms / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
+    }
+
+    let tracked: Tracked[] = [];
+
+    function cardId(noradId: number) {
+      return `sat-card-${noradId}`;
+    }
+
+    function buildPopupHtml(t: Tracked, elevDeg?: number, azDeg?: number): string {
+      const freq = [t.sat.uplink ? `Up: ${t.sat.uplink}` : '', t.sat.downlink ? `Down: ${t.sat.downlink}` : '']
+        .filter(Boolean)
+        .join('<br/>');
+      const angles = t.visible && elevDeg !== undefined && azDeg !== undefined ? ` &middot; El ${elevDeg.toFixed(0)}&deg; Az ${azDeg.toFixed(0)}&deg;` : '';
+      const statusLine = t.visible
+        ? `<strong style="color:var(--status-good);">In view now</strong>${angles}${t.los ? ` &middot; sets in ${formatCountdown(t.los)}` : ''}`
+        : t.aos
+          ? `Next AOS in ${formatCountdown(t.aos)}`
+          : '';
+      return `
+        <div style="min-width:200px;">
+          <strong>${t.sat.name}</strong> <span style="color:var(--muted);font-size:0.75rem;">(${t.sat.mode})</span><br/>
+          <span style="font-size:0.8rem;color:var(--muted);">${freq}</span>
+          ${statusLine ? `<div style="margin-top:0.35rem;font-size:0.82rem;">${statusLine}</div>` : ''}
+        </div>
+      `;
+    }
+
+    // --- Ground tracks (past + future path) ---
+    const EARTH_RADIUS_KM = 6371;
+
+    function computeTrackPoints(satrec: satellite.SatRec, fromMin: number, toMin: number, stepSec = 60): [number, number][] {
+      const points: [number, number][] = [];
+      const nowMs = Date.now();
+      for (let tSec = fromMin * 60; tSec <= toMin * 60; tSec += stepSec) {
+        const date = new Date(nowMs + tSec * 1000);
+        const pv = satellite.propagate(satrec, date);
+        if (!pv || !pv.position) continue;
+        const gmst = satellite.gstime(date);
+        const geo = satellite.eciToGeodetic(pv.position as satellite.EciVec3<number>, gmst);
+        points.push([satellite.degreesLat(geo.latitude), satellite.degreesLong(geo.longitude)]);
+      }
+      return points;
+    }
+
+    // Leaflet draws a straight line across the whole map if a polyline jumps
+    // from +179° to -179° longitude uninterrupted — split into separate
+    // segments wherever the track crosses the antimeridian instead.
+    function splitAtAntimeridian(points: [number, number][]): [number, number][][] {
+      const segments: [number, number][][] = [];
+      let current: [number, number][] = [];
+      for (let i = 0; i < points.length; i++) {
+        if (i > 0 && Math.abs(points[i][1] - points[i - 1][1]) > 180) {
+          if (current.length) segments.push(current);
+          current = [];
+        }
+        current.push(points[i]);
+      }
+      if (current.length) segments.push(current);
+      return segments;
+    }
+
+    function updateTracks() {
+      for (const t of tracked) {
+        t.pastTrack.forEach((seg) => map.removeLayer(seg));
+        t.futureTrack.forEach((seg) => map.removeLayer(seg));
+        t.pastTrack = splitAtAntimeridian(computeTrackPoints(t.satrec, -45, 0)).map((seg) =>
+          L.polyline(seg, { color: t.color, weight: 2, opacity: 0.35, dashArray: '4 6' }).addTo(map),
+        );
+        t.futureTrack = splitAtAntimeridian(computeTrackPoints(t.satrec, 0, 45)).map((seg) =>
+          L.polyline(seg, { color: t.color, weight: 2, opacity: 0.75 }).addTo(map),
+        );
+      }
+      // Tracks just got (re)added on top of everything in z-order — pull
+      // markers back above them so hover/click keeps hitting the satellite
+      // dot instead of the track line running through/near it. Runs on its
+      // own interval independent of updatePositions(), so this needs to
+      // happen here too, not just once at initial load.
+      for (const t of tracked) t.marker?.bringToFront();
+    }
+
+    function renderCards() {
+      const container = document.getElementById('satellite-cards')!;
+      container.innerHTML = '';
+      for (const t of tracked) {
+        const card = document.createElement('div');
+        card.className = 'satellite-card';
+        card.id = cardId(t.sat.noradId);
+        card.innerHTML = `
+          <h2><span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${t.color};margin-right:0.4rem;"></span>${t.sat.name}</span><span class="satellite-mode-badge">${t.sat.mode}</span></h2>
+          <div class="satellite-freq">${t.sat.uplink ? `Up: ${t.sat.uplink}<br/>` : ''}${t.sat.downlink ? `Down: ${t.sat.downlink}` : ''}</div>
+          <div class="satellite-status" id="${cardId(t.sat.noradId)}-status"></div>
+          <div class="satellite-pass-row"><span>Next AOS</span><span class="val" id="${cardId(t.sat.noradId)}-aos">—</span></div>
+          <div class="satellite-pass-row"><span>LOS</span><span class="val" id="${cardId(t.sat.noradId)}-los">—</span></div>
+          ${t.sat.notes ? `<div class="satellite-notes">${t.sat.notes}</div>` : ''}
+        `;
+        container.appendChild(card);
+      }
+    }
+
+    function updatePositions() {
+      const now = new Date();
+      const gmst = satellite.gstime(now);
+      const observerGd: satellite.GeodeticLocation = {
+        longitude: satellite.degreesToRadians(home.lon),
+        latitude: satellite.degreesToRadians(home.lat),
+        height: 0.05,
+      };
+
+      for (const t of tracked) {
+        const pv = satellite.propagate(t.satrec, now);
+        if (!pv || !pv.position) continue;
+        const posEci = pv.position as satellite.EciVec3<number>;
+        const geo = satellite.eciToGeodetic(posEci, gmst);
+        const lat = satellite.degreesLat(geo.latitude);
+        const lon = satellite.degreesLong(geo.longitude);
+        const altKm = geo.height;
+
+        if (!t.marker) {
+          t.marker = L.circleMarker([lat, lon], { radius: 6, color: t.color, weight: 2, fillColor: t.color, fillOpacity: 0.9 }).addTo(map);
+          t.marker.bindTooltip(`${t.sat.name} (${t.sat.mode})`, { permanent: false });
+          t.marker.bindPopup('');
+        } else {
+          t.marker.setLatLng([lat, lon]);
+        }
+
+        const centralAngle = Math.acos(EARTH_RADIUS_KM / (EARTH_RADIUS_KM + altKm));
+        const footprintRadiusM = EARTH_RADIUS_KM * centralAngle * 1000;
+        if (!t.footprint) {
+          t.footprint = L.circle([lat, lon], { radius: footprintRadiusM, color: t.color, weight: 1, fillOpacity: 0.05 }).addTo(map);
+        } else {
+          t.footprint.setLatLng([lat, lon]);
+          t.footprint.setRadius(footprintRadiusM);
+        }
+
+        const ecf = satellite.eciToEcf(posEci, gmst);
+        const look = satellite.ecfToLookAngles(observerGd, ecf);
+        const elevDeg = (look.elevation * 180) / Math.PI;
+        const azDeg = (look.azimuth * 180) / Math.PI;
+        t.visible = elevDeg >= 0;
+        t.marker.setPopupContent(buildPopupHtml(t, elevDeg, azDeg));
+
+        const card = document.getElementById(cardId(t.sat.noradId));
+        card?.classList.toggle('in-view', t.visible);
+        const statusEl = document.getElementById(`${cardId(t.sat.noradId)}-status`)!;
+        if (t.visible) {
+          statusEl.innerHTML = `<span class="in-view-badge">In view now</span><br/><span class="live-angles">El ${elevDeg.toFixed(0)}&deg; · Az ${azDeg.toFixed(0)}&deg;</span>`;
+        } else {
+          statusEl.innerHTML = '';
+        }
+      }
+    }
+
+    function updatePasses() {
+      const observerGd: satellite.GeodeticLocation = {
+        longitude: satellite.degreesToRadians(home.lon),
+        latitude: satellite.degreesToRadians(home.lat),
+        height: 0.05,
+      };
+      const now = new Date();
+      for (const t of tracked) {
+        if (t.visible) {
+          t.aos = null;
+          t.los = findLos(t.satrec, observerGd, now);
+          t.nextAos = t.los ? findNextAos(t.satrec, observerGd, t.los) : null;
+        } else {
+          t.aos = findNextAos(t.satrec, observerGd, now);
+          t.los = t.aos ? findLos(t.satrec, observerGd, t.aos) : null;
+          t.nextAos = null;
+        }
+      }
+      renderPassTimes();
+    }
+
+    function renderPassTimes() {
+      for (const t of tracked) {
+        const aosEl = document.getElementById(`${cardId(t.sat.noradId)}-aos`);
+        const losEl = document.getElementById(`${cardId(t.sat.noradId)}-los`);
+        if (!aosEl || !losEl) continue;
+        if (t.visible) {
+          aosEl.textContent = t.nextAos ? formatClock(t.nextAos) : '—';
+          losEl.textContent = t.los ? `${formatCountdown(t.los)} (setting)` : '—';
+        } else {
+          aosEl.textContent = t.aos ? `${formatCountdown(t.aos)} · ${formatClock(t.aos)}` : 'none in 48h';
+          losEl.textContent = t.los ? formatClock(t.los) : '—';
+        }
+      }
+    }
+
+    function updateCountdowns() {
+      // Cheap per-second refresh of the countdown text using already-computed
+      // AOS/LOS Date objects — no re-propagation needed.
+      renderPassTimes();
+    }
+
+    // Removes every map layer belonging to the current `tracked` set — called
+    // before rebuilding it so a satellite switched off in Configure actually
+    // disappears from the map instead of leaving orphaned layers behind.
+    function clearTrackedLayers() {
+      for (const t of tracked) {
+        if (t.marker) map.removeLayer(t.marker);
+        if (t.footprint) map.removeLayer(t.footprint);
+        t.pastTrack.forEach((seg) => map.removeLayer(seg));
+        t.futureTrack.forEach((seg) => map.removeLayer(seg));
+      }
+    }
+
+    async function loadSatellites() {
+      const statusEl = document.getElementById('sat-status')!;
+      statusEl.textContent = 'Loading satellite data…';
+      try {
+        const res = await fetch('/api/satellites');
+        const sats: Sat[] = await res.json();
+        renderConfigList(sats);
+
+        clearTrackedLayers();
+
+        const usable = sats.filter((s) => s.enabled && s.tle);
+        if (!usable.length) {
+          tracked = [];
+          statusEl.textContent = 'No satellites currently enabled — use Configure below to turn some on.';
+          document.getElementById('satellite-cards')!.innerHTML = '';
+          return;
+        }
+
+        tracked = usable.map((s) => ({
+          sat: s,
+          satrec: satellite.twoline2satrec(s.tle!.line1, s.tle!.line2),
+          color: colorForSatellite(s.noradId),
+          marker: null,
+          footprint: null,
+          pastTrack: [],
+          futureTrack: [],
+          aos: null,
+          los: null,
+          nextAos: null,
+          visible: false,
+        }));
+        renderCards();
+        updatePositions();
+        updatePasses();
+        updateTracks();
+        const oldest = sats.filter((s) => s.tle).map((s) => s.tle!.updatedAt).sort()[0];
+        statusEl.textContent = oldest ? `Orbital data last synced ${oldest} UTC · updates daily` : '';
+      } catch {
+        statusEl.textContent = 'Could not load satellite data.';
+      }
+    }
+
+    loadSatellites();
+    setInterval(updatePositions, 3000);
+    setInterval(updatePasses, 5 * 60 * 1000);
+    setInterval(updateCountdowns, 1000);
+    setInterval(updateTracks, 60 * 1000);
+
+    // --- Password-protected config panel ---
+    const configToggle = document.getElementById('config-toggle')!;
+    const configPanel = document.getElementById('config-panel')!;
+    const configLogin = document.getElementById('config-login')!;
+    const configListWrap = document.getElementById('config-list-wrap')!;
+    const loginStatus = document.getElementById('login-status')!;
+    let lastSats: Sat[] = [];
+
+    function showConfigList() {
+      configLogin.setAttribute('hidden', '');
+      configListWrap.removeAttribute('hidden');
+    }
+
+    function renderConfigList(sats: Sat[]) {
+      lastSats = sats;
+      const list = document.getElementById('config-list')!;
+      list.innerHTML = '';
+      for (const s of sats) {
+        const row = document.createElement('div');
+        row.className = 'config-row';
+        row.innerHTML = `
+          <label><input type="checkbox" data-norad="${s.noradId}" ${s.enabled ? 'checked' : ''} /> ${s.name} <span style="color:var(--muted);">(${s.mode})</span></label>
+        `;
+        list.appendChild(row);
+      }
+      list.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach((input) => {
+        input.addEventListener('change', async () => {
+          const noradId = input.dataset.norad;
+          const res = await fetch(`/api/satellites/${noradId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+            body: JSON.stringify({ enabled: input.checked }),
+          });
+          if (res.ok) {
+            loadSatellites();
+          } else if (res.status === 401) {
+            sessionStorage.removeItem(TOKEN_KEY);
+            configListWrap.setAttribute('hidden', '');
+            configLogin.removeAttribute('hidden');
+            loginStatus.textContent = 'Session expired, please log in again.';
+            input.checked = !input.checked;
+          } else {
+            input.checked = !input.checked;
+          }
+        });
+      });
+    }
+
+    configToggle.addEventListener('click', () => {
+      const willShow = configPanel.hasAttribute('hidden');
+      configPanel.toggleAttribute('hidden');
+      if (willShow && sessionStorage.getItem(TOKEN_KEY)) showConfigList();
+    });
+
+    document.getElementById('login-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = (document.getElementById('password') as HTMLInputElement).value;
+      loginStatus.textContent = 'Checking…';
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (res.ok) {
+        const { token } = await res.json();
+        sessionStorage.setItem(TOKEN_KEY, token);
+        loginStatus.textContent = '';
+        showConfigList();
+        renderConfigList(lastSats);
+      } else {
+        loginStatus.textContent = 'Wrong password.';
+      }
+    });
+  </script>
+</Base>

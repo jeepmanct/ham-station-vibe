@@ -1,0 +1,1170 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="Admin" active="admin">
+  <h1>Admin</h1>
+
+  <section id="login-section">
+    <div class="card">
+      <h2>Log in</h2>
+      <form id="login-form">
+        <input type="password" id="password" placeholder="Admin password" autocomplete="current-password" required />
+        <p id="login-status" class="status-line"></p>
+        <button type="submit" class="btn">Log in</button>
+      </form>
+    </div>
+  </section>
+
+  <section id="admin-tools" hidden>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:1rem;">
+      <button type="button" id="logout-btn" class="btn secondary">Log out</button>
+    </div>
+    <div class="card">
+      <h2>Upload photo</h2>
+      <form id="upload-form" style="display:flex;flex-direction:column;gap:0.75rem;">
+        <input type="file" id="photo-file" accept="image/*" required />
+        <input type="text" id="photo-caption" placeholder="Caption (optional)" />
+        <p id="upload-status" class="status-line"></p>
+        <button type="submit" class="btn" style="align-self:flex-start;">Upload</button>
+      </form>
+    </div>
+
+    <section>
+      <div class="card">
+        <h2>Station Info</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">
+          Your callsign is used throughout the site (page branding, POTA/PSK Reporter/WSPR/RBN lookups, QSL cards, ADIF export) -- set this first, before anything else, on a fresh install. Location is used for grayline, satellite pass predictions, reception-report map centers, and anything else that needs to know where this station is; leave it unset to keep inferring it from whichever coordinate appears on the most logged QSOs.
+        </p>
+        <form id="station-location-form" class="form-grid">
+          <label>Callsign<input type="text" id="sl-callsign" placeholder="e.g. W1AW" required /></label>
+          <label style="grid-column:1 / -1;">City/State
+            <span style="display:flex;gap:0.5rem;">
+              <input type="text" id="sl-place" placeholder="e.g. Manchester, NH" style="flex:1;max-width:320px;" />
+              <button type="button" id="sl-locate" class="btn secondary" style="white-space:nowrap;">Locate</button>
+            </span>
+          </label>
+          <label>Latitude<input type="text" id="sl-lat" placeholder="e.g. 42.9956" /></label>
+          <label>Longitude<input type="text" id="sl-lon" placeholder="e.g. -71.4548" /></label>
+          <p id="sl-locate-status" class="status-line" style="grid-column:1 / -1;margin:-0.4rem 0 0;"></p>
+          <p id="station-location-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;display:flex;gap:0.5rem;">
+            <button type="submit" class="btn">Save</button>
+            <button type="button" id="sl-clear" class="btn secondary">Clear location (use log inference)</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
+        <h2>FlexRadio Hardware Status</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">
+          Whether the Monitor toggle, On the Air, meters, and Recent Sessions show up on /radio at all &mdash; if you don't own a FlexRadio, turn this off instead of leaving a non-functional dashboard visible. Turning it off also turns monitoring off. PSK Reporter/WSPR/RBN reception reports stay up regardless &mdash; they're independent of this station's own radio.
+        </p>
+        <form id="radio-hardware-visibility-form" class="form-grid">
+          <label class="form-grid-checkbox"><input type="checkbox" id="rhv-visible" /> Show FlexRadio hardware status on /radio</label>
+          <p id="radio-hardware-visibility-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
+        <h2>Remote Radio Control</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">
+          Whether the Remote Control (Receive Only) card shows up on /radio at all &mdash; off by default while that feature's still being worked on. Hides it for everyone, not just while logged out. Also requires FlexRadio Hardware Status above to be on, since remote control needs the same live connection.
+        </p>
+        <form id="radio-control-visibility-form" class="form-grid">
+          <label class="form-grid-checkbox"><input type="checkbox" id="rcv-visible" /> Show Remote Control card on /radio</label>
+          <p id="radio-control-visibility-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
+        <h2>FlexRadio Configuration</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">The LAN IP address monitoring/control connects to &mdash; leave blank if you don't have a FlexRadio. Takes effect the next time monitoring reconnects, not immediately.</p>
+        <form id="flex-config-form" class="form-grid">
+          <label style="grid-column:1 / -1;">FlexRadio IP Address
+            <span style="display:flex;gap:0.5rem;">
+              <input type="text" id="cr-flex-ip" placeholder="e.g. 192.168.1.50" style="flex:1;max-width:220px;" />
+              <button type="button" id="flex-detect" class="btn secondary" style="white-space:nowrap;">Detect</button>
+            </span>
+          </label>
+          <p id="flex-detect-status" class="status-line" style="grid-column:1 / -1;margin:-0.4rem 0 0;"></p>
+          <p id="flex-config-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
+        <h2>DMR Talkgroups (BrandMeister)</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Which talkgroup(s) to show recent activity for on /radio's DMR Last Heard panel &mdash; no API key needed. Leave blank to hide that panel's activity feed.</p>
+        <form id="dmr-config-form" class="form-grid">
+          <label style="grid-column:1 / -1;">Talkgroup IDs (comma-separated)<input type="text" id="cr-dmr-tgs" placeholder="e.g. 91, 3120" /></label>
+          <p id="dmr-config-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
+        <h2>Service Credentials</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Stored server-side, never sent back to the browser once saved &mdash; leave a password field blank to keep what's already set.</p>
+        <form id="creds-form" class="form-grid">
+          <label>QRZ Logbook API Key<input type="password" id="cr-qrz-key" placeholder="leave blank to keep existing" autocomplete="new-password" /></label>
+          <label>eQSL Callsign<input type="text" id="cr-eqsl-user" placeholder="W1AW" /></label>
+          <label>eQSL Password<input type="password" id="cr-eqsl-pass" placeholder="leave blank to keep existing" autocomplete="new-password" /></label>
+          <label>LoTW Callsign<input type="text" id="cr-lotw-user" placeholder="W1AW" /></label>
+          <label>LoTW Password<input type="password" id="cr-lotw-pass" placeholder="leave blank to keep existing" autocomplete="new-password" /></label>
+          <label>HamQTH Username<input type="text" id="cr-hamqth-user" placeholder="W1AW" /></label>
+          <label>HamQTH Password<input type="password" id="cr-hamqth-pass" placeholder="leave blank to keep existing" autocomplete="new-password" /></label>
+          <p style="grid-column:1 / -1;margin:-0.4rem 0 0;color:var(--muted);font-size:0.78rem;">Free account at <a href="https://www.hamqth.com/authenticate.php" target="_blank" rel="noopener">hamqth.com</a> &mdash; powers the public Callsign Lookup tool on /tools.</p>
+          <p id="creds-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
+        <h2>Repeater Lookup (Open Repeater)</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Admin-only reference tool, not shown anywhere on the public site.</p>
+        <form id="or-config-form" class="form-grid">
+          <label>Open Repeater API Key<input type="password" id="cr-or-key" placeholder="leave blank to keep existing" autocomplete="new-password" /></label>
+          <label style="grid-column:1 / -1;">Search Location
+            <span style="display:flex;gap:0.5rem;">
+              <input type="text" id="or-place" placeholder="e.g. Manchester, NH" style="flex:1;max-width:320px;" />
+              <button type="button" id="or-locate" class="btn secondary" style="white-space:nowrap;">Locate</button>
+            </span>
+          </label>
+          <label>Latitude<input type="text" id="cr-or-lat" placeholder="e.g. 42.9956" /></label>
+          <label>Longitude<input type="text" id="cr-or-lng" placeholder="e.g. -71.4548" /></label>
+          <label>Search Radius (km)<input type="text" id="cr-or-radius" placeholder="50" /></label>
+          <p id="or-locate-status" class="status-line" style="grid-column:1 / -1;margin:-0.4rem 0 0;"></p>
+          <p style="grid-column:1 / -1;margin:-0.4rem 0 0;color:var(--muted);font-size:0.78rem;">Get a free key at <a href="https://www.openrepeater.org/api-docs" target="_blank" rel="noopener">openrepeater.org/api-docs</a> &mdash; type a city/state above and click Locate to fill in coordinates, or enter them directly.</p>
+          <p id="or-config-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
+        <button type="button" id="rb-verify" class="btn secondary" style="margin-top:0.75rem;">Verify connection</button>
+        <p id="rb-verify-status" class="status-line"></p>
+        <form id="rb-search-form" class="form-grid" style="margin-top:0.75rem;">
+          <label class="form-grid-checkbox"><input type="checkbox" id="rb-mode-dmr" checked />DMR</label>
+          <label class="form-grid-checkbox"><input type="checkbox" id="rb-mode-dstar" checked />D-STAR</label>
+          <label class="form-grid-checkbox"><input type="checkbox" id="rb-mode-analog" checked />Analog FM</label>
+          <label class="form-grid-checkbox"><input type="checkbox" id="rb-band-2m" checked />2m</label>
+          <label class="form-grid-checkbox"><input type="checkbox" id="rb-band-440" checked />440 (70cm)</label>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Search</button>
+          </div>
+        </form>
+        <p id="rb-search-status" class="status-line"></p>
+        <div style="overflow-x:auto;">
+          <table id="rb-results" hidden>
+            <thead>
+              <tr><th>Callsign</th><th>City</th><th>Freq</th><th>Offset</th><th>Mode</th><th>Band</th><th>Status</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
+        <h2>Sync from QRZ.com</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Pulls what's changed since the last sync via the QRZ Logbook API.</p>
+        <button type="button" id="qrz-sync" class="btn">Sync now</button>
+        <p id="qrz-last-synced" class="status-line" style="font-size:0.8rem;"></p>
+        <p id="qrz-status" class="status-line"></p>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
+        <h2>Sync from eQSL.cc</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Marks already-logged QSOs as eQSL-confirmed, pulling only what's changed since the last sync.</p>
+        <button type="button" id="eqsl-sync" class="btn">Sync now</button>
+        <p id="eqsl-last-synced" class="status-line" style="font-size:0.8rem;"></p>
+        <p id="eqsl-status" class="status-line"></p>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
+        <h2>Sync from LoTW</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Pulls every QSO on file via LoTW's own report mechanism &mdash; not just confirmations &mdash; incrementally since the last sync. An alternative to downloading and importing the ADIF file by hand below.</p>
+        <button type="button" id="lotw-sync" class="btn">Sync now</button>
+        <p id="lotw-last-synced" class="status-line" style="font-size:0.8rem;"></p>
+        <p id="lotw-status" class="status-line"></p>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
+        <h2>Import LoTW ADIF</h2>
+        <form id="adif-form" style="display:flex;flex-direction:column;gap:0.75rem;">
+          <input type="file" id="adif-file" accept=".adi,.adif" required />
+          <p id="adif-status" class="status-line"></p>
+          <button type="submit" class="btn" style="align-self:flex-start;">Import</button>
+        </form>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
+        <h2>Solar data</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Refreshes recent SFI/A/K-index data associated with each QSO &mdash; Full Resync rebuilds the entire 1932&ndash;present history.</p>
+        <button type="button" id="solar-sync" class="btn">Sync now</button>
+        <button type="button" id="solar-full-sync" class="btn secondary">Full Resync</button>
+        <p id="solar-last-synced" class="status-line" style="font-size:0.8rem;"></p>
+        <p id="solar-status" class="status-line"></p>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
+        <h2>Alerts &amp; Notifications</h2>
+        <p style="margin:0 0 1.25rem;color:var(--muted);font-size:0.9rem;">
+          Email and/or push notification for four independent things worth knowing about right away &mdash; set up either delivery channel, or both, then turn on whichever alert type(s) you want below.
+        </p>
+
+        <h3 style="margin:0 0 0.5rem;font-size:0.95rem;">Email</h3>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
+          For iCloud Mail, use <code>smtp.mail.me.com</code> port <code>587</code> with an
+          <a href="https://appleid.apple.com" target="_blank" rel="noopener">app-specific password</a> (your regular iCloud password won't work).
+        </p>
+        <form id="alert-email-form" class="form-grid">
+          <label>SMTP Host<input type="text" id="ae-host" placeholder="smtp.mail.me.com" required /></label>
+          <label>SMTP Port<input type="text" id="ae-port" placeholder="587" required /></label>
+          <label>Username (from address)<input type="text" id="ae-user" placeholder="you@icloud.com" required /></label>
+          <label>App Password<input type="password" id="ae-pass" placeholder="leave blank to keep existing" autocomplete="new-password" /></label>
+          <label>Send Alerts To<input type="text" id="ae-to" placeholder="you@icloud.com" required /></label>
+          <label class="form-grid-checkbox"><input type="checkbox" id="ae-enabled" /> Email alerts enabled</label>
+          <p id="alert-email-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;display:flex;gap:0.75rem;flex-wrap:wrap;">
+            <button type="submit" class="btn">Save</button>
+            <button type="button" id="alert-email-test" class="btn secondary">Send test email</button>
+          </div>
+        </form>
+
+        <h3 style="margin:1.75rem 0 0.5rem;font-size:0.95rem;">Push Notification (ntfy.sh)</h3>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
+          No account needed &mdash; install the <a href="https://ntfy.sh" target="_blank" rel="noopener">ntfy app</a> (iOS/Android), subscribe to the topic name below, and save it here to match.
+          Treat the topic like a password: anyone who knows it can see (and send) your alerts, so keep it long and hard to guess.
+        </p>
+        <form id="alert-ntfy-form" class="form-grid">
+          <label class="form-grid-wide">Topic name
+            <div style="display:flex;gap:0.5rem;">
+              <input type="text" id="an-topic" placeholder="e.g. dx-alert-7f3a9c2e" style="flex:1;" required />
+              <button type="button" id="an-generate" class="btn secondary" style="white-space:nowrap;">Generate random</button>
+            </div>
+          </label>
+          <label class="form-grid-checkbox"><input type="checkbox" id="an-enabled" /> Push alerts enabled</label>
+          <p id="alert-ntfy-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;display:flex;gap:0.75rem;flex-wrap:wrap;">
+            <button type="submit" class="btn">Save</button>
+            <button type="button" id="alert-ntfy-test" class="btn secondary">Send test push</button>
+          </div>
+        </form>
+
+        <h3 style="margin:1.75rem 0 0.5rem;font-size:0.95rem;">Needed-DX Spots</h3>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
+          Notifies you when a live DX spot is a DXCC entity you haven't worked yet &mdash; checked every 10 minutes. Reuses whichever channel(s) above are enabled.
+        </p>
+        <form id="alert-dx-filter-form" class="form-grid">
+          <label class="form-grid-checkbox"><input type="checkbox" id="adx-us-only" /> US spotters only &mdash; skip spots posted by a non-US station, since propagation heard by a US-based spotter is a much better sign you could actually work it</label>
+          <p id="alert-dx-filter-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
+
+        <h3 style="margin:1.75rem 0 0.5rem;font-size:0.95rem;">VHF Band Openings (6m/2m Sporadic-E)</h3>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
+          Notifies you when 6m or 2m DX-cluster activity shows up &mdash; checked every 5 minutes. Reuses whichever channel(s) above are enabled.
+        </p>
+        <form id="alert-vhf-form" class="form-grid">
+          <label class="form-grid-checkbox"><input type="checkbox" id="av-enabled" /> VHF band-opening alerts enabled</label>
+          <label class="form-grid-checkbox"><input type="checkbox" id="av-us-only" /> US spotters only &mdash; skip spots posted by a non-US station</label>
+          <p id="alert-vhf-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
+
+        <h3 style="margin:1.75rem 0 0.5rem;font-size:0.95rem;">X-Class Solar Flares</h3>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
+          Notifies you when an X-class flare (HF blackout risk) is in progress, via NOAA's real-time GOES X-ray flux &mdash; checked every 5 minutes, once per event. Reuses whichever channel(s) above are enabled.
+        </p>
+        <form id="alert-flare-form" class="form-grid">
+          <label class="form-grid-checkbox"><input type="checkbox" id="af-enabled" /> Solar flare alerts enabled</label>
+          <p id="alert-flare-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
+
+        <h3 style="margin:1.75rem 0 0.5rem;font-size:0.95rem;">Solar Wind (Incoming Geomagnetic Storm)</h3>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
+          Notifies you when the interplanetary magnetic field turns strongly southward &mdash; often 15-60 minutes ahead of a K-index rise or VHF/aurora opening. Checked every 5 minutes, once per event. Reuses whichever channel(s) above are enabled.
+        </p>
+        <form id="alert-wind-form" class="form-grid">
+          <label class="form-grid-checkbox"><input type="checkbox" id="aw-enabled" /> Solar wind alerts enabled</label>
+          <p id="alert-wind-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
+
+        <h3 style="margin:1.75rem 0 0.5rem;font-size:0.95rem;">Geomagnetic Storm (Kp-Index / Aurora)</h3>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
+          Notifies you when NOAA's planetary K-index reaches 5 or higher (G1 minor storm or stronger) &mdash; aurora often visible further south than usual, and possible 6m/2m aurora-mode openings. Checked every 5 minutes, once per event. Reuses whichever channel(s) above are enabled.
+        </p>
+        <form id="alert-kp-form" class="form-grid">
+          <label class="form-grid-checkbox"><input type="checkbox" id="ak-enabled" /> Geomagnetic storm alerts enabled</label>
+          <p id="alert-kp-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
+
+        <h3 style="margin:1.75rem 0 0.5rem;font-size:0.95rem;">Tropospheric Ducting (VHF/UHF)</h3>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
+          Notifies you when the atmosphere near your configured Station Location favors VHF/UHF tropo ducting &mdash; computed from real weather-forecast data (Open-Meteo), not a global feed, so it's specific to where you actually are. Requires a Station Location set above. Checked hourly, once per event.
+        </p>
+        <form id="alert-tropo-form" class="form-grid">
+          <label class="form-grid-checkbox"><input type="checkbox" id="at-enabled" /> Tropo ducting alerts enabled</label>
+          <p id="alert-tropo-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
+      </div>
+    </section>
+  </section>
+
+  <script>
+    const TOKEN_KEY = 'hamstation_admin_token';
+
+    const loginSection = document.getElementById('login-section')!;
+    const adminTools = document.getElementById('admin-tools')!;
+    const loginStatus = document.getElementById('login-status')!;
+
+    function showAdmin() {
+      loginSection.setAttribute('hidden', '');
+      adminTools.removeAttribute('hidden');
+      loadAlertConfig();
+      loadServiceCredentials();
+      loadSyncStatus();
+      loadRadioControlVisibility();
+      loadRadioHardwareVisibility();
+      loadStationLocation();
+    }
+
+    if (sessionStorage.getItem(TOKEN_KEY)) {
+      showAdmin();
+    }
+
+    document.getElementById('login-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = (document.getElementById('password') as HTMLInputElement).value;
+      loginStatus.textContent = 'Checking…';
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (res.ok) {
+        const { token } = await res.json();
+        sessionStorage.setItem(TOKEN_KEY, token);
+        loginStatus.textContent = '';
+        showAdmin();
+      } else {
+        loginStatus.textContent = 'Wrong password.';
+      }
+    });
+
+    document.getElementById('logout-btn')!.addEventListener('click', async () => {
+      const token = sessionStorage.getItem(TOKEN_KEY);
+      if (token) {
+        await fetch('/api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+      }
+      sessionStorage.removeItem(TOKEN_KEY);
+      adminTools.setAttribute('hidden', '');
+      loginSection.removeAttribute('hidden');
+    });
+
+    // --- Station Info (callsign + QTH) -- callsign is used broadly across
+    // the site (branding, POTA/PSK/WSPR/RBN lookups, ADIF export); location
+    // feeds /api/conditions/home, used by grayline, satellite passes, and
+    // reception-report map centers. ---
+    type StationLocationData = { label: string | null; lat: number; lon: number; grid: string | null } | null;
+    type StationInfoResponse = { callsign: string | null; location: StationLocationData };
+    const slCallsign = document.getElementById('sl-callsign') as HTMLInputElement;
+    const slPlace = document.getElementById('sl-place') as HTMLInputElement;
+    const slLat = document.getElementById('sl-lat') as HTMLInputElement;
+    const slLon = document.getElementById('sl-lon') as HTMLInputElement;
+    const slLocateStatus = document.getElementById('sl-locate-status')!;
+    const stationLocationStatus = document.getElementById('station-location-status')!;
+
+    function renderStationInfoStatus(data: StationInfoResponse) {
+      const parts: string[] = [];
+      parts.push(data.callsign ? `Callsign: ${data.callsign}.` : 'No callsign set yet -- most site features need one.');
+      parts.push(
+        data.location
+          ? `Location set${data.location.grid ? ` (grid ${data.location.grid})` : ''}.`
+          : 'Location not set -- inferring from the most common logged QSO coordinate.',
+      );
+      stationLocationStatus.textContent = parts.join(' ');
+    }
+
+    async function loadStationLocation() {
+      const res = await fetch('/api/station-location');
+      if (!res.ok) return;
+      const data: StationInfoResponse = await res.json();
+      slCallsign.value = data.callsign ?? '';
+      if (data.location) {
+        slPlace.value = data.location.label ?? '';
+        slLat.value = String(data.location.lat);
+        slLon.value = String(data.location.lon);
+      }
+      renderStationInfoStatus(data);
+    }
+
+    document.getElementById('sl-locate')!.addEventListener('click', async () => {
+      const place = slPlace.value.trim();
+      if (!place) {
+        slLocateStatus.textContent = 'Type a city/state first.';
+        return;
+      }
+      slLocateStatus.textContent = 'Looking up…';
+      const res = await fetch(`/api/geocode?q=${encodeURIComponent(place)}`);
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !body) {
+        slLocateStatus.textContent = 'Lookup failed.';
+        return;
+      }
+      slLat.value = String(body.lat);
+      slLon.value = String(body.lon);
+      slLocateStatus.textContent = `Found: ${body.displayName}. Click Save to keep it.`;
+    });
+
+    document.getElementById('station-location-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!slCallsign.value.trim()) {
+        stationLocationStatus.textContent = 'Callsign is required.';
+        return;
+      }
+      stationLocationStatus.textContent = 'Saving…';
+      const hasLocation = slLat.value.trim() && slLon.value.trim();
+      const res = await fetch('/api/station-location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({
+          callsign: slCallsign.value,
+          ...(hasLocation ? { label: slPlace.value || undefined, lat: Number(slLat.value), lon: Number(slLon.value) } : {}),
+        }),
+      });
+      if (res.ok) {
+        const data: StationInfoResponse = await res.json();
+        renderStationInfoStatus(data);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        stationLocationStatus.textContent = body.error ?? 'Save failed.';
+      }
+    });
+
+    document.getElementById('sl-clear')!.addEventListener('click', async () => {
+      stationLocationStatus.textContent = 'Clearing…';
+      const res = await fetch('/api/station-location', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (res.ok) {
+        slPlace.value = '';
+        slLat.value = '';
+        slLon.value = '';
+        slLocateStatus.textContent = '';
+        const data: StationInfoResponse = await res.json();
+        renderStationInfoStatus(data);
+      } else {
+        stationLocationStatus.textContent = 'Clear failed.';
+      }
+    });
+
+    document.getElementById('upload-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('photo-file') as HTMLInputElement;
+      const caption = (document.getElementById('photo-caption') as HTMLInputElement).value;
+      const status = document.getElementById('upload-status')!;
+      if (!fileInput.files?.length) return;
+      const form = new FormData();
+      form.append('photo', fileInput.files[0]);
+      form.append('caption', caption);
+      status.textContent = 'Uploading…';
+      const res = await fetch('/api/photos', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: form,
+      });
+      status.textContent = res.ok ? 'Uploaded!' : 'Upload failed.';
+    });
+
+    document.getElementById('adif-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('adif-file') as HTMLInputElement;
+      const status = document.getElementById('adif-status')!;
+      if (!fileInput.files?.length) return;
+      const form = new FormData();
+      form.append('adif', fileInput.files[0]);
+      status.textContent = 'Importing…';
+      const res = await fetch('/api/qsos/import', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: form,
+      });
+      if (res.ok) {
+        const { imported } = await res.json();
+        status.textContent = `Imported ${imported} contacts.`;
+      } else {
+        status.textContent = 'Import failed.';
+      }
+    });
+
+    // --- Service credentials (QRZ API key, eQSL login) -- stored server-side,
+    // secrets never sent back to the browser once saved. ---
+    type ServiceCredentialsPublic = {
+      qrzApiKeyConfigured: boolean;
+      eqslUsername: string;
+      eqslPasswordConfigured: boolean;
+      lotwUsername: string;
+      lotwPasswordConfigured: boolean;
+      flexRadioIp: string;
+      openRepeaterApiKeyConfigured: boolean;
+      openRepeaterLat: number | null;
+      openRepeaterLng: number | null;
+      openRepeaterRadiusKm: number;
+      hamqthUsername: string;
+      hamqthPasswordConfigured: boolean;
+      brandmeisterTalkgroups: string;
+    };
+
+    const crQrzKey = document.getElementById('cr-qrz-key') as HTMLInputElement;
+    const crEqslUser = document.getElementById('cr-eqsl-user') as HTMLInputElement;
+    const crEqslPass = document.getElementById('cr-eqsl-pass') as HTMLInputElement;
+    const crLotwUser = document.getElementById('cr-lotw-user') as HTMLInputElement;
+    const crLotwPass = document.getElementById('cr-lotw-pass') as HTMLInputElement;
+    const crHamqthUser = document.getElementById('cr-hamqth-user') as HTMLInputElement;
+    const crHamqthPass = document.getElementById('cr-hamqth-pass') as HTMLInputElement;
+    const crFlexIp = document.getElementById('cr-flex-ip') as HTMLInputElement;
+    const crOrKey = document.getElementById('cr-or-key') as HTMLInputElement;
+    const crOrLat = document.getElementById('cr-or-lat') as HTMLInputElement;
+    const crOrLng = document.getElementById('cr-or-lng') as HTMLInputElement;
+    const crOrRadius = document.getElementById('cr-or-radius') as HTMLInputElement;
+    const crDmrTgs = document.getElementById('cr-dmr-tgs') as HTMLInputElement;
+    const credsStatus = document.getElementById('creds-status')!;
+    const flexConfigStatus = document.getElementById('flex-config-status')!;
+    const orConfigStatus = document.getElementById('or-config-status')!;
+    const dmrConfigStatus = document.getElementById('dmr-config-status')!;
+
+    async function loadServiceCredentials() {
+      const res = await fetch('/api/service-credentials', {
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (!res.ok) return;
+      const cfg: ServiceCredentialsPublic = await res.json();
+      crQrzKey.placeholder = cfg.qrzApiKeyConfigured ? 'leave blank to keep existing' : 'not yet set';
+      crEqslUser.value = cfg.eqslUsername;
+      crEqslPass.placeholder = cfg.eqslPasswordConfigured ? 'leave blank to keep existing' : 'not yet set';
+      crLotwUser.value = cfg.lotwUsername;
+      crLotwPass.placeholder = cfg.lotwPasswordConfigured ? 'leave blank to keep existing' : 'not yet set';
+      crFlexIp.value = cfg.flexRadioIp;
+      crOrKey.placeholder = cfg.openRepeaterApiKeyConfigured ? 'leave blank to keep existing' : 'not yet set';
+      crOrLat.value = cfg.openRepeaterLat != null ? String(cfg.openRepeaterLat) : '';
+      crOrLng.value = cfg.openRepeaterLng != null ? String(cfg.openRepeaterLng) : '';
+      crOrRadius.value = String(cfg.openRepeaterRadiusKm);
+      crHamqthUser.value = cfg.hamqthUsername;
+      crHamqthPass.placeholder = cfg.hamqthPasswordConfigured ? 'leave blank to keep existing' : 'not yet set';
+      crDmrTgs.value = cfg.brandmeisterTalkgroups;
+    }
+
+    async function saveServiceCredentials(body: Record<string, unknown>, statusEl: HTMLElement) {
+      statusEl.textContent = 'Saving…';
+      const res = await fetch('/api/service-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const cfg: ServiceCredentialsPublic = await res.json();
+        crQrzKey.placeholder = cfg.qrzApiKeyConfigured ? 'leave blank to keep existing' : 'not yet set';
+        crEqslPass.placeholder = cfg.eqslPasswordConfigured ? 'leave blank to keep existing' : 'not yet set';
+        crLotwPass.placeholder = cfg.lotwPasswordConfigured ? 'leave blank to keep existing' : 'not yet set';
+        crOrKey.placeholder = cfg.openRepeaterApiKeyConfigured ? 'leave blank to keep existing' : 'not yet set';
+        crFlexIp.value = cfg.flexRadioIp;
+        crOrLat.value = cfg.openRepeaterLat != null ? String(cfg.openRepeaterLat) : '';
+        crOrLng.value = cfg.openRepeaterLng != null ? String(cfg.openRepeaterLng) : '';
+        crOrRadius.value = String(cfg.openRepeaterRadiusKm);
+        crHamqthUser.value = cfg.hamqthUsername;
+        crHamqthPass.placeholder = cfg.hamqthPasswordConfigured ? 'leave blank to keep existing' : 'not yet set';
+        crDmrTgs.value = cfg.brandmeisterTalkgroups;
+        statusEl.textContent = 'Saved.';
+      } else {
+        const errBody = await res.json().catch(() => ({}));
+        statusEl.textContent = errBody.error ?? 'Save failed.';
+      }
+    }
+
+    document.getElementById('creds-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await saveServiceCredentials(
+        {
+          qrzApiKey: crQrzKey.value || undefined,
+          eqslUsername: crEqslUser.value || undefined,
+          eqslPassword: crEqslPass.value || undefined,
+          lotwUsername: crLotwUser.value || undefined,
+          lotwPassword: crLotwPass.value || undefined,
+          hamqthUsername: crHamqthUser.value || undefined,
+          hamqthPassword: crHamqthPass.value || undefined,
+        },
+        credsStatus,
+      );
+      crQrzKey.value = '';
+      crEqslPass.value = '';
+      crLotwPass.value = '';
+      crHamqthPass.value = '';
+    });
+
+    document.getElementById('flex-config-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await saveServiceCredentials({ flexRadioIp: crFlexIp.value || undefined }, flexConfigStatus);
+    });
+
+    document.getElementById('dmr-config-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await saveServiceCredentials({ brandmeisterTalkgroups: crDmrTgs.value || undefined }, dmrConfigStatus);
+    });
+
+    document.getElementById('or-config-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await saveServiceCredentials(
+        {
+          openRepeaterApiKey: crOrKey.value || undefined,
+          openRepeaterLat: crOrLat.value ? Number(crOrLat.value) : undefined,
+          openRepeaterLng: crOrLng.value ? Number(crOrLng.value) : undefined,
+          openRepeaterRadiusKm: crOrRadius.value ? Number(crOrRadius.value) : undefined,
+        },
+        orConfigStatus,
+      );
+      crOrKey.value = '';
+    });
+
+    const flexDetectStatus = document.getElementById('flex-detect-status')!;
+    document.getElementById('flex-detect')!.addEventListener('click', async () => {
+      flexDetectStatus.textContent = 'Listening for FlexRadio broadcasts (up to 3s)…';
+      const res = await fetch('/api/radio/detect', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (!res.ok) {
+        flexDetectStatus.textContent = 'Detection failed.';
+        return;
+      }
+      const { found } = await res.json();
+      if (!found.length) {
+        flexDetectStatus.textContent = 'No FlexRadio found on the network. Make sure it\'s powered on and on the same LAN.';
+        return;
+      }
+      crFlexIp.value = found[0].ip;
+      const label = [found[0].model, found[0].callsign].filter(Boolean).join(' — ');
+      flexDetectStatus.textContent = found.length > 1
+        ? `Found ${found.length} radios; filled in the first: ${label} at ${found[0].ip}.`
+        : `Found ${label} at ${found[0].ip}. Click Save to keep it.`;
+    });
+
+    // --- Open Repeater location lookup -- geocodes a typed place name via
+    // the site's existing /api/geocode proxy (already used elsewhere for
+    // Nominatim lookups) so the admin doesn't have to know exact coordinates. ---
+    const orLocateStatus = document.getElementById('or-locate-status')!;
+    document.getElementById('or-locate')!.addEventListener('click', async () => {
+      const place = (document.getElementById('or-place') as HTMLInputElement).value.trim();
+      if (!place) {
+        orLocateStatus.textContent = 'Type a city/state first.';
+        return;
+      }
+      orLocateStatus.textContent = 'Looking up…';
+      const res = await fetch(`/api/geocode?q=${encodeURIComponent(place)}`);
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !body) {
+        orLocateStatus.textContent = 'Lookup failed.';
+        return;
+      }
+      crOrLat.value = String(body.lat);
+      crOrLng.value = String(body.lon);
+      orLocateStatus.textContent = `Found: ${body.displayName}. Click Save to keep it.`;
+    });
+
+    // --- Open Repeater lookup -- admin-only, never rendered on a public page. ---
+    type OpenRepeaterEntry = {
+      callsign: string;
+      city: string | null;
+      frequencyMhz: number;
+      offsetMhz: number | null;
+      mode: string;
+      band: string;
+      status: string;
+    };
+
+    const rbVerifyStatus = document.getElementById('rb-verify-status')!;
+    document.getElementById('rb-verify')!.addEventListener('click', async () => {
+      rbVerifyStatus.textContent = 'Checking…';
+      const res = await fetch('/api/openrepeater/verify', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      const body = await res.json().catch(() => ({}));
+      rbVerifyStatus.textContent = res.ok
+        ? `Connected. Found ${body.count} repeater(s) within the configured radius.`
+        : (body.error ?? 'Verification failed.');
+    });
+
+    const rbSearchStatus = document.getElementById('rb-search-status')!;
+    const rbResultsTable = document.getElementById('rb-results') as HTMLTableElement;
+    document.getElementById('rb-search-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const modes: string[] = [];
+      if ((document.getElementById('rb-mode-dmr') as HTMLInputElement).checked) modes.push('DMR');
+      if ((document.getElementById('rb-mode-dstar') as HTMLInputElement).checked) modes.push('D-Star');
+      if ((document.getElementById('rb-mode-analog') as HTMLInputElement).checked) modes.push('FM');
+      const bands = [
+        ['2m', 'rb-band-2m'],
+        ['70cm', 'rb-band-440'],
+      ]
+        .filter(([, id]) => (document.getElementById(id) as HTMLInputElement).checked)
+        .map(([band]) => band);
+
+      rbSearchStatus.textContent = 'Searching…';
+      rbResultsTable.hidden = true;
+      const params = new URLSearchParams({ modes: modes.join(','), bands: bands.join(',') });
+      const res = await fetch(`/api/openrepeater/search?${params}`, {
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        rbSearchStatus.textContent = body.error ?? 'Search failed.';
+        return;
+      }
+      const results: OpenRepeaterEntry[] = body.results;
+      rbSearchStatus.textContent = `${results.length} repeater(s) found.`;
+      const tbody = rbResultsTable.querySelector('tbody')!;
+      tbody.replaceChildren(
+        ...results.map((r) => {
+          const tr = document.createElement('tr');
+          const cells = [r.callsign, r.city ?? '', String(r.frequencyMhz), r.offsetMhz != null ? String(r.offsetMhz) : '', r.mode, r.band, r.status];
+          for (const text of cells) {
+            const td = document.createElement('td');
+            td.textContent = text;
+            tr.appendChild(td);
+          }
+          return tr;
+        }),
+      );
+      rbResultsTable.hidden = results.length === 0;
+    });
+
+    // --- "Last synced" readouts for every sync button below, one shared
+    // fetch against the small aggregated status endpoint rather than each
+    // sync feature tracking/formatting its own. Refreshed on page load and
+    // again after any sync completes, so a successful click updates its own
+    // line immediately instead of waiting for the next page visit. ---
+    function formatLastSynced(iso: string | null): string {
+      return iso ? `Last synced ${new Date(iso).toLocaleString()}` : 'Never synced';
+    }
+    async function loadSyncStatus() {
+      const status: { qrz: string | null; eqsl: string | null; lotw: string | null; solar: string | null } = await fetch('/api/sync-status').then((r) => r.json());
+      document.getElementById('qrz-last-synced')!.textContent = formatLastSynced(status.qrz);
+      document.getElementById('eqsl-last-synced')!.textContent = formatLastSynced(status.eqsl);
+      document.getElementById('lotw-last-synced')!.textContent = formatLastSynced(status.lotw);
+      document.getElementById('solar-last-synced')!.textContent = formatLastSynced(status.solar);
+    }
+
+    // --- Remote Control card visibility (site-wide, not per-session) ---
+    const rcvVisible = document.getElementById('rcv-visible') as HTMLInputElement;
+    const radioControlVisibilityStatus = document.getElementById('radio-control-visibility-status')!;
+
+    async function loadRadioControlVisibility() {
+      const status: { controlVisible: boolean } = await fetch('/api/radio/status').then((r) => r.json());
+      rcvVisible.checked = status.controlVisible;
+    }
+
+    document.getElementById('radio-control-visibility-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      radioControlVisibilityStatus.textContent = 'Saving…';
+      const res = await fetch('/api/radio/control-visibility', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ visible: rcvVisible.checked }),
+      });
+      if (res.ok) {
+        radioControlVisibilityStatus.textContent = 'Saved.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        radioControlVisibilityStatus.textContent = body.error ?? 'Save failed.';
+      }
+    });
+
+    // --- FlexRadio hardware-status section visibility (site-wide, not per-session) ---
+    const rhvVisible = document.getElementById('rhv-visible') as HTMLInputElement;
+    const radioHardwareVisibilityStatus = document.getElementById('radio-hardware-visibility-status')!;
+
+    async function loadRadioHardwareVisibility() {
+      const status: { hardwareVisible: boolean } = await fetch('/api/radio/status').then((r) => r.json());
+      rhvVisible.checked = status.hardwareVisible;
+    }
+
+    document.getElementById('radio-hardware-visibility-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      radioHardwareVisibilityStatus.textContent = 'Saving…';
+      const res = await fetch('/api/radio/hardware-visibility', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ visible: rhvVisible.checked }),
+      });
+      if (res.ok) {
+        radioHardwareVisibilityStatus.textContent = 'Saved.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        radioHardwareVisibilityStatus.textContent = body.error ?? 'Save failed.';
+      }
+    });
+
+    document.getElementById('qrz-sync')!.addEventListener('click', async () => {
+      const status = document.getElementById('qrz-status')!;
+      status.textContent = 'Syncing…';
+      const res = await fetch('/api/qsos/import/qrz', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (res.ok) {
+        const { imported } = await res.json();
+        status.textContent = `Synced ${imported} contacts.`;
+        loadSyncStatus();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        status.textContent = body.error ?? 'QRZ sync failed.';
+      }
+    });
+
+    document.getElementById('eqsl-sync')!.addEventListener('click', async () => {
+      const status = document.getElementById('eqsl-status')!;
+      status.textContent = 'Syncing…';
+      const res = await fetch('/api/qsos/import/eqsl', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (res.ok) {
+        const { matched, unmatched } = await res.json();
+        status.textContent = `Matched ${matched} confirmed QSL${matched === 1 ? '' : 's'} to logged QSOs${unmatched ? ` (${unmatched} confirmed but not found in the log)` : ''}.`;
+        loadSyncStatus();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        status.textContent = body.error ?? 'eQSL sync failed.';
+      }
+    });
+
+    document.getElementById('lotw-sync')!.addEventListener('click', async () => {
+      const status = document.getElementById('lotw-status')!;
+      status.textContent = 'Syncing…';
+      const res = await fetch('/api/qsos/import/lotw', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (res.ok) {
+        const { imported } = await res.json();
+        status.textContent = `Imported ${imported} record${imported === 1 ? '' : 's'}.`;
+        loadSyncStatus();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        status.textContent = body.error ?? 'LoTW sync failed.';
+      }
+    });
+
+    async function syncSolarData(full: boolean) {
+      const status = document.getElementById('solar-status')!;
+      status.textContent = 'Syncing…';
+      const res = await fetch(`/api/solar/sync${full ? '?full=1' : ''}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (res.ok) {
+        const { imported, from, to } = await res.json();
+        status.textContent = `Synced ${imported} days (${from}–${to}).`;
+        loadSyncStatus();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        status.textContent = body.error ?? 'Solar sync failed.';
+      }
+    }
+    document.getElementById('solar-sync')!.addEventListener('click', () => syncSolarData(false));
+    document.getElementById('solar-full-sync')!.addEventListener('click', () => syncSolarData(true));
+
+    // --- Needed-DX alert config (email + ntfy push, saved independently) ---
+    type AlertConfigPublic = {
+      email: { smtpHost: string; smtpPort: number; smtpUser: string; alertTo: string; enabled: boolean; passwordConfigured: boolean };
+      ntfy: { topic: string; enabled: boolean };
+      vhfEnabled: boolean;
+      flareEnabled: boolean;
+      windEnabled: boolean;
+      dxUsSpottersOnly: boolean;
+      vhfUsSpottersOnly: boolean;
+      kpEnabled: boolean;
+      tropoEnabled: boolean;
+    };
+
+    const aeHost = document.getElementById('ae-host') as HTMLInputElement;
+    const aePort = document.getElementById('ae-port') as HTMLInputElement;
+    const aeUser = document.getElementById('ae-user') as HTMLInputElement;
+    const aePass = document.getElementById('ae-pass') as HTMLInputElement;
+    const aeTo = document.getElementById('ae-to') as HTMLInputElement;
+    const aeEnabled = document.getElementById('ae-enabled') as HTMLInputElement;
+    const alertEmailStatus = document.getElementById('alert-email-status')!;
+
+    const anTopic = document.getElementById('an-topic') as HTMLInputElement;
+    const anEnabled = document.getElementById('an-enabled') as HTMLInputElement;
+    const alertNtfyStatus = document.getElementById('alert-ntfy-status')!;
+
+    const avEnabled = document.getElementById('av-enabled') as HTMLInputElement;
+    const avUsOnly = document.getElementById('av-us-only') as HTMLInputElement;
+    const alertVhfStatus = document.getElementById('alert-vhf-status')!;
+
+    const afEnabled = document.getElementById('af-enabled') as HTMLInputElement;
+    const alertFlareStatus = document.getElementById('alert-flare-status')!;
+
+    const awEnabled = document.getElementById('aw-enabled') as HTMLInputElement;
+    const alertWindStatus = document.getElementById('alert-wind-status')!;
+
+    const akEnabled = document.getElementById('ak-enabled') as HTMLInputElement;
+    const alertKpStatus = document.getElementById('alert-kp-status')!;
+
+    const atEnabled = document.getElementById('at-enabled') as HTMLInputElement;
+    const alertTropoStatus = document.getElementById('alert-tropo-status')!;
+
+    const adxUsOnly = document.getElementById('adx-us-only') as HTMLInputElement;
+    const alertDxFilterStatus = document.getElementById('alert-dx-filter-status')!;
+
+    async function loadAlertConfig() {
+      const res = await fetch('/api/alert-config', {
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (!res.ok) return;
+      const cfg: AlertConfigPublic = await res.json();
+      aeHost.value = cfg.email.smtpHost || 'smtp.mail.me.com';
+      aePort.value = String(cfg.email.smtpPort || 587);
+      aeUser.value = cfg.email.smtpUser;
+      aeTo.value = cfg.email.alertTo;
+      aeEnabled.checked = cfg.email.enabled;
+      aePass.placeholder = cfg.email.passwordConfigured ? 'leave blank to keep existing' : 'app-specific password';
+      anTopic.value = cfg.ntfy.topic;
+      anEnabled.checked = cfg.ntfy.enabled;
+      avEnabled.checked = cfg.vhfEnabled;
+      avUsOnly.checked = cfg.vhfUsSpottersOnly;
+      afEnabled.checked = cfg.flareEnabled;
+      awEnabled.checked = cfg.windEnabled;
+      akEnabled.checked = cfg.kpEnabled;
+      atEnabled.checked = cfg.tropoEnabled;
+      adxUsOnly.checked = cfg.dxUsSpottersOnly;
+    }
+
+    document.getElementById('alert-email-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertEmailStatus.textContent = 'Saving…';
+      const res = await fetch('/api/alert-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({
+          email: {
+            smtpHost: aeHost.value.trim(),
+            smtpPort: Number(aePort.value) || 587,
+            smtpUser: aeUser.value.trim(),
+            smtpPass: aePass.value || undefined,
+            alertTo: aeTo.value.trim(),
+            enabled: aeEnabled.checked,
+          },
+        }),
+      });
+      if (res.ok) {
+        const cfg: AlertConfigPublic = await res.json();
+        aePass.value = '';
+        aePass.placeholder = cfg.email.passwordConfigured ? 'leave blank to keep existing' : 'app-specific password';
+        alertEmailStatus.textContent = 'Saved.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alertEmailStatus.textContent = body.error ?? 'Save failed.';
+      }
+    });
+
+    document.getElementById('alert-email-test')!.addEventListener('click', async () => {
+      alertEmailStatus.textContent = 'Sending test email…';
+      const res = await fetch('/api/alert-config/test-email', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (res.ok) {
+        alertEmailStatus.textContent = `Test email sent to ${aeTo.value.trim()} — check your inbox.`;
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alertEmailStatus.textContent = body.error ?? 'Test email failed.';
+      }
+    });
+
+    document.getElementById('an-generate')!.addEventListener('click', () => {
+      const random = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+      anTopic.value = `dx-alert-${random}`;
+    });
+
+    document.getElementById('alert-ntfy-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertNtfyStatus.textContent = 'Saving…';
+      const res = await fetch('/api/alert-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ ntfy: { topic: anTopic.value.trim(), enabled: anEnabled.checked } }),
+      });
+      if (res.ok) {
+        alertNtfyStatus.textContent = 'Saved.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alertNtfyStatus.textContent = body.error ?? 'Save failed.';
+      }
+    });
+
+    document.getElementById('alert-ntfy-test')!.addEventListener('click', async () => {
+      alertNtfyStatus.textContent = 'Sending test push…';
+      const res = await fetch('/api/alert-config/test-ntfy', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (res.ok) {
+        alertNtfyStatus.textContent = `Test push sent to topic "${anTopic.value.trim()}" — check the ntfy app.`;
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alertNtfyStatus.textContent = body.error ?? 'Test push failed.';
+      }
+    });
+
+    document.getElementById('alert-vhf-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertVhfStatus.textContent = 'Saving…';
+      const res = await fetch('/api/alert-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ vhfEnabled: avEnabled.checked, vhfUsSpottersOnly: avUsOnly.checked }),
+      });
+      if (res.ok) {
+        alertVhfStatus.textContent = 'Saved.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alertVhfStatus.textContent = body.error ?? 'Save failed.';
+      }
+    });
+
+    document.getElementById('alert-flare-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertFlareStatus.textContent = 'Saving…';
+      const res = await fetch('/api/alert-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ flareEnabled: afEnabled.checked }),
+      });
+      if (res.ok) {
+        alertFlareStatus.textContent = 'Saved.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alertFlareStatus.textContent = body.error ?? 'Save failed.';
+      }
+    });
+
+    document.getElementById('alert-wind-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertWindStatus.textContent = 'Saving…';
+      const res = await fetch('/api/alert-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ windEnabled: awEnabled.checked }),
+      });
+      if (res.ok) {
+        alertWindStatus.textContent = 'Saved.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alertWindStatus.textContent = body.error ?? 'Save failed.';
+      }
+    });
+
+    document.getElementById('alert-kp-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertKpStatus.textContent = 'Saving…';
+      const res = await fetch('/api/alert-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ kpEnabled: akEnabled.checked }),
+      });
+      if (res.ok) {
+        alertKpStatus.textContent = 'Saved.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alertKpStatus.textContent = body.error ?? 'Save failed.';
+      }
+    });
+
+    document.getElementById('alert-tropo-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertTropoStatus.textContent = 'Saving…';
+      const res = await fetch('/api/alert-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ tropoEnabled: atEnabled.checked }),
+      });
+      if (res.ok) {
+        alertTropoStatus.textContent = 'Saved.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alertTropoStatus.textContent = body.error ?? 'Save failed.';
+      }
+    });
+
+    document.getElementById('alert-dx-filter-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertDxFilterStatus.textContent = 'Saving…';
+      const res = await fetch('/api/alert-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ dxUsSpottersOnly: adxUsOnly.checked }),
+      });
+      if (res.ok) {
+        alertDxFilterStatus.textContent = 'Saved.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alertDxFilterStatus.textContent = body.error ?? 'Save failed.';
+      }
+    });
+  </script>
+</Base>

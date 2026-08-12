@@ -1,0 +1,14 @@
+[Unit]
+Description=API (Hono/Bun)
+After=network.target
+
+[Service]
+Type=simple
+User=__APP_USER__
+WorkingDirectory=__APP_DIR__/api
+ExecStart=__BUN_BIN__ run start
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

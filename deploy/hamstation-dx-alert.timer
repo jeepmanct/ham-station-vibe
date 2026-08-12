@@ -1,0 +1,12 @@
+[Unit]
+Description=Periodic needed-DX email alert check
+
+[Timer]
+# Live-spot checking, not a daily backfill like the other sync timers --
+# runs every 10 minutes so a needed station is still likely on the air by
+# the time the alert lands. No-ops immediately if ALERT_ENABLED isn't set.
+OnBootSec=5min
+OnUnitActiveSec=10min
+
+[Install]
+WantedBy=timers.target

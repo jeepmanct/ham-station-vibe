@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily solar data sync
+
+[Timer]
+OnCalendar=*-*-* 06:15:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

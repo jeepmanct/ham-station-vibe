@@ -1,0 +1,10 @@
+[Unit]
+Description=Geomagnetic storm (Kp-index) alert check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+WorkingDirectory=__APP_DIR__/api
+ExecStart=__BUN_BIN__ run scripts/check-solar-kp.ts

@@ -1,0 +1,37 @@
+---
+import '../styles/filterPanel.css';
+---
+<div class="card filter-panel">
+  <div class="filter-panel-toolbar">
+    <button type="button" id="reset-filters" class="btn secondary">Reset filters</button>
+  </div>
+  <div class="filter-grid">
+    <div class="filter-group">
+      <h2>Band <button type="button" class="chip-link" id="band-all">All</button><button type="button" class="chip-link" id="band-none">None</button></h2>
+      <div id="band-chips" class="chip-row"></div>
+    </div>
+    <div class="filter-group">
+      <h2>Mode <button type="button" class="chip-link" id="mode-all">All</button><button type="button" class="chip-link" id="mode-none">None</button></h2>
+      <div id="mode-chips" class="chip-row"></div>
+    </div>
+    <div class="filter-group">
+      <h2>Country <button type="button" class="chip-link" id="country-all">All</button><button type="button" class="chip-link" id="country-none">None</button></h2>
+      <input type="text" id="country-search" class="filter-search" placeholder="Search countries…" />
+      <div id="country-chips" class="chip-row chip-row-scroll"></div>
+    </div>
+    <div class="filter-group">
+      <h2>US State <button type="button" class="chip-link" id="state-all">All</button><button type="button" class="chip-link" id="state-none">None</button></h2>
+      <input type="text" id="state-search" class="filter-search" placeholder="Search states…" />
+      <div id="state-chips" class="chip-row chip-row-scroll"></div>
+    </div>
+    <div class="filter-group filter-group-wide">
+      <h2>Date range</h2>
+      <div id="date-presets" class="chip-row" style="margin-bottom:0.5rem;"></div>
+      <div id="custom-date-row" class="custom-date-row" hidden>
+        <input type="date" id="date-from" />
+        <span style="color:var(--muted);">to</span>
+        <input type="date" id="date-to" />
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,191 @@
+---
+import Base from '../layouts/Base.astro';
+import FilterPanel from '../components/FilterPanel.astro';
+import '../styles/map.css';
+---
+<Base title="QSO Map" active="map">
+  <h1>QSO Map</h1>
+  <p class="lede">Great-circle paths from home to every logged contact &mdash; enable a band, mode, country, state, or date range below to plot contacts on the map.</p>
+
+  <FilterPanel />
+
+  <label style="display:inline-flex;align-items:center;gap:0.5rem;margin-top:1rem;font-size:0.9rem;cursor:pointer;">
+    <input type="checkbox" id="grayline-toggle" />
+    Show day/night grayline
+  </label>
+
+  <div id="qso-map"></div>
+  <p id="map-status" class="status-line" style="margin-top:0.5rem;"></p>
+
+  <script>
+    import 'leaflet/dist/leaflet.css';
+    import L from 'leaflet';
+    import { greatCircleArc } from '../lib/geo';
+    import { initQsoFilters } from '../lib/qsoFilters';
+    import { terminatorPoints, subsolarPoint } from '../lib/grayline';
+    import { escapeHtml } from '../lib/escapeHtml';
+
+    type Point = {
+      call: string;
+      qsoDate: string;
+      band: string | null;
+      mode: string | null;
+      gridsquare: string | null;
+      country: string | null;
+      state: string | null;
+      lat: number;
+      lon: number;
+      sfi: number | null;
+      aIndex: number | null;
+      kIndex: number | null;
+    };
+    type GeoResponse = { home: { lat: number; lon: number } | null; points: Point[] };
+
+    const style = getComputedStyle(document.documentElement);
+    const BAND_VARS = ['--band-1', '--band-2', '--band-3', '--band-4', '--band-5', '--band-6', '--band-7', '--band-8'];
+    const OTHER_COLOR = style.getPropertyValue('--band-other').trim() || '#8d98a1';
+    const ACCENT_COLOR = style.getPropertyValue('--accent').trim() || '#5eead4';
+    const ACCENT_2_COLOR = style.getPropertyValue('--accent-2').trim() || '#f5a962';
+
+    // Self-assigning: the first call for a given band claims the next palette
+    // slot. Since chip creation calls this once per band in frequency order
+    // (before any map data loads), the top BAND_VARS.length bands by frequency
+    // get distinct hues and the rest fall back to OTHER_COLOR.
+    const bandColorIndex = new Map<string, number>();
+    function colorForBand(band: string | null): string {
+      if (!band) return OTHER_COLOR;
+      if (!bandColorIndex.has(band) && bandColorIndex.size < BAND_VARS.length) {
+        bandColorIndex.set(band, bandColorIndex.size);
+      }
+      const idx = bandColorIndex.get(band);
+      if (idx === undefined) return OTHER_COLOR;
+      return style.getPropertyValue(BAND_VARS[idx]).trim() || OTHER_COLOR;
+    }
+
+    function formatDate(d: string) {
+      if (d.length !== 8) return d;
+      return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+    }
+
+    function formatSolar(p: Point): string {
+      const parts = [];
+      if (p.sfi != null) parts.push(`SFI ${p.sfi}`);
+      if (p.aIndex != null) parts.push(`A ${p.aIndex}`);
+      if (p.kIndex != null) parts.push(`K ${p.kIndex.toFixed(1)}`);
+      return parts.join(' · ');
+    }
+
+    // --- Map setup ---
+    const map = L.map('qso-map', { worldCopyJump: true }).setView([20, 0], 2);
+    const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const cartoStyle = isDarkMode ? 'dark_all' : 'light_all';
+    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${cartoStyle}/{z}/{x}/{y}{r}.png`, {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 18,
+    }).addTo(map);
+
+    const renderer = L.canvas({ padding: 0.5 });
+    let dataLayer = L.layerGroup().addTo(map);
+    let homeMarker: L.CircleMarker | null = null;
+    const mapStatus = document.getElementById('map-status')!;
+
+    // --- Grayline (day/night terminator) ---
+    const graylineLayer = L.layerGroup();
+    let graylineTimer: ReturnType<typeof setInterval> | undefined;
+
+    function drawGrayline() {
+      graylineLayer.clearLayers();
+      const now = new Date();
+      L.polyline(terminatorPoints(now), { color: ACCENT_2_COLOR, weight: 2, opacity: 0.8, dashArray: '6 6', renderer }).addTo(graylineLayer);
+      const sun = subsolarPoint(now);
+      L.circleMarker([sun.lat, sun.lon], { radius: 6, color: ACCENT_2_COLOR, fillColor: ACCENT_2_COLOR, fillOpacity: 1, weight: 1, renderer })
+        .bindTooltip('Sun overhead here', { direction: 'top' })
+        .addTo(graylineLayer);
+    }
+
+    document.getElementById('grayline-toggle')!.addEventListener('change', (e) => {
+      const on = (e.target as HTMLInputElement).checked;
+      if (on) {
+        drawGrayline();
+        graylineLayer.addTo(map);
+        graylineTimer = setInterval(drawGrayline, 5 * 60 * 1000);
+      } else {
+        map.removeLayer(graylineLayer);
+        clearInterval(graylineTimer);
+      }
+    });
+
+    // The home marker is a fixed reference point, not "QSO data" — shown
+    // immediately regardless of the filter state below, via its own fetch
+    // rather than piggybacking on the (possibly-skipped) filtered one.
+    fetch('/api/conditions/home')
+      .then((r) => r.json())
+      .then((home: { lat: number; lon: number } | null) => {
+        if (!home || homeMarker) return;
+        homeMarker = L.circleMarker([home.lat, home.lon], {
+          radius: 7,
+          color: ACCENT_COLOR,
+          fillColor: ACCENT_COLOR,
+          fillOpacity: 1,
+          weight: 2,
+          renderer,
+        })
+          .bindTooltip('Home', { permanent: true, direction: 'top', className: 'home-tooltip' })
+          .addTo(map);
+      });
+
+    async function loadData(query: string) {
+      dataLayer.clearLayers();
+
+      if (!query) {
+        mapStatus.textContent = 'No filters enabled — select a band, mode, country, state, or date range above to plot contacts.';
+        return;
+      }
+
+      mapStatus.textContent = 'Loading…';
+      const res = await fetch(`/api/qsos/geo?${query}`);
+      const data: GeoResponse = await res.json();
+
+      if (!data.home) {
+        mapStatus.textContent = `Showing ${data.points.length} contacts (no home location on file)`;
+        return;
+      }
+
+      for (const p of data.points) {
+        const arc = greatCircleArc(data.home.lat, data.home.lon, p.lat, p.lon, 16);
+        const color = colorForBand(p.band);
+        const tooltipText = `${escapeHtml(p.call)} · ${escapeHtml(p.band ?? '—')} · ${escapeHtml(p.mode ?? '—')}`;
+        const popupHtml = `<div class="qso-popup">
+            <strong>${escapeHtml(p.call)}</strong><br/>
+            ${formatDate(p.qsoDate)} · ${escapeHtml(p.band ?? '—')} · ${escapeHtml(p.mode ?? '—')}<br/>
+            ${p.country || p.state || p.gridsquare ? `${escapeHtml(p.country ?? '')}${p.state ? `, ${escapeHtml(p.state)}` : ''}${p.gridsquare ? ` (${escapeHtml(p.gridsquare)})` : ''}<br/>` : ''}
+            ${formatSolar(p) ? `<span style="color:var(--muted);">${escapeHtml(formatSolar(p))}</span><br/>` : ''}
+            <a class="btn" href="https://www.qrz.com/db/${encodeURIComponent(p.call)}" target="_blank" rel="noopener">View on QRZ.com ↗</a>
+          </div>`;
+
+        const line = L.polyline(arc, { color, weight: 1.5, opacity: 0.65, renderer });
+        line.bindTooltip(tooltipText, { sticky: true });
+        line.bindPopup(popupHtml);
+        dataLayer.addLayer(line);
+
+        // A small dot at the destination — an easier click/hover target than the thin line.
+        const dot = L.circleMarker([p.lat, p.lon], {
+          radius: 4,
+          color,
+          fillColor: color,
+          fillOpacity: 1,
+          weight: 1,
+          renderer,
+        });
+        dot.bindTooltip(tooltipText, { sticky: true });
+        dot.bindPopup(popupHtml);
+        dataLayer.addLayer(dot);
+      }
+
+      mapStatus.textContent = `Showing ${data.points.length} contacts`;
+    }
+
+    initQsoFilters(loadData, { colorForBand, startUnselected: true });
+  </script>
+</Base>

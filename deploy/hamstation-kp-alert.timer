@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodic geomagnetic storm (Kp-index) alert check
+
+[Timer]
+# Same 5-minute cadence as the flare/wind checks.
+OnBootSec=5min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,9 @@
+#qso-map {
+  height: 65vh;
+  min-height: 420px;
+  margin-top: 1rem;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.qso-popup a.btn { display:inline-flex; margin-top:0.4rem; }

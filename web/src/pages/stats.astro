@@ -1,0 +1,277 @@
+---
+import Base from '../layouts/Base.astro';
+import '../styles/stats.css';
+---
+<Base title="Stats" active="stats">
+  <h1>Stats</h1>
+  <p class="lede">Log analytics &mdash; computed from every QSO on file.</p>
+
+  <div class="stats-grid" id="summary-tiles">
+    <div class="stat-tile"><div class="label">Total QSOs</div><div class="value" id="stat-total">&mdash;</div></div>
+    <div class="stat-tile"><div class="label">Unique Calls</div><div class="value" id="stat-calls">&mdash;</div></div>
+    <div class="stat-tile"><div class="label">Years Active</div><div class="value" id="stat-years">&mdash;</div><div class="sub" id="stat-years-sub"></div></div>
+    <div class="stat-tile"><div class="label">Busiest Day</div><div class="value" id="stat-busiest">&mdash;</div><div class="sub" id="stat-busiest-sub"></div></div>
+    <div class="stat-tile"><div class="label">Longest DX</div><div class="value" id="stat-dx">&mdash;</div><div class="sub" id="stat-dx-sub"></div></div>
+  </div>
+
+  <div class="chart-section">
+    <h2>Activity</h2>
+    <p class="chart-desc">Days with at least one logged QSO, roughly the last year (53-week grid).</p>
+    <div class="stats-grid" style="margin-top:0;">
+      <div class="stat-tile"><div class="label">Longest Streak</div><div class="value" id="stat-longest-streak">&mdash;</div><div class="sub" id="stat-longest-streak-sub"></div></div>
+      <div class="stat-tile"><div class="label">Current Streak</div><div class="value" id="stat-current-streak">&mdash;</div><div class="sub" id="stat-current-streak-sub"></div></div>
+    </div>
+    <div class="activity-heatmap" id="activity-heatmap"></div>
+    <div class="heatmap-legend">
+      <span>Less</span>
+      <span class="heatmap-cell" data-level="0"></span>
+      <span class="heatmap-cell" data-level="1"></span>
+      <span class="heatmap-cell" data-level="2"></span>
+      <span class="heatmap-cell" data-level="3"></span>
+      <span class="heatmap-cell" data-level="4"></span>
+      <span>More</span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <h2>Operating Pattern</h2>
+    <p class="chart-desc">When QSOs happen, by UTC hour and day of week &mdash; propagation and band conditions are a UTC-time question, not a local-clock one.</p>
+    <div id="operating-heatmap"></div>
+  </div>
+
+  <div class="chart-section">
+    <h2>QSOs Per Year</h2>
+    <div class="chart-svg-wrap" id="chart-by-year"></div>
+  </div>
+
+  <div class="chart-row" style="margin-top:2rem;">
+    <div class="chart-section" style="margin-top:0;">
+      <h2>By Band</h2>
+      <div class="chart-svg-wrap" id="chart-by-band"></div>
+    </div>
+    <div class="chart-section" style="margin-top:0;">
+      <h2>By Mode</h2>
+      <div class="chart-svg-wrap" id="chart-by-mode"></div>
+    </div>
+  </div>
+
+  <div class="chart-section">
+    <h2>Distance</h2>
+    <p class="chart-desc">Great-circle distance from home to each contact.</p>
+    <div class="chart-row">
+      <div>
+        <p class="chart-desc" style="margin-bottom:0.4rem;">Distribution (miles)</p>
+        <div class="chart-svg-wrap" id="chart-distance"></div>
+      </div>
+      <div>
+        <p class="chart-desc" style="margin-bottom:0.4rem;">Top 10 Farthest DX</p>
+        <div id="distance-leaderboard"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-section">
+    <h2>Solar Cycle History</h2>
+    <p class="chart-desc">Yearly averages, 1947&ndash;present (Solar Flux Index has been recorded since 1947; K-index since 1932).</p>
+    <div class="chart-row">
+      <div>
+        <p class="chart-desc" style="margin-bottom:0.4rem;">Solar Flux Index</p>
+        <div class="chart-svg-wrap" id="chart-sfi"></div>
+      </div>
+      <div>
+        <p class="chart-desc" style="margin-bottom:0.4rem;">K-Index</p>
+        <div class="chart-svg-wrap" id="chart-k"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    import { renderBarChart, renderLineChart } from '../lib/charts';
+
+    const style = getComputedStyle(document.documentElement);
+    const ACCENT = style.getPropertyValue('--accent').trim();
+    const ACCENT2 = style.getPropertyValue('--accent-2').trim();
+    const BAND_VARS = ['--band-1', '--band-2', '--band-3', '--band-4', '--band-5', '--band-6', '--band-7', '--band-8'];
+    const OTHER_COLOR = style.getPropertyValue('--band-other').trim();
+
+    function formatDate(d: string) {
+      if (d.length !== 8) return d;
+      return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+    }
+
+    // --- Summary ---
+    type Summary = {
+      total: number;
+      distinctCalls: number;
+      busiestDay: { qso_date: string; count: number } | null;
+      yearsActive: number;
+      firstYear: string | null;
+      lastYear: string | null;
+    };
+    fetch('/api/stats/summary')
+      .then((r) => r.json())
+      .then((s: Summary) => {
+        document.getElementById('stat-total')!.textContent = s.total.toLocaleString();
+        document.getElementById('stat-calls')!.textContent = s.distinctCalls.toLocaleString();
+        // "Years active" needs a first-licensed year, which isn't tracked
+        // anywhere in the app -- placeholder example only. Set your own
+        // licensing year here, or remove this stat.
+        const LICENSED_SINCE_YEAR = new Date().getFullYear();
+        document.getElementById('stat-years')!.textContent = String(new Date().getFullYear() - LICENSED_SINCE_YEAR);
+        document.getElementById('stat-years-sub')!.textContent = `Licensed since ${LICENSED_SINCE_YEAR}`;
+        document.getElementById('stat-busiest')!.textContent = s.busiestDay ? String(s.busiestDay.count) + ' QSOs' : '—';
+        document.getElementById('stat-busiest-sub')!.textContent = s.busiestDay ? formatDate(s.busiestDay.qso_date) : '';
+      });
+
+    type DistanceResp = {
+      longest: { call: string; qsoDate: string; km: number } | null;
+      topTen: { call: string; qsoDate: string; band: string | null; km: number }[];
+      buckets: { min: number; max: number; count: number }[];
+    };
+    fetch('/api/stats/distance')
+      .then((r) => r.json())
+      .then((d: DistanceResp) => {
+        if (d.longest) {
+          const miles = Math.round(d.longest.km * 0.621371);
+          document.getElementById('stat-dx')!.textContent = `${miles.toLocaleString()} mi (${d.longest.km.toLocaleString()} km)`;
+          document.getElementById('stat-dx-sub')!.textContent = `${d.longest.call} · ${formatDate(d.longest.qsoDate)}`;
+        }
+        const chart = document.getElementById('chart-distance')!;
+        const formatMi = (n: number) => (n >= 1000 ? `${n / 1000}k` : String(n));
+        renderBarChart(
+          chart,
+          d.buckets.map((b) => ({ label: b.max >= 12500 ? `${formatMi(b.min)}+` : `${formatMi(b.min)}-${formatMi(b.max)}`, value: b.count })),
+          ACCENT,
+        );
+
+        const leaderboard = document.getElementById('distance-leaderboard')!;
+        leaderboard.innerHTML = '';
+        d.topTen.forEach((r, i) => {
+          const row = document.createElement('div');
+          row.className = 'leaderboard-row';
+          const miles = Math.round(r.km * 0.621371);
+          row.innerHTML = `
+            <span class="rank">${i + 1}</span>
+            <span><a class="call" href="https://www.qrz.com/db/${encodeURIComponent(r.call)}" target="_blank" rel="noopener">${r.call}</a><span class="band"> &middot; ${r.band ?? '—'} &middot; ${formatDate(r.qsoDate)}</span></span>
+            <span class="km">${miles.toLocaleString()} mi</span>
+          `;
+          leaderboard.appendChild(row);
+        });
+      });
+
+    // --- Activity heatmap + streaks ---
+    type ActivityResp = {
+      daily: { date: string; count: number }[];
+      longestStreak: { length: number; startDate: string; endDate: string };
+      currentStreak: { length: number; startDate: string; endDate: string; active: boolean };
+    };
+    fetch('/api/stats/activity')
+      .then((r) => r.json())
+      .then((d: ActivityResp) => {
+        document.getElementById('stat-longest-streak')!.textContent = `${d.longestStreak.length} day${d.longestStreak.length === 1 ? '' : 's'}`;
+        document.getElementById('stat-longest-streak-sub')!.textContent = d.longestStreak.length
+          ? `${formatDate(d.longestStreak.startDate)} – ${formatDate(d.longestStreak.endDate)}`
+          : '';
+        document.getElementById('stat-current-streak')!.textContent = `${d.currentStreak.length} day${d.currentStreak.length === 1 ? '' : 's'}`;
+        document.getElementById('stat-current-streak-sub')!.textContent = d.currentStreak.length
+          ? `${d.currentStreak.active ? 'ongoing, ' : 'ended '}${formatDate(d.currentStreak.endDate)}`
+          : '';
+
+        const countByDate = new Map(d.daily.map((r) => [r.date, r.count]));
+        const maxCount = Math.max(1, ...d.daily.map((r) => r.count));
+        const heatmap = document.getElementById('activity-heatmap')!;
+        heatmap.innerHTML = '';
+        const today = new Date();
+        for (let i = 370; i >= 0; i--) {
+          const date = new Date(today);
+          date.setDate(date.getDate() - i);
+          const key = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+          const count = countByDate.get(key) ?? 0;
+          const level = count === 0 ? 0 : Math.min(4, Math.ceil((count / maxCount) * 4));
+          const cell = document.createElement('div');
+          cell.className = 'heatmap-cell';
+          cell.dataset.level = String(level);
+          cell.title = `${formatDate(key)}: ${count} QSO${count === 1 ? '' : 's'}`;
+          heatmap.appendChild(cell);
+        }
+      });
+
+    // --- Operating pattern (hour of day x day of week) ---
+    fetch('/api/stats/activity-pattern')
+      .then((r) => r.json())
+      .then((d: { dayNames: string[]; grid: number[][] }) => {
+        const maxCount = Math.max(1, ...d.grid.flat());
+        let html = '<div class="op-heatmap-row op-heatmap-hours"><span></span>';
+        for (let h = 0; h < 24; h++) html += `<span>${h % 3 === 0 ? String(h).padStart(2, '0') : ''}</span>`;
+        html += '</div>';
+        for (let dow = 0; dow < 7; dow++) {
+          html += `<div class="op-heatmap-row"><span class="op-heatmap-daylabel">${d.dayNames[dow]}</span>`;
+          for (let hour = 0; hour < 24; hour++) {
+            const count = d.grid[dow][hour];
+            const level = count === 0 ? 0 : Math.min(4, Math.ceil((count / maxCount) * 4));
+            html += `<span class="heatmap-cell" data-level="${level}" title="${d.dayNames[dow]} ${String(hour).padStart(2, '0')}:00 UTC — ${count} QSO${count === 1 ? '' : 's'}"></span>`;
+          }
+          html += '</div>';
+        }
+        document.getElementById('operating-heatmap')!.innerHTML = html;
+      });
+
+    // --- QSOs per year ---
+    fetch('/api/stats/by-year')
+      .then((r) => r.json())
+      .then((rows: { year: string; count: number }[]) => {
+        renderBarChart(
+          document.getElementById('chart-by-year')!,
+          rows.map((r) => ({ label: r.year, value: r.count })),
+          ACCENT,
+        );
+      });
+
+    // --- Band breakdown (reuses the same band color assignment as the map/log pages) ---
+    const bandColorIndex = new Map<string, number>();
+    function colorForBand(band: string): string {
+      if (!bandColorIndex.has(band) && bandColorIndex.size < BAND_VARS.length) {
+        bandColorIndex.set(band, bandColorIndex.size);
+      }
+      const idx = bandColorIndex.get(band);
+      return idx === undefined ? OTHER_COLOR : style.getPropertyValue(BAND_VARS[idx]).trim();
+    }
+    fetch('/api/qsos/bands')
+      .then((r) => r.json())
+      .then((rows: { band: string; count: number }[]) => {
+        renderBarChart(
+          document.getElementById('chart-by-band')!,
+          rows.map((r) => ({ label: r.band, value: r.count, color: colorForBand(r.band) })),
+          ACCENT,
+        );
+      });
+
+    fetch('/api/qsos/modes')
+      .then((r) => r.json())
+      .then((rows: { mode: string; count: number }[]) => {
+        renderBarChart(
+          document.getElementById('chart-by-mode')!,
+          rows.map((r) => ({ label: r.mode, value: r.count })),
+          ACCENT2,
+        );
+      });
+
+    // --- Propagation history (two small multiples, never one dual-axis chart) ---
+    fetch('/api/solar/history')
+      .then((r) => r.json())
+      .then((rows: { year: string; avgSfi: number; avgK: number; avgA: number }[]) => {
+        renderLineChart(
+          document.getElementById('chart-sfi')!,
+          rows.map((r) => ({ x: Number(r.year), y: r.avgSfi })),
+          ACCENT,
+          { minY: 0 },
+        );
+        renderLineChart(
+          document.getElementById('chart-k')!,
+          rows.map((r) => ({ x: Number(r.year), y: r.avgK })),
+          ACCENT2,
+          { minY: 0 },
+        );
+      });
+  </script>
+</Base>

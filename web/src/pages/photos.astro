@@ -1,0 +1,180 @@
+---
+import Base from '../layouts/Base.astro';
+import '../styles/gallery.css';
+---
+<Base title="Photos" active="photos">
+  <h1>Photos</h1>
+  <p class="lede">Shack setups, antennas, and field days.</p>
+
+  <div id="gallery" class="gallery"></div>
+  <p id="empty-state" class="status-line" hidden>No photos yet.</p>
+
+  <section style="margin-top:2rem;">
+    <button type="button" id="upload-toggle" class="btn secondary">Upload photo</button>
+
+    <div id="upload-panel" class="card" style="margin-top:1rem;" hidden>
+      <div id="upload-login">
+        <h2>Log in to upload</h2>
+        <form id="login-form">
+          <input type="password" id="password" placeholder="Admin password" autocomplete="current-password" required />
+          <p id="login-status" class="status-line"></p>
+          <button type="submit" class="btn">Log in</button>
+        </form>
+      </div>
+
+      <div id="upload-form-wrap" hidden>
+        <h2>Upload photo</h2>
+        <form id="upload-form" style="display:flex;flex-direction:column;gap:0.75rem;">
+          <input type="file" id="photo-file" accept="image/*" required />
+          <input type="text" id="photo-caption" placeholder="Caption (optional)" />
+          <p id="upload-status" class="status-line"></p>
+          <button type="submit" class="btn" style="align-self:flex-start;">Upload</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const TOKEN_KEY = 'hamstation_admin_token';
+
+    type Photo = { id: number; url: string; thumbUrl: string; caption?: string };
+
+    const gallery = document.getElementById('gallery')!;
+    const emptyState = document.getElementById('empty-state')!;
+
+    async function deletePhoto(id: number) {
+      if (!confirm('Delete this photo? This can\'t be undone.')) return;
+      const res = await fetch(`/api/photos/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (res.ok) {
+        loadPhotos();
+      } else if (res.status === 401) {
+        sessionStorage.removeItem(TOKEN_KEY);
+        loadPhotos();
+      } else {
+        alert('Could not delete photo.');
+      }
+    }
+
+    function loadPhotos() {
+      const isAdmin = !!sessionStorage.getItem(TOKEN_KEY);
+      fetch('/api/photos')
+        .then((r) => r.json())
+        .then((photos: Photo[]) => {
+          gallery.innerHTML = '';
+          if (!photos.length) {
+            emptyState.textContent = 'No photos yet.';
+            emptyState.hidden = false;
+            return;
+          }
+          emptyState.hidden = true;
+          for (const photo of photos) {
+            const figure = document.createElement('figure');
+            const link = document.createElement('a');
+            link.href = photo.url;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            const img = document.createElement('img');
+            img.src = photo.thumbUrl;
+            img.alt = photo.caption ?? '';
+            img.loading = 'lazy';
+            link.appendChild(img);
+            figure.appendChild(link);
+            if (photo.caption) {
+              const caption = document.createElement('figcaption');
+              caption.textContent = photo.caption;
+              figure.appendChild(caption);
+            }
+            if (isAdmin) {
+              const deleteBtn = document.createElement('button');
+              deleteBtn.type = 'button';
+              deleteBtn.className = 'delete-photo-btn';
+              deleteBtn.setAttribute('aria-label', 'Delete photo');
+              deleteBtn.textContent = '✕';
+              deleteBtn.addEventListener('click', () => deletePhoto(photo.id));
+              figure.appendChild(deleteBtn);
+            }
+            gallery.appendChild(figure);
+          }
+        })
+        .catch(() => {
+          emptyState.textContent = 'Could not load photos.';
+          emptyState.hidden = false;
+        });
+    }
+    loadPhotos();
+
+    // --- Password-protected upload panel ---
+    const uploadToggle = document.getElementById('upload-toggle')!;
+    const uploadPanel = document.getElementById('upload-panel')!;
+    const uploadLogin = document.getElementById('upload-login')!;
+    const uploadFormWrap = document.getElementById('upload-form-wrap')!;
+    const loginStatus = document.getElementById('login-status')!;
+
+    function showUploadForm() {
+      uploadLogin.setAttribute('hidden', '');
+      uploadFormWrap.removeAttribute('hidden');
+    }
+
+    uploadToggle.addEventListener('click', () => {
+      const willShow = uploadPanel.hasAttribute('hidden');
+      uploadPanel.toggleAttribute('hidden');
+      if (willShow && sessionStorage.getItem(TOKEN_KEY)) {
+        showUploadForm();
+      }
+    });
+
+    document.getElementById('login-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = (document.getElementById('password') as HTMLInputElement).value;
+      loginStatus.textContent = 'Checking…';
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (res.ok) {
+        const { token } = await res.json();
+        sessionStorage.setItem(TOKEN_KEY, token);
+        loginStatus.textContent = '';
+        showUploadForm();
+        loadPhotos();
+      } else {
+        loginStatus.textContent = 'Wrong password.';
+      }
+    });
+
+    document.getElementById('upload-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('photo-file') as HTMLInputElement;
+      const captionInput = document.getElementById('photo-caption') as HTMLInputElement;
+      const status = document.getElementById('upload-status')!;
+      if (!fileInput.files?.length) return;
+      const form = new FormData();
+      form.append('photo', fileInput.files[0]);
+      form.append('caption', captionInput.value);
+      status.textContent = 'Uploading…';
+      const res = await fetch('/api/photos', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: form,
+      });
+      if (res.ok) {
+        status.textContent = 'Uploaded!';
+        fileInput.value = '';
+        captionInput.value = '';
+        loadPhotos();
+      } else if (res.status === 401) {
+        sessionStorage.removeItem(TOKEN_KEY);
+        uploadFormWrap.setAttribute('hidden', '');
+        uploadLogin.removeAttribute('hidden');
+        status.textContent = '';
+        loginStatus.textContent = 'Session expired, please log in again.';
+      } else {
+        status.textContent = 'Upload failed.';
+      }
+    });
+  </script>
+</Base>

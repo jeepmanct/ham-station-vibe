@@ -1,0 +1,12 @@
+[Unit]
+Description=Weekly Club Log most-wanted DXCC ranking sync
+
+[Timer]
+# The global most-wanted ranking barely moves week-to-week -- weekly is
+# plenty, same reasoning as the OQRS sync's cadence.
+OnCalendar=Sun *-*-* 07:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

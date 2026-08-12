@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.astro/
+*.log
+
+# Runtime data — QSO database, uploaded photos, sessions
+api/data/
+
+# Secrets
+.env
+.env.*
+!.env.example

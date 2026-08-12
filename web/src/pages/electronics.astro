@@ -1,0 +1,546 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="Electronics" active="electronics">
+  <h1>Electronics</h1>
+  <p class="lede">General-purpose electronics calculators &mdash; bench work, not specifically ham radio.</p>
+
+  <div class="tools-grid">
+    <div class="tool-card">
+      <h2><span>Resistor Color Code</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <div class="tool-field">
+        <label for="res-bands">Bands</label>
+        <select id="res-bands">
+          <option value="4">4-band</option>
+          <option value="5">5-band</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <div class="tool-field" style="flex:1;min-width:100px;">
+          <label for="res-1">Band 1</label>
+          <select id="res-1"></select>
+        </div>
+        <div class="tool-field" style="flex:1;min-width:100px;">
+          <label for="res-2">Band 2</label>
+          <select id="res-2"></select>
+        </div>
+        <div class="tool-field" id="res-3-field" style="flex:1;min-width:100px;" hidden>
+          <label for="res-3">Band 3</label>
+          <select id="res-3"></select>
+        </div>
+        <div class="tool-field" style="flex:1;min-width:100px;">
+          <label for="res-mult">Multiplier</label>
+          <select id="res-mult"></select>
+        </div>
+        <div class="tool-field" style="flex:1;min-width:100px;">
+          <label for="res-tol">Tolerance</label>
+          <select id="res-tol"></select>
+        </div>
+      </div>
+      <div class="tool-result" id="res-result" hidden>
+        <div class="big" id="res-result-value">&mdash;</div>
+        <div class="sub" id="res-result-sub"></div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>Ohm's Law</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Enter any two values to solve for the rest.</p>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <div class="tool-field" style="flex:1;min-width:100px;">
+          <label for="ohm-v">Voltage (V)</label>
+          <input type="text" id="ohm-v" placeholder="volts" />
+        </div>
+        <div class="tool-field" style="flex:1;min-width:100px;">
+          <label for="ohm-i">Current (A)</label>
+          <input type="text" id="ohm-i" placeholder="amps" />
+        </div>
+        <div class="tool-field" style="flex:1;min-width:100px;">
+          <label for="ohm-r">Resistance (Ω)</label>
+          <input type="text" id="ohm-r" placeholder="ohms" />
+        </div>
+        <div class="tool-field" style="flex:1;min-width:100px;">
+          <label for="ohm-p">Power (W)</label>
+          <input type="text" id="ohm-p" placeholder="watts" />
+        </div>
+      </div>
+      <div class="tool-result" id="ohm-result" hidden>
+        <div class="big" id="ohm-result-value">&mdash;</div>
+        <div class="sub" id="ohm-result-sub"></div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>dBm / Watts / Volts</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <div style="display:flex;gap:0.5rem;">
+        <div class="tool-field" style="flex:1;">
+          <label for="dbm-dbm">Power (dBm)</label>
+          <input type="text" id="dbm-dbm" placeholder="e.g. 37" />
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="dbm-watts">Power (W)</label>
+          <input type="text" id="dbm-watts" placeholder="e.g. 5" />
+        </div>
+      </div>
+      <div class="tool-field">
+        <label for="dbm-z">Impedance (Ω)</label>
+        <input type="text" id="dbm-z" value="50" />
+      </div>
+      <div class="tool-result" id="dbm-result" hidden>
+        <div class="big" id="dbm-result-value">&mdash;</div>
+        <div class="sub" id="dbm-result-sub"></div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>LED Series Resistor</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <div style="display:flex;gap:0.5rem;">
+        <div class="tool-field" style="flex:1;">
+          <label for="led-vs">Supply (V)</label>
+          <input type="text" id="led-vs" placeholder="e.g. 5" />
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="led-vf">LED Vf (V)</label>
+          <input type="text" id="led-vf" placeholder="e.g. 2.0" />
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="led-if">LED If (mA)</label>
+          <input type="text" id="led-if" value="20" />
+        </div>
+      </div>
+      <div class="tool-result" id="led-result" hidden>
+        <div class="big" id="led-result-value">&mdash;</div>
+        <div class="sub" id="led-result-sub"></div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>Voltage Divider</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <div style="display:flex;gap:0.5rem;">
+        <div class="tool-field" style="flex:1;">
+          <label for="vdiv-vin">Vin (V)</label>
+          <input type="text" id="vdiv-vin" placeholder="e.g. 12" />
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="vdiv-r1">R1 (Ω)</label>
+          <input type="text" id="vdiv-r1" placeholder="e.g. 1000" />
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="vdiv-r2">R2 (Ω)</label>
+          <input type="text" id="vdiv-r2" placeholder="e.g. 2000" />
+        </div>
+      </div>
+      <div class="tool-result" id="vdiv-result" hidden>
+        <div class="big" id="vdiv-result-value">&mdash;</div>
+        <div class="sub" id="vdiv-result-sub"></div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>Capacitor Code</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <div style="display:flex;gap:0.5rem;">
+        <div class="tool-field" style="flex:1;">
+          <label for="cap-code">EIA code</label>
+          <input type="text" id="cap-code" placeholder="e.g. 104" />
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="cap-tol">Tolerance</label>
+          <select id="cap-tol">
+            <option value="">None</option>
+            <option value="B">B (±0.1pF)</option>
+            <option value="C">C (±0.25pF)</option>
+            <option value="D">D (±0.5pF)</option>
+            <option value="F">F (±1%)</option>
+            <option value="G">G (±2%)</option>
+            <option value="H">H (±3%)</option>
+            <option value="J">J (±5%)</option>
+            <option value="K">K (±10%)</option>
+            <option value="M">M (±20%)</option>
+            <option value="Z">Z (+80%/-20%)</option>
+          </select>
+        </div>
+      </div>
+      <div class="tool-result" id="cap-result" hidden>
+        <div class="big" id="cap-result-value">&mdash;</div>
+        <div class="sub" id="cap-result-sub"></div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>Coil Winding (Air-Core)</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Wheeler's formula for a single-layer air-core solenoid &mdash; nominal, most accurate when coil length &gt; ~0.4&times; diameter.</p>
+      <div style="display:flex;gap:0.5rem;">
+        <div class="tool-field" style="flex:1;">
+          <label for="coil-inductance">Target inductance (&micro;H)</label>
+          <input type="text" id="coil-inductance" placeholder="e.g. 10" />
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="coil-diameter">Coil diameter (in)</label>
+          <input type="text" id="coil-diameter" placeholder="e.g. 1" />
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="coil-tpi">Turns per inch</label>
+          <input type="text" id="coil-tpi" placeholder="e.g. 10" />
+        </div>
+      </div>
+      <div class="tool-result" id="coil-result" hidden>
+        <div class="big" id="coil-result-value">&mdash;</div>
+        <div class="sub" id="coil-result-sub"></div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>Battery Runtime</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <div style="display:flex;gap:0.5rem;">
+        <div class="tool-field" style="flex:1;">
+          <label for="batt-capacity">Battery capacity (Ah)</label>
+          <input type="text" id="batt-capacity" placeholder="e.g. 20" />
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="batt-current">Load current (A)</label>
+          <input type="text" id="batt-current" placeholder="e.g. 8" />
+        </div>
+      </div>
+      <div class="tool-field">
+        <label for="batt-usable">Usable capacity (%)</label>
+        <input type="text" id="batt-usable" value="100" />
+      </div>
+      <div class="tool-result" id="batt-result" hidden>
+        <div class="big" id="batt-result-value">&mdash;</div>
+        <div class="sub" id="batt-result-sub"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Resistor color code ---
+    type ResColor = { name: string; digit?: number; mult?: number; tol?: number };
+    const RESISTOR_COLORS: ResColor[] = [
+      { name: 'Black', digit: 0, mult: 1 },
+      { name: 'Brown', digit: 1, mult: 10, tol: 1 },
+      { name: 'Red', digit: 2, mult: 100, tol: 2 },
+      { name: 'Orange', digit: 3, mult: 1000 },
+      { name: 'Yellow', digit: 4, mult: 10000 },
+      { name: 'Green', digit: 5, mult: 100000, tol: 0.5 },
+      { name: 'Blue', digit: 6, mult: 1000000, tol: 0.25 },
+      { name: 'Violet', digit: 7, mult: 10000000, tol: 0.1 },
+      { name: 'Grey', digit: 8, mult: 100000000, tol: 0.05 },
+      { name: 'White', digit: 9, mult: 1000000000 },
+      { name: 'Gold', mult: 0.1, tol: 5 },
+      { name: 'Silver', mult: 0.01, tol: 10 },
+    ];
+    const colorByName = (name: string) => RESISTOR_COLORS.find((c) => c.name === name)!;
+    const DIGIT_COLORS = RESISTOR_COLORS.filter((c) => c.digit !== undefined);
+    const MULT_COLORS = RESISTOR_COLORS.filter((c) => c.mult !== undefined);
+    const TOL_COLORS = RESISTOR_COLORS.filter((c) => c.tol !== undefined);
+
+    const resBandsSelect = document.getElementById('res-bands') as HTMLSelectElement;
+    const res1 = document.getElementById('res-1') as HTMLSelectElement;
+    const res2 = document.getElementById('res-2') as HTMLSelectElement;
+    const res3 = document.getElementById('res-3') as HTMLSelectElement;
+    const res3Field = document.getElementById('res-3-field')!;
+    const resMult = document.getElementById('res-mult') as HTMLSelectElement;
+    const resTol = document.getElementById('res-tol') as HTMLSelectElement;
+    const resResult = document.getElementById('res-result')!;
+    const resResultValue = document.getElementById('res-result-value')!;
+    const resResultSub = document.getElementById('res-result-sub')!;
+
+    function populateSelect(select: HTMLSelectElement, colors: ResColor[]) {
+      select.innerHTML = colors.map((c) => `<option value="${c.name}">${c.name}</option>`).join('');
+    }
+    populateSelect(res1, DIGIT_COLORS);
+    populateSelect(res2, DIGIT_COLORS);
+    populateSelect(res3, DIGIT_COLORS);
+    populateSelect(resMult, MULT_COLORS);
+    resTol.innerHTML =
+      '<option value="None">None (±20%)</option>' +
+      TOL_COLORS.map((c) => `<option value="${c.name}">${c.name} (±${c.tol}%)</option>`).join('');
+    res1.value = 'Brown';
+    res2.value = 'Black';
+    res3.value = 'Black';
+    resMult.value = 'Red';
+    resTol.value = 'Gold';
+
+    function formatOhms(ohms: number): string {
+      const trim = (n: number) => n.toFixed(2).replace(/\.?0+$/, '');
+      if (ohms >= 1e6) return `${trim(ohms / 1e6)} MΩ`;
+      if (ohms >= 1e3) return `${trim(ohms / 1e3)} kΩ`;
+      return `${trim(ohms)} Ω`;
+    }
+
+    function computeResistor() {
+      const bands = Number(resBandsSelect.value);
+      res3Field.hidden = bands !== 5;
+      const c1 = colorByName(res1.value);
+      const c2 = colorByName(res2.value);
+      const mult = colorByName(resMult.value);
+      const tol = resTol.value === 'None' ? 20 : colorByName(resTol.value).tol!;
+      const digits = bands === 5 ? c1.digit! * 100 + c2.digit! * 10 + colorByName(res3.value).digit! : c1.digit! * 10 + c2.digit!;
+      const ohms = digits * mult.mult!;
+      resResult.hidden = false;
+      resResultValue.textContent = formatOhms(ohms);
+      resResultSub.textContent = `±${tol}% tolerance`;
+    }
+    [resBandsSelect, res1, res2, res3, resMult, resTol].forEach((el) => el.addEventListener('change', computeResistor));
+    computeResistor();
+
+    // --- Ohm's Law ---
+    const ohmV = document.getElementById('ohm-v') as HTMLInputElement;
+    const ohmI = document.getElementById('ohm-i') as HTMLInputElement;
+    const ohmR = document.getElementById('ohm-r') as HTMLInputElement;
+    const ohmP = document.getElementById('ohm-p') as HTMLInputElement;
+    const ohmResult = document.getElementById('ohm-result')!;
+    const ohmResultValue = document.getElementById('ohm-result-value')!;
+    const ohmResultSub = document.getElementById('ohm-result-sub')!;
+
+    function computeOhm() {
+      const raw = { v: ohmV.value, i: ohmI.value, r: ohmR.value, p: ohmP.value };
+      const vals = { v: Number(raw.v), i: Number(raw.i), r: Number(raw.r), p: Number(raw.p) };
+      const known = (Object.keys(raw) as (keyof typeof raw)[]).filter((k) => raw[k] !== '' && !Number.isNaN(vals[k]));
+      if (known.length < 2) { ohmResult.hidden = true; return; }
+      const pair = known.slice(0, 2).sort().join('');
+      let { v, i, r, p } = vals;
+      if (pair === 'iv') { r = v / i; p = v * i; }
+      else if (pair === 'rv') { i = v / r; p = (v * v) / r; }
+      else if (pair === 'pv') { i = p / v; r = (v * v) / p; }
+      else if (pair === 'ir') { v = i * r; p = i * i * r; }
+      else if (pair === 'ip') { v = p / i; r = p / (i * i); }
+      else if (pair === 'pr') { v = Math.sqrt(p * r); i = Math.sqrt(p / r); }
+      else { ohmResult.hidden = true; return; }
+      ohmResult.hidden = false;
+      ohmResultValue.textContent = `V=${v.toFixed(3)}  I=${i.toFixed(3)}  R=${r.toFixed(3)}`;
+      ohmResultSub.textContent = `P = ${p.toFixed(3)} W`;
+    }
+    [ohmV, ohmI, ohmR, ohmP].forEach((el) => el.addEventListener('input', computeOhm));
+
+    // --- dBm / Watts / Volts ---
+    const dbmDbm = document.getElementById('dbm-dbm') as HTMLInputElement;
+    const dbmWatts = document.getElementById('dbm-watts') as HTMLInputElement;
+    const dbmZ = document.getElementById('dbm-z') as HTMLInputElement;
+    const dbmResult = document.getElementById('dbm-result')!;
+    const dbmResultValue = document.getElementById('dbm-result-value')!;
+    const dbmResultSub = document.getElementById('dbm-result-sub')!;
+
+    function updateDbmResult(dbm: number, w: number) {
+      const z = Number(dbmZ.value) || 50;
+      const vrms = Math.sqrt(w * z);
+      const vpp = vrms * 2 * Math.SQRT2;
+      dbmResult.hidden = false;
+      dbmResultValue.textContent = w >= 1 ? `${w.toFixed(3)} W` : `${(w * 1000).toFixed(2)} mW`;
+      dbmResultSub.textContent = `${dbm.toFixed(2)} dBm · ${vrms.toFixed(3)} Vrms / ${vpp.toFixed(3)} Vpp into ${z}Ω`;
+    }
+    function computeDbmFromDbm() {
+      const dbm = Number(dbmDbm.value);
+      if (!dbmDbm.value || Number.isNaN(dbm)) { dbmResult.hidden = true; return; }
+      const w = Math.pow(10, dbm / 10) / 1000;
+      dbmWatts.value = w >= 1 ? w.toFixed(3) : w.toFixed(6);
+      updateDbmResult(dbm, w);
+    }
+    function computeDbmFromWatts() {
+      const w = Number(dbmWatts.value);
+      if (!dbmWatts.value || Number.isNaN(w) || w <= 0) { dbmResult.hidden = true; return; }
+      const dbm = 10 * Math.log10(w * 1000);
+      dbmDbm.value = dbm.toFixed(2);
+      updateDbmResult(dbm, w);
+    }
+    dbmDbm.addEventListener('input', computeDbmFromDbm);
+    dbmWatts.addEventListener('input', computeDbmFromWatts);
+    dbmZ.addEventListener('input', () => { if (dbmDbm.value) computeDbmFromDbm(); });
+
+    // --- LED series resistor ---
+    const ledVs = document.getElementById('led-vs') as HTMLInputElement;
+    const ledVf = document.getElementById('led-vf') as HTMLInputElement;
+    const ledIf = document.getElementById('led-if') as HTMLInputElement;
+    const ledResult = document.getElementById('led-result')!;
+    const ledResultValue = document.getElementById('led-result-value')!;
+    const ledResultSub = document.getElementById('led-result-sub')!;
+
+    const E12_BASE = [1.0, 1.2, 1.5, 1.8, 2.2, 2.7, 3.3, 3.9, 4.7, 5.6, 6.8, 8.2];
+    function nearestE12(r: number): string {
+      const exp = Math.floor(Math.log10(r));
+      let best = Infinity;
+      for (let e = exp - 1; e <= exp + 2; e++) {
+        for (const base of E12_BASE) {
+          const val = base * Math.pow(10, e);
+          if (val >= r && val < best) best = val;
+        }
+      }
+      return best >= 1000 ? `${(best / 1000).toFixed(1)}k` : best.toFixed(best < 10 ? 1 : 0);
+    }
+
+    function computeLed() {
+      const vs = Number(ledVs.value);
+      const vf = Number(ledVf.value);
+      const ifMa = Number(ledIf.value);
+      if (!ledVs.value || !ledVf.value || !ledIf.value || Number.isNaN(vs) || Number.isNaN(vf) || Number.isNaN(ifMa) || ifMa <= 0) {
+        ledResult.hidden = true;
+        return;
+      }
+      if (vs <= vf) {
+        ledResult.hidden = false;
+        ledResultValue.textContent = 'Supply too low';
+        ledResultSub.textContent = 'Supply voltage must exceed the LED forward voltage.';
+        return;
+      }
+      const iAmps = ifMa / 1000;
+      const r = (vs - vf) / iAmps;
+      const p = iAmps * iAmps * r;
+      ledResult.hidden = false;
+      ledResultValue.textContent = `${r.toFixed(1)} Ω`;
+      ledResultSub.textContent = `${(p * 1000).toFixed(1)} mW dissipated · nearest standard value ${nearestE12(r)} Ω`;
+    }
+    [ledVs, ledVf, ledIf].forEach((el) => el.addEventListener('input', computeLed));
+
+    // --- Voltage divider ---
+    const vdivVin = document.getElementById('vdiv-vin') as HTMLInputElement;
+    const vdivR1 = document.getElementById('vdiv-r1') as HTMLInputElement;
+    const vdivR2 = document.getElementById('vdiv-r2') as HTMLInputElement;
+    const vdivResult = document.getElementById('vdiv-result')!;
+    const vdivResultValue = document.getElementById('vdiv-result-value')!;
+    const vdivResultSub = document.getElementById('vdiv-result-sub')!;
+
+    function computeVdiv() {
+      const vin = Number(vdivVin.value);
+      const r1 = Number(vdivR1.value);
+      const r2 = Number(vdivR2.value);
+      if (!vdivVin.value || !vdivR1.value || !vdivR2.value || Number.isNaN(vin) || Number.isNaN(r1) || Number.isNaN(r2) || r1 < 0 || r2 <= 0) {
+        vdivResult.hidden = true;
+        return;
+      }
+      const vout = vin * (r2 / (r1 + r2));
+      const current = vin / (r1 + r2);
+      vdivResult.hidden = false;
+      vdivResultValue.textContent = `${vout.toFixed(3)} V`;
+      vdivResultSub.textContent = `${(current * 1000).toFixed(3)} mA through the divider`;
+    }
+    [vdivVin, vdivR1, vdivR2].forEach((el) => el.addEventListener('input', computeVdiv));
+
+    // --- Capacitor code ---
+    const CAP_TOL_LABELS: Record<string, string> = {
+      B: '±0.1pF', C: '±0.25pF', D: '±0.5pF', F: '±1%', G: '±2%', H: '±3%', J: '±5%', K: '±10%', M: '±20%', Z: '+80%/-20%',
+    };
+    const capCode = document.getElementById('cap-code') as HTMLInputElement;
+    const capTol = document.getElementById('cap-tol') as HTMLSelectElement;
+    const capResult = document.getElementById('cap-result')!;
+    const capResultValue = document.getElementById('cap-result-value')!;
+    const capResultSub = document.getElementById('cap-result-sub')!;
+
+    function formatPf(pf: number): string {
+      const trim = (n: number) => n.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+      if (pf >= 1e6) return `${trim(pf / 1e6)} µF`;
+      if (pf >= 1e3) return `${trim(pf / 1e3)} nF`;
+      return `${trim(pf)} pF`;
+    }
+
+    function computeCap() {
+      const raw = capCode.value.trim().toUpperCase();
+      const match = raw.match(/^(\d{1,4})([A-Z]?)$/);
+      if (!raw || !match) { capResult.hidden = true; return; }
+      const digits = match[1];
+      const inlineTol = match[2];
+      let pf: number;
+      if (digits.length === 3) {
+        const sig = Number(digits.slice(0, 2));
+        const mult = Number(digits.slice(2, 3));
+        pf = sig * Math.pow(10, mult);
+      } else {
+        pf = Number(digits);
+      }
+      if (Number.isNaN(pf)) { capResult.hidden = true; return; }
+      const tolCode = capTol.value || inlineTol;
+      const tol = tolCode && CAP_TOL_LABELS[tolCode] ? CAP_TOL_LABELS[tolCode] : null;
+      capResult.hidden = false;
+      capResultValue.textContent = formatPf(pf);
+      capResultSub.textContent = `${pf.toLocaleString()} pF${tol ? ' · ' + tol + ' tolerance' : ''}${digits.length === 3 ? ' · EIA 3-digit code' : ' · direct pF value'}`;
+    }
+    capCode.addEventListener('input', computeCap);
+    capTol.addEventListener('change', computeCap);
+
+    // --- Coil winding (air-core, Wheeler's formula) ---
+    // L(uH) = d^2 n^2 / (18d + 40l), d/l in inches -- solved here for turns
+    // n given a target L, diameter d, and winding density (turns per inch),
+    // via the quadratic d^2 n^2 - (40L/tpi) n - 18dL = 0. Verified by
+    // round-tripping against the formula's own classic textbook example
+    // (d=1in, l=1in, n=10 -> L=1.724uH) before shipping.
+    const coilInductance = document.getElementById('coil-inductance') as HTMLInputElement;
+    const coilDiameter = document.getElementById('coil-diameter') as HTMLInputElement;
+    const coilTpi = document.getElementById('coil-tpi') as HTMLInputElement;
+    const coilResult = document.getElementById('coil-result')!;
+    const coilResultValue = document.getElementById('coil-result-value')!;
+    const coilResultSub = document.getElementById('coil-result-sub')!;
+
+    function computeCoil() {
+      const L = Number(coilInductance.value);
+      const d = Number(coilDiameter.value);
+      const tpi = Number(coilTpi.value);
+      if (!coilInductance.value || !coilDiameter.value || !coilTpi.value || Number.isNaN(L) || L <= 0 || Number.isNaN(d) || d <= 0 || Number.isNaN(tpi) || tpi <= 0) {
+        coilResult.hidden = true;
+        return;
+      }
+      const a = d * d;
+      const b = -(40 * L / tpi);
+      const c = -18 * d * L;
+      const disc = b * b - 4 * a * c;
+      if (disc < 0) {
+        coilResult.hidden = true;
+        return;
+      }
+      const n = (-b + Math.sqrt(disc)) / (2 * a);
+      const lengthIn = n / tpi;
+      coilResult.hidden = false;
+      coilResultValue.textContent = `${Math.round(n)} turns`;
+      coilResultSub.textContent = `${lengthIn.toFixed(2)} in long at ${tpi} turns/in · ${d} in diameter for ${L} µH`;
+    }
+    [coilInductance, coilDiameter, coilTpi].forEach((el) => el.addEventListener('input', computeCoil));
+
+    // --- Battery runtime ---
+    const battCapacity = document.getElementById('batt-capacity') as HTMLInputElement;
+    const battCurrent = document.getElementById('batt-current') as HTMLInputElement;
+    const battUsable = document.getElementById('batt-usable') as HTMLInputElement;
+    const battResult = document.getElementById('batt-result')!;
+    const battResultValue = document.getElementById('batt-result-value')!;
+    const battResultSub = document.getElementById('batt-result-sub')!;
+
+    function computeBattery() {
+      const cap = Number(battCapacity.value);
+      const current = Number(battCurrent.value);
+      const usablePct = battUsable.value ? Number(battUsable.value) : 100;
+      if (!battCapacity.value || !battCurrent.value || Number.isNaN(cap) || cap <= 0 || Number.isNaN(current) || current <= 0 || Number.isNaN(usablePct) || usablePct <= 0) {
+        battResult.hidden = true;
+        return;
+      }
+      const hours = (cap * (usablePct / 100)) / current;
+      battResult.hidden = false;
+      if (hours >= 1) {
+        const h = Math.floor(hours);
+        const m = Math.round((hours - h) * 60);
+        battResultValue.textContent = `${h}h ${m}m`;
+      } else {
+        battResultValue.textContent = `${Math.round(hours * 60)} min`;
+      }
+      battResultSub.textContent = `${hours.toFixed(2)} h at ${current} A · nominal estimate, doesn't account for Peukert's effect (capacity loss at high discharge rates) or voltage sag under load.`;
+    }
+    [battCapacity, battCurrent, battUsable].forEach((el) => el.addEventListener('input', computeBattery));
+
+    // --- Reset buttons — wired last so every calculator above has already set
+    // its own initial defaults (e.g. dbm-z's "50", the resistor card's
+    // Brown/Black/Red/Gold), which this captures and restores on click rather
+    // than assuming everything resets to blank/first-option. ---
+    document.querySelectorAll<HTMLButtonElement>('.tool-reset-btn').forEach((button) => {
+      const card = button.closest('.tool-card')!;
+      const inputDefaults = new Map<HTMLInputElement, string>();
+      card.querySelectorAll<HTMLInputElement>('input[type="text"]').forEach((input) => inputDefaults.set(input, input.value));
+      const selectDefaults = new Map<HTMLSelectElement, string>();
+      card.querySelectorAll<HTMLSelectElement>('select').forEach((select) => selectDefaults.set(select, select.value));
+
+      button.addEventListener('click', () => {
+        inputDefaults.forEach((value, input) => { input.value = value; });
+        selectDefaults.forEach((value, select) => {
+          select.value = value;
+          select.dispatchEvent(new Event('change'));
+        });
+        card.querySelectorAll('.tool-result').forEach((el) => el.setAttribute('hidden', ''));
+      });
+    });
+  </script>
+</Base>

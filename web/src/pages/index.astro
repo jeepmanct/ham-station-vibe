@@ -1,0 +1,147 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="Home" active="home">
+  <section>
+    <h1 id="home-callsign">Ham Station</h1>
+    <p class="lede">Amateur radio log, QSL data, live station control, and propagation tools &mdash; served from a Raspberry Pi.</p>
+    <div id="ota-badge" hidden>
+      <span style="width:8px;height:8px;border-radius:50%;background:var(--status-good);display:inline-block;"></span>
+      On the air now &mdash; <span id="ota-detail"></span>
+    </div>
+  </section>
+  <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;">
+    <a class="card" href="/about" style="text-decoration:none;display:block;">
+      <h2 style="margin-bottom:0.35rem;">About</h2>
+      <p style="margin:0;color:var(--muted);">Station info and ham radio resources.</p>
+    </a>
+    <a class="card" href="/photos" style="text-decoration:none;display:block;">
+      <h2 style="margin-bottom:0.35rem;">Photos</h2>
+      <p style="margin:0;color:var(--muted);">Gallery of shack, antenna, and field photos.</p>
+    </a>
+    <a class="card" href="/log" style="text-decoration:none;display:block;">
+      <h2 style="margin-bottom:0.35rem;">QSO Log</h2>
+      <p style="margin:0;color:var(--muted);">Full station log &mdash; imported from LoTW/QRZ, or logged directly.</p>
+    </a>
+    <a class="card" href="/map" style="text-decoration:none;display:block;">
+      <h2 style="margin-bottom:0.35rem;">QSO Map</h2>
+      <p style="margin:0;color:var(--muted);">Great-circle paths to your logged contacts &mdash; pick a band, mode, or country to plot.</p>
+    </a>
+    <a class="card" href="/awards" style="text-decoration:none;display:block;">
+      <h2 style="margin-bottom:0.35rem;">Awards</h2>
+      <p style="margin:0;color:var(--muted);">DXCC, WAS, WAC, VUCC, WAZ, WPX, and more.</p>
+    </a>
+    <a class="card" href="/stats" style="text-decoration:none;display:block;">
+      <h2 style="margin-bottom:0.35rem;">Stats</h2>
+      <p style="margin:0;color:var(--muted);">QSO trends, breakdowns, and solar cycle history.</p>
+    </a>
+    <a class="card" href="/activations" style="text-decoration:none;display:block;">
+      <h2 style="margin-bottom:0.35rem;">Activations</h2>
+      <p style="margin:0;color:var(--muted);">POTA activator &amp; hunter activity.</p>
+    </a>
+    <a class="card" href="/conditions" style="text-decoration:none;display:block;">
+      <h2 style="margin-bottom:0.35rem;">Conditions</h2>
+      <p style="margin:0;color:var(--muted);">Live solar data, DX spots, and contests.</p>
+    </a>
+    <a class="card" href="/radio" style="text-decoration:none;display:block;">
+      <h2 style="margin-bottom:0.35rem;">Radio</h2>
+      <p style="margin:0;color:var(--muted);">Live status from the FlexRadio 6400, remote tuning, and who's hearing the signal.</p>
+    </a>
+    <a class="card" href="/satellites" style="text-decoration:none;display:block;">
+      <h2 style="margin-bottom:0.35rem;">Satellites</h2>
+      <p style="margin:0;color:var(--muted);">Live tracking &amp; pass predictions for Voice ham satellites.</p>
+    </a>
+    <a class="card" href="/tools" style="text-decoration:none;display:block;">
+      <h2 style="margin-bottom:0.35rem;">Tools</h2>
+      <p style="margin:0;color:var(--muted);">Grid converter, distance/bearing, log lookup.</p>
+    </a>
+    <a class="card" href="/electronics" style="text-decoration:none;display:block;">
+      <h2 style="margin-bottom:0.35rem;">Electronics</h2>
+      <p style="margin:0;color:var(--muted);">Resistor codes, Ohm's Law, and other bench calculators.</p>
+    </a>
+    <a class="card" href="/reference" style="text-decoration:none;display:block;">
+      <h2 style="margin-bottom:0.35rem;">Reference</h2>
+      <p style="margin:0;color:var(--muted);">Morse code trainer, US band plan, Q-codes, and prosigns.</p>
+    </a>
+  </section>
+
+  <section style="margin-top:2.5rem;">
+    <h2>On This Day</h2>
+    <div id="on-this-day-list" class="card" style="margin-top:1rem;">
+      <p class="status-line">Loading…</p>
+    </div>
+  </section>
+
+  <script>
+    fetch('/api/station-location')
+      .then((r) => r.json())
+      .then((data: { callsign: string | null }) => {
+        if (data.callsign) document.getElementById('home-callsign')!.textContent = data.callsign;
+      })
+      .catch(() => {});
+
+    type PskReport = { receiver: string; frequency: number | null; mode: string | null; time: number | null };
+
+    function bandForFreq(mhz: number): string {
+      if (mhz >= 1.8 && mhz < 2) return '160M';
+      if (mhz >= 3.5 && mhz < 4) return '80M';
+      if (mhz >= 5.3 && mhz < 5.5) return '60M';
+      if (mhz >= 7 && mhz < 7.3) return '40M';
+      if (mhz >= 10.1 && mhz < 10.15) return '30M';
+      if (mhz >= 14 && mhz < 14.35) return '20M';
+      if (mhz >= 18.068 && mhz < 18.168) return '17M';
+      if (mhz >= 21 && mhz < 21.45) return '15M';
+      if (mhz >= 24.89 && mhz < 24.99) return '12M';
+      if (mhz >= 28 && mhz < 29.7) return '10M';
+      if (mhz >= 50 && mhz < 54) return '6M';
+      if (mhz >= 144 && mhz < 148) return '2M';
+      return `${mhz.toFixed(3)} MHz`;
+    }
+
+    // "On the air now" is a stricter window than /conditions' full last-hour
+    // PSK Reporter view — 15 minutes, since the point here is a live-right-now
+    // signal, not "was active at some point recently."
+    const ON_AIR_WINDOW_SECONDS = 15 * 60;
+
+    fetch('/api/conditions/pskreporter')
+      .then((r) => r.json())
+      .then((reports: PskReport[]) => {
+        const nowSeconds = Date.now() / 1000;
+        const recent = reports.filter((r) => r.time != null && nowSeconds - r.time < ON_AIR_WINDOW_SECONDS);
+        if (!recent.length) return;
+        const latest = recent.reduce((a, b) => ((a.time ?? 0) > (b.time ?? 0) ? a : b));
+        const band = latest.frequency != null ? bandForFreq(latest.frequency / 1e6) : '';
+        document.getElementById('ota-detail')!.textContent = [latest.mode, band].filter(Boolean).join(' on ');
+        document.getElementById('ota-badge')!.hidden = false;
+      })
+      .catch(() => {});
+
+    type Qso = { call: string; qsoDate: string; band: string | null; mode: string | null; country: string | null; gridsquare: string | null };
+
+    fetch('/api/qsos/on-this-day')
+      .then((r) => r.json())
+      .then((qsos: Qso[]) => {
+        const container = document.getElementById('on-this-day-list')!;
+        if (!qsos.length) {
+          container.innerHTML = '<p class="status-line" style="margin:0;">No contacts logged on this date in previous years &mdash; yet.</p>';
+          return;
+        }
+        container.style.maxHeight = '320px';
+        container.style.overflowY = 'auto';
+        container.innerHTML = '';
+        for (const q of qsos) {
+          const year = q.qsoDate.slice(0, 4);
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;justify-content:space-between;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid var(--border);font-size:0.85rem;';
+          row.innerHTML = `
+            <span><strong>${q.call}</strong> <span style="color:var(--muted);">&middot; ${q.country ?? ''}${q.gridsquare ? ` (${q.gridsquare})` : ''}</span></span>
+            <span style="color:var(--muted);font-family:var(--font-mono);white-space:nowrap;">${year} &middot; ${q.band ?? '—'} ${q.mode ?? ''}</span>
+          `;
+          container.appendChild(row);
+        }
+      })
+      .catch(() => {
+        document.getElementById('on-this-day-list')!.innerHTML = '<p class="status-line" style="margin:0;">Could not load.</p>';
+      });
+  </script>
+</Base>

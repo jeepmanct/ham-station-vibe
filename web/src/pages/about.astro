@@ -1,0 +1,158 @@
+---
+// This page's rig/antenna/bio/recognition content is genuinely personal --
+// unlike callsign/QTH (admin-configurable via the database), there's no
+// reasonable way to generalize "your station's story" into a settings form.
+// Everything below is placeholder/example content: edit it directly for
+// your own station.
+import Base from '../layouts/Base.astro';
+import '../styles/about.css';
+
+const station = {
+  rigs: ['Add your rig(s) here — edit src/pages/about.astro'],
+  antennas: ['Add your antenna(s) here — edit src/pages/about.astro'],
+  bio: "Add your own story here — when you got licensed, what got you into ham radio, clubs you're part of, and so on. Edit the `station.bio` field in src/pages/about.astro.",
+};
+
+const recognition = [
+  'Add your callsign history, awards, or certifications here — edit src/pages/about.astro',
+];
+---
+<Base title="About" active="about">
+  <h1>About</h1>
+  <p class="lede">{station.bio}</p>
+
+  <div class="station-grid">
+    <div class="station-fact">
+      <div class="label">Rig</div>
+      {station.rigs.map((rig) => <div class="value" style="margin-bottom:0.3rem;">{rig}</div>)}
+    </div>
+    <div class="station-fact">
+      <div class="label">Antennas</div>
+      {station.antennas.map((antenna) => <div class="value" style="font-size:0.92rem;margin-bottom:0.25rem;">{antenna}</div>)}
+    </div>
+    <div class="station-fact">
+      <div class="label">QTH</div>
+      <div class="value" id="about-qth">&mdash;</div>
+    </div>
+  </div>
+
+  <h2 style="margin-top:2.5rem;">Recognition</h2>
+  <ul style="margin:1rem 0 0;padding-left:1.2rem;color:var(--muted);font-size:0.92rem;line-height:1.8;">
+    {recognition.map((item) => <li>{item}</li>)}
+  </ul>
+
+  <h2 style="margin-top:2.5rem;">By the Numbers</h2>
+  <p style="margin:0.25rem 0 0;color:var(--muted);font-size:0.85rem;">Live from the log &mdash; see <a href="/stats">Stats</a>, <a href="/awards">Awards</a>, and <a href="/activations">Activations</a> for the full breakdowns.</p>
+  <div class="station-grid" id="numbers-grid">
+    <div class="station-fact"><div class="label">Total QSOs</div><div class="value" id="num-total">&mdash;</div></div>
+    <div class="station-fact"><div class="label">Unique Calls</div><div class="value" id="num-calls">&mdash;</div></div>
+    <div class="station-fact"><div class="label">Years Active</div><div class="value" id="num-years">&mdash;</div><div class="value" id="num-years-sub" style="font-size:0.8rem;color:var(--muted);"></div></div>
+    <div class="station-fact"><div class="label">FT8 / Digital</div><div class="value" id="num-digital">&mdash;</div></div>
+    <div class="station-fact"><div class="label">Longest DX</div><div class="value" id="num-dx">&mdash;</div><div class="value" id="num-dx-sub" style="font-size:0.8rem;color:var(--muted);"></div></div>
+    <div class="station-fact"><div class="label">Busiest Day</div><div class="value" id="num-busy">&mdash;</div></div>
+    <div class="station-fact"><div class="label">DXCC</div><div class="value" id="num-dxcc">&mdash;</div></div>
+    <div class="station-fact"><div class="label">Worked All States</div><div class="value" id="num-was">&mdash;</div></div>
+    <div class="station-fact"><div class="label">Worked All Continents</div><div class="value" id="num-wac">&mdash;</div></div>
+    <div class="station-fact"><div class="label">VUCC Grids</div><div class="value" id="num-vucc">&mdash;</div></div>
+    <div class="station-fact"><div class="label">POTA Activations</div><div class="value" id="num-pota-act">&mdash;</div></div>
+    <div class="station-fact"><div class="label">Parks Hunted</div><div class="value" id="num-pota-hunt">&mdash;</div></div>
+  </div>
+
+  <script>
+    function setText(id: string, text: string) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    }
+    function formatDate(d: string) {
+      if (d.length !== 8) return d;
+      return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+    }
+
+    fetch('/api/station-location')
+      .then((r) => r.json())
+      .then((data: { location: { label: string | null; grid: string | null } | null }) => {
+        const qth = data.location ? [data.location.label, data.location.grid].filter(Boolean).join(' · ') : null;
+        setText('about-qth', qth || 'Not yet configured — set this on the Admin page');
+      })
+      .catch(() => {});
+
+    // "Years active" needs a first-licensed year, which isn't tracked
+    // anywhere in the app (there's no admin field for it) — placeholder
+    // example only. Set your own licensing year here, or remove this stat.
+    const LICENSED_SINCE_YEAR = new Date().getFullYear();
+    setText('num-years', String(new Date().getFullYear() - LICENSED_SINCE_YEAR));
+    setText('num-years-sub', `since ${LICENSED_SINCE_YEAR}`);
+
+    fetch('/api/stats/summary').then((r) => r.json()).then((s) => {
+      setText('num-total', s.total.toLocaleString());
+      setText('num-calls', s.distinctCalls.toLocaleString());
+      if (s.busiestDay) setText('num-busy', `${s.busiestDay.count} on ${formatDate(s.busiestDay.qso_date)}`);
+    });
+
+    fetch('/api/stats/distance').then((r) => r.json()).then((d) => {
+      if (d.longest) {
+        const miles = Math.round(d.longest.km * 0.621371);
+        setText('num-dx', `${miles.toLocaleString()} mi (${d.longest.km.toLocaleString()} km)`);
+        setText('num-dx-sub', `${d.longest.call} · ${formatDate(d.longest.qsoDate)}`);
+      }
+    });
+
+    fetch('/api/qsos/modes').then((r) => r.json()).then((modes: { mode: string; count: number }[]) => {
+      const total = modes.reduce((sum, m) => sum + m.count, 0);
+      const digital = modes.filter((m) => ['FT8', 'FT4', 'DATA', 'RTTY', 'JT9', 'PSK31'].includes(m.mode)).reduce((sum, m) => sum + m.count, 0);
+      if (total) setText('num-digital', `${Math.round((digital / total) * 100)}%`);
+    });
+
+    fetch('/api/awards').then((r) => r.json()).then((a) => {
+      setText('num-dxcc', `${a.dxcc.worked} (${a.dxcc.confirmed} conf.)`);
+      setText('num-was', `${a.was.worked}/50`);
+      setText('num-wac', `${a.wac.worked}/6`);
+      setText('num-vucc', String(a.vucc.worked));
+    });
+
+    fetch('/api/pota/profile').then((r) => r.json()).then((p) => {
+      if (!p) return;
+      setText('num-pota-act', String(p.stats.activator.activations));
+      setText('num-pota-hunt', String(p.stats.hunter.parks));
+    });
+  </script>
+
+  <h2 style="margin-top:2.5rem;">Ham Radio Resources</h2>
+  <div class="links-grid">
+    <div class="link-group">
+      <h2>Logging &amp; Awards</h2>
+      <ul>
+        <li><a href="https://lotw.arrl.org" target="_blank" rel="noopener">ARRL Logbook of The World</a><span class="desc">Confirm QSOs, track DXCC/WAS/WAC/VUCC</span></li>
+        <li><a href="https://www.eqsl.cc" target="_blank" rel="noopener">eQSL.cc</a><span class="desc">Electronic QSL card exchange</span></li>
+        <li><a href="https://clublog.org" target="_blank" rel="noopener">Clublog</a><span class="desc">Log analysis, DXCC tracking, most-wanted lists</span></li>
+        <li><a href="https://www.qrz.com" target="_blank" rel="noopener">QRZ.com</a><span class="desc">Callsign lookup and logbook</span></li>
+      </ul>
+    </div>
+    <div class="link-group">
+      <h2>Propagation</h2>
+      <ul>
+        <li><a href="https://www.swpc.noaa.gov" target="_blank" rel="noopener">NOAA Space Weather Prediction Center</a><span class="desc">Solar & geomagnetic forecasts</span></li>
+        <li><a href="https://www.hamqsl.com/solar.html" target="_blank" rel="noopener">N0NBH Solar-Terrestrial Data</a><span class="desc">The classic ham propagation widget</span></li>
+        <li><a href="https://pskreporter.info" target="_blank" rel="noopener">PSK Reporter</a><span class="desc">Real-time reception reports</span></li>
+        <li><a href="https://dxheat.com" target="_blank" rel="noopener">DXHeat</a><span class="desc">Live DX cluster spots</span></li>
+      </ul>
+    </div>
+    <div class="link-group">
+      <h2>Operating Activities</h2>
+      <ul>
+        <li><a href="https://parksontheair.com" target="_blank" rel="noopener">Parks on the Air (POTA)</a><span class="desc">Park activations and hunting</span></li>
+        <li><a href="https://www.sota.org.uk" target="_blank" rel="noopener">Summits on the Air (SOTA)</a><span class="desc">Summit activations</span></li>
+        <li><a href="https://www.arrl.org/contests" target="_blank" rel="noopener">ARRL Contests</a><span class="desc">Official ARRL contest info</span></li>
+        <li><a href="https://www.contestcalendar.com" target="_blank" rel="noopener">WA7BNM Contest Calendar</a><span class="desc">Every contest, every week</span></li>
+      </ul>
+    </div>
+    <div class="link-group">
+      <h2>Reference</h2>
+      <ul>
+        <li><a href="https://www.arrl.org/band-plan" target="_blank" rel="noopener">ARRL Band Plan</a><span class="desc">US amateur band allocations</span></li>
+        <li><a href="https://www.arrl.org" target="_blank" rel="noopener">ARRL</a><span class="desc">American Radio Relay League</span></li>
+        <li><a href="https://www.fcc.gov/wireless/bureau-divisions/mobility-division/amateur-radio-service" target="_blank" rel="noopener">FCC Amateur Radio Service</a><span class="desc">Rules & licensing</span></li>
+      </ul>
+    </div>
+  </div>
+</Base>

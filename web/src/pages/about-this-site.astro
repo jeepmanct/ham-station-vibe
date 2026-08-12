@@ -1,0 +1,254 @@
+---
+import Base from '../layouts/Base.astro';
+import '../styles/colophon.css';
+---
+<Base title="About This Page">
+  <h1>About This Page</h1>
+  <p class="lede">Everything that went into this site &mdash; every feature, every piece of technology, every outside data source it pulls from.</p>
+
+  <div class="card">
+    <p style="margin:0;">
+      This is a self-hosted amateur radio site built and iterated on with <a href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a>,
+      running entirely on a Raspberry Pi in the operator's own home. Nothing here is a paid SaaS product &mdash; the log database, the photos, the code, and the server it all runs on
+      are all local to this one machine. This page exists so a visitor can see exactly what that adds up to, not just take it on faith.
+    </p>
+  </div>
+
+  <h2 style="margin-top:2.5rem;">Feature Tour</h2>
+  <p class="lede" style="max-width:none;">Everything the site actually does, page by page.</p>
+  <div class="card">
+    <div class="feature-block">
+      <h3>Home</h3>
+      <ul>
+        <li>Live <strong>&ldquo;On the Air Now&rdquo;</strong> badge &mdash; appears only when the station is actively transmitting a decodable digital mode, detected via real-time PSK Reporter data</li>
+        <li><strong>On This Day</strong> &mdash; every QSO ever logged on this calendar date, across all previous years</li>
+      </ul>
+    </div>
+    <div class="feature-block">
+      <h3>About</h3>
+      <ul>
+        <li>Station details: rigs, antennas, QTH, operating history, callsign chain (FCC ULS)</li>
+        <li>Live &ldquo;By the Numbers&rdquo; stats, pulled from the log at request time rather than hardcoded</li>
+        <li>Curated links to the wider ham radio ecosystem (logging, propagation, activities, reference)</li>
+      </ul>
+    </div>
+    <div class="feature-block">
+      <h3>Photos</h3>
+      <ul>
+        <li>Gallery of shack, antenna, and field photos</li>
+        <li>Admin-gated upload and delete</li>
+      </ul>
+    </div>
+    <div class="feature-block">
+      <h3>QSO Log</h3>
+      <ul>
+        <li>Full searchable, filterable contact log (band, mode, country, state, date range) with faceted filter counts</li>
+        <li><strong>Log a QSO</strong> &mdash; add a contact directly, with country/continent/CQ-zone auto-filled from the callsign, and an option to push it straight to your QRZ.com logbook</li>
+        <li>Import from an LoTW ADIF file by hand, or sync directly from LoTW, QRZ.com, and eQSL.cc (all incremental &mdash; only pull what's changed since the last sync)</li>
+        <li>Downloadable, canvas-rendered virtual QSL card per contact, with a &ldquo;confirmed via LoTW&rdquo; stamp when applicable</li>
+        <li>Full ADIF/CSV log export (admin-gated)</li>
+      </ul>
+    </div>
+    <div class="feature-block">
+      <h3>QSO Map</h3>
+      <ul>
+        <li>Every contact plotted as a great-circle line on a world map, colored by band</li>
+        <li>Day/night grayline terminator overlay, computed client-side from real solar position</li>
+        <li>Band, mode, country, and state filters &mdash; opt-in, so the map starts empty until you choose what to show</li>
+      </ul>
+    </div>
+    <div class="feature-block">
+      <h3>Awards</h3>
+      <ul>
+        <li>DXCC, Worked All States, Worked All Continents, VUCC, Worked All Zones, CQ WPX, Triple Play WAS, USA Counties, and IOTA &mdash; every award computed live from the actual log, not self-reported</li>
+        <li>Most-Wanted DXCC checklist, diffed against a 346-entity reference list and ranked by Club Log's real global demand data (rarest first)</li>
+        <li>Per-band award standings (which single-band DXCC/WAS/VUCC awards are already earned)</li>
+        <li>Band and confirmation-status filters across every award card</li>
+      </ul>
+    </div>
+    <div class="feature-block">
+      <h3>Stats</h3>
+      <ul>
+        <li>QSOs per year, band breakdown, and mode breakdown &mdash; hand-rolled SVG charts, no charting library</li>
+        <li>GitHub-style activity heatmap with longest/current streak tracking</li>
+        <li>Activity patterns by hour-of-day and day-of-week (UTC, since that's the operationally relevant frame for propagation)</li>
+        <li>Distance leaderboard and histogram (great-circle distance to every contact)</li>
+        <li>Solar cycle history (SFI and K-index over time)</li>
+      </ul>
+    </div>
+    <div class="feature-block">
+      <h3>Activations</h3>
+      <ul>
+        <li>Parks on the Air (POTA) activator and hunter activity, pulled live from the POTA API</li>
+      </ul>
+    </div>
+    <div class="feature-block">
+      <h3>Conditions</h3>
+      <ul>
+        <li>Today's solar flux index, A-index, K-index, and sunspot number</li>
+        <li>Sunrise, sunset, solar noon, and day length for the station's own location</li>
+        <li>Live DX spot feed, with a <strong>Needed</strong> flag resolved directly from the spotted callsign's DXCC entity (not just its ISO country code)</li>
+        <li>Real-time <strong>&ldquo;who's hearing me&rdquo;</strong> reception reports via PSK Reporter</li>
+        <li>Announced/active DXpedition calendar, cross-referenced against the log the same entity-precise way the spot feed is</li>
+        <li>Upcoming contest calendar</li>
+      </ul>
+    </div>
+    <div class="feature-block">
+      <h3>Radio</h3>
+      <ul>
+        <li>Live status from the shack's FlexRadio 6400 &mdash; slice frequency/mode, SWR, forward/reflected power, PA temperature/voltage, fan RPM, and on-air session history</li>
+        <li>Admin-gated remote control on a dedicated receive-only slice &mdash; band/frequency/mode tuning (with a band-scoped drag-to-tune slider), always locked to Antenna 2 with the tuner bypassed, architecturally incapable of transmitting</li>
+        <li>Live audio streaming for that same control slice &mdash; Opus-decoded server-side, played back over the Web Audio API &mdash; plus its own S-meter</li>
+        <li>Reception reports for the operator's own signal via PSK Reporter, WSPR, and the Reverse Beacon Network (CW/RTTY), each its own live map</li>
+        <li>DMR Last Heard &mdash; live activity on an admin-configured BrandMeister talkgroup, via a persistent real-time connection to the network (not a periodic poll)</li>
+      </ul>
+    </div>
+    <div class="feature-block">
+      <h3>Satellites</h3>
+      <ul>
+        <li>Live position tracking and ground tracks for active Voice/SSB amateur satellites, computed via real SGP4 orbital propagation</li>
+        <li>AOS/LOS pass predictions for the station's own location</li>
+        <li>Admin-configurable enabled/disabled satellite list</li>
+      </ul>
+    </div>
+    <div class="feature-block">
+      <h3>Tools</h3>
+      <ul>
+        <li>Grid Square Converter (also accepts a city/ZIP/address, or your current browser location)</li>
+        <li>Distance &amp; Bearing, Antenna Length, Antenna Takeoff Angle, SWR, Coax Feedline Loss, Wavelength &amp; Frequency</li>
+        <li>ERP/EIRP, Antenna Gain (dBi&harr;dBd), Free Space Path Loss, VHF/UHF Line-of-Sight Range, RF Exposure (MPE) Estimate</li>
+        <li>UTC/Local Time converter with a live clock</li>
+        <li>&ldquo;Have I Worked This Call?&rdquo; log lookup</li>
+        <li>Callsign Lookup &mdash; name, QTH, country, grid square, IOTA, and QSL routing for any callsign, via HamQTH</li>
+        <li>Club Log OQRS checklist &mdash; cross-references the log against Club Log's public list of stations with OQRS enabled, to catch missed QSL requests</li>
+        <li>Confirmed Nowhere &mdash; worked stations with no confirmation yet on LoTW or eQSL</li>
+      </ul>
+    </div>
+    <div class="feature-block">
+      <h3>Electronics</h3>
+      <ul>
+        <li>Resistor Color Code, Ohm's Law, dBm/Watts/Volts, LED Series Resistor, Voltage Divider, Capacitor Code, Coil Winding (air-core), Battery Runtime &mdash; general-purpose bench calculators, not ham-specific</li>
+      </ul>
+    </div>
+    <div class="feature-block">
+      <h3>Reference</h3>
+      <ul>
+        <li>Morse code trainer &mdash; adjustable speed, live playback via the Web Audio API, and a quiz mode</li>
+        <li>US Amateur Band Plan chart, sourced directly from ARRL's own official chart</li>
+        <li>Q-codes and prosigns reference tables</li>
+      </ul>
+    </div>
+    <div class="feature-block">
+      <h3>Admin</h3>
+      <ul>
+        <li>Photo upload; service-credential management (QRZ, eQSL, LoTW, HamQTH, Open Repeater, and FlexRadio LAN address &mdash; with a one-click network auto-detect), stored server-side and never sent back to the browser once saved</li>
+        <li>QRZ, eQSL, and LoTW sync controls (each incremental &mdash; only pulls what's changed); solar data sync, with a Full Resync option for rebuilding the entire history</li>
+        <li>Alert configuration for Needed-DX spots and VHF/Sporadic-E band openings (each optionally filterable to US-based spotters only), X-class solar flares, solar wind (early-warning), and geomagnetic storms (Kp-index) &mdash; email and/or push notification, each independently testable</li>
+        <li>FlexRadio hardware-status and remote-control visibility toggles &mdash; lets an installer without a FlexRadio hide that dashboard entirely rather than leave a non-functional one visible</li>
+        <li>Admin-only Repeater Lookup (via Open Repeater) &mdash; DMR/D-STAR/analog FM repeaters near a configured location, filterable by band; kept admin-only since a public repeater directory isn't something every data source's terms permit</li>
+        <li>DMR talkgroup configuration for the Radio page's Last Heard panel</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2 style="margin-top:2.5rem;">Runs on Its Own</h2>
+  <p class="lede" style="max-width:none;">Background jobs, scheduled by the server itself &mdash; nothing here needs a human to remember to click &ldquo;sync.&rdquo;</p>
+  <div class="card">
+    <ul style="margin:0;padding-left:1.25rem;color:var(--muted);font-size:0.9rem;line-height:1.7;">
+      <li><strong style="color:var(--fg);">Solar data</strong> &mdash; refreshed daily, incremental (only pulls the last ~640 days)</li>
+      <li><strong style="color:var(--fg);">QRZ Logbook sync</strong> &mdash; refreshed daily, incremental (only pulls what changed)</li>
+      <li><strong style="color:var(--fg);">eQSL.cc sync</strong> &mdash; refreshed daily, incremental</li>
+      <li><strong style="color:var(--fg);">LoTW sync</strong> &mdash; refreshed daily, incremental</li>
+      <li><strong style="color:var(--fg);">Satellite orbital elements</strong> &mdash; refreshed daily</li>
+      <li><strong style="color:var(--fg);">Club Log OQRS list and Most-Wanted ranking</strong> &mdash; refreshed weekly</li>
+      <li><strong style="color:var(--fg);">Needed-DX spot check</strong> &mdash; every 10 minutes, alerting by email and/or push when a not-yet-worked DXCC entity shows up on the live spot feed</li>
+      <li><strong style="color:var(--fg);">VHF/Sporadic-E, solar flare, solar wind, and geomagnetic storm (Kp-index) checks</strong> &mdash; every 5 minutes each, same alert channels</li>
+    </ul>
+  </div>
+
+  <h2 style="margin-top:2.5rem;">Built With</h2>
+  <p class="lede" style="max-width:none;">The actual stack, not a marketing summary of it.</p>
+  <div class="links-grid">
+    <div class="link-group">
+      <h3>Frontend</h3>
+      <ul>
+        <li><a href="https://astro.build" target="_blank" rel="noopener">Astro</a><span class="desc">Static site framework &mdash; every page ships as plain HTML/CSS/JS, no client-side framework runtime</span></li>
+        <li><a href="https://www.typescriptlang.org" target="_blank" rel="noopener">TypeScript</a><span class="desc">Every line of frontend and backend logic</span></li>
+        <li><a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a><span class="desc">The QSO map and satellite tracking map</span></li>
+        <li><a href="https://github.com/shashwatak/satellite-js" target="_blank" rel="noopener">satellite.js</a><span class="desc">SGP4/SDP4 orbital propagation for satellite tracking</span></li>
+      </ul>
+    </div>
+    <div class="link-group">
+      <h3>Backend</h3>
+      <ul>
+        <li><a href="https://bun.sh" target="_blank" rel="noopener">Bun</a><span class="desc">JavaScript runtime the whole API runs on, including its built-in SQLite driver</span></li>
+        <li><a href="https://hono.dev" target="_blank" rel="noopener">Hono</a><span class="desc">Web framework the API is built on</span></li>
+        <li><a href="https://www.sqlite.org" target="_blank" rel="noopener">SQLite</a><span class="desc">The entire database &mdash; one file on disk</span></li>
+        <li><a href="https://www.npmjs.com/package/opus-decoder" target="_blank" rel="noopener">opus-decoder</a><span class="desc">WASM Opus decode for the radio's live receive audio</span></li>
+        <li><a href="https://nodemailer.com" target="_blank" rel="noopener">Nodemailer</a><span class="desc">Sends the needed-DX email alerts</span></li>
+        <li><a href="https://socket.io" target="_blank" rel="noopener">Socket.IO client</a><span class="desc">Persistent real-time connection powering DMR Last Heard</span></li>
+      </ul>
+    </div>
+    <div class="link-group">
+      <h3>Infrastructure</h3>
+      <ul>
+        <li><a href="https://www.raspberrypi.com" target="_blank" rel="noopener">Raspberry Pi</a><span class="desc">The physical server this entire site runs on</span></li>
+        <li><a href="https://caddyserver.com" target="_blank" rel="noopener">Caddy</a><span class="desc">Reverse proxy and automatic HTTPS</span></li>
+        <li><a href="https://systemd.io" target="_blank" rel="noopener">systemd</a><span class="desc">Runs the API as a service and every scheduled sync/alert job as a timer</span></li>
+        <li><a href="https://www.debian.org" target="_blank" rel="noopener">Debian</a><span class="desc">The operating system</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <h2 style="margin-top:2.5rem;">Where the Data Comes From</h2>
+  <p class="lede" style="max-width:none;">Every outside source this site pulls from or pushes to.</p>
+  <div class="links-grid">
+    <div class="link-group">
+      <h3>Logging &amp; Awards</h3>
+      <ul>
+        <li><a href="https://lotw.arrl.org" target="_blank" rel="noopener">ARRL Logbook of The World</a><span class="desc">Primary QSO confirmation source (ADIF import)</span></li>
+        <li><a href="https://www.qrz.com" target="_blank" rel="noopener">QRZ.com Logbook API</a><span class="desc">Incremental log sync, and where manually-logged QSOs can be pushed to</span></li>
+        <li><a href="https://clublog.org" target="_blank" rel="noopener">Club Log</a><span class="desc">Public OQRS-enabled callsign list and global DXCC most-wanted ranking, both synced weekly</span></li>
+        <li><a href="https://www.country-files.com/cty/" target="_blank" rel="noopener">country-files.com (cty.dat)</a><span class="desc">The DXCC entity and callsign-prefix reference database behind every &ldquo;needed&rdquo; flag and the Most-Wanted list</span></li>
+        <li><a href="https://www.hamqth.com" target="_blank" rel="noopener">HamQTH</a><span class="desc">Callsign Lookup tool on the Tools page</span></li>
+      </ul>
+    </div>
+    <div class="link-group">
+      <h3>Propagation &amp; Conditions</h3>
+      <ul>
+        <li><a href="https://dataservices.gfz-potsdam.de" target="_blank" rel="noopener">GFZ Potsdam</a><span class="desc">Historical K-index data back to 1932, solar flux since 1947</span></li>
+        <li><a href="https://www.swpc.noaa.gov" target="_blank" rel="noopener">NOAA Space Weather Prediction Center</a><span class="desc">Real-time X-ray flux, solar wind, and planetary K-index behind the flare, solar wind, and geomagnetic storm alerts</span></li>
+        <li><a href="https://dxheat.com" target="_blank" rel="noopener">DXHeat</a><span class="desc">Live DX cluster spot feed</span></li>
+        <li><a href="https://pskreporter.info" target="_blank" rel="noopener">PSK Reporter</a><span class="desc">Real-time digital-mode reception reports</span></li>
+        <li><a href="https://wspr.live" target="_blank" rel="noopener">WSPR.live</a><span class="desc">WSPR beacon reception reports</span></li>
+        <li><a href="https://www.reversebeacon.net" target="_blank" rel="noopener">Reverse Beacon Network</a><span class="desc">CW/RTTY skimmer reception reports</span></li>
+        <li><a href="https://www.ng3k.com/Misc/adxo.html" target="_blank" rel="noopener">NG3K ADXO</a><span class="desc">Announced/active DXpedition calendar</span></li>
+        <li><a href="https://www.contestcalendar.com" target="_blank" rel="noopener">WA7BNM Contest Calendar</a><span class="desc">Upcoming contests</span></li>
+      </ul>
+    </div>
+    <div class="link-group">
+      <h3>Satellites &amp; Maps</h3>
+      <ul>
+        <li><a href="https://celestrak.org" target="_blank" rel="noopener">CelesTrak</a><span class="desc">Satellite orbital elements (TLEs), refreshed daily</span></li>
+        <li><a href="https://www.amsat.org/status" target="_blank" rel="noopener">AMSAT</a><span class="desc">Reference for which satellites are actually active</span></li>
+        <li><a href="https://carto.com" target="_blank" rel="noopener">CARTO</a><span class="desc">Basemap tiles for the QSO map and satellite tracker</span></li>
+        <li><a href="https://nominatim.org" target="_blank" rel="noopener">OpenStreetMap Nominatim</a><span class="desc">Geocoding for the Grid Square Converter's address lookup</span></li>
+      </ul>
+    </div>
+    <div class="link-group">
+      <h3>Activities &amp; Alerts</h3>
+      <ul>
+        <li><a href="https://parksontheair.com" target="_blank" rel="noopener">Parks on the Air (POTA)</a><span class="desc">Activator/hunter activity on the Activations page</span></li>
+        <li><a href="https://ntfy.sh" target="_blank" rel="noopener">ntfy.sh</a><span class="desc">Push-notification channel for needed-DX alerts</span></li>
+        <li><a href="https://www.arrl.org/graphical-frequency-allocations" target="_blank" rel="noopener">ARRL Band Chart</a><span class="desc">Source for the US Amateur Band Plan reference table</span></li>
+      </ul>
+    </div>
+    <div class="link-group">
+      <h3>Repeaters &amp; Digital Voice</h3>
+      <ul>
+        <li><a href="https://www.openrepeater.org" target="_blank" rel="noopener">Open Repeater</a><span class="desc">DMR/D-STAR/analog repeater data for the admin-only Repeater Lookup tool</span></li>
+        <li><a href="https://brandmeister.network" target="_blank" rel="noopener">BrandMeister</a><span class="desc">Live DMR talkgroup activity for the Radio page's Last Heard panel</span></li>
+      </ul>
+    </div>
+  </div>
+</Base>

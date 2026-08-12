@@ -1,0 +1,612 @@
+---
+import Base from '../layouts/Base.astro';
+import FilterPanel from '../components/FilterPanel.astro';
+---
+<Base title="QSO Log" active="log">
+  <h1>QSO Log</h1>
+  <p class="lede">Contacts imported from ARRL Logbook of The World (LoTW) or QRZ.com &mdash; or logged directly below.</p>
+
+  <section>
+    <button type="button" id="import-toggle" class="btn secondary">Log &amp; Import</button>
+
+    <div id="import-panel" class="card" style="margin-top:1rem;" hidden>
+      <div id="import-login">
+        <h2>Log in to import</h2>
+        <form id="login-form">
+          <input type="password" id="password" placeholder="Admin password" autocomplete="current-password" required />
+          <p id="login-status" class="status-line"></p>
+          <button type="submit" class="btn">Log in</button>
+        </form>
+      </div>
+
+      <div id="import-upload" hidden>
+        <div>
+          <h2>Log a QSO</h2>
+          <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Adds a contact directly to the log &mdash; country/continent/CQ zone auto-fill from the callsign.</p>
+          <form id="manual-form" class="form-grid">
+            <label>Call<input type="text" id="mq-call" required autocapitalize="characters" placeholder="W1AW" /></label>
+            <label>Date (UTC)<input type="date" id="mq-date" required /></label>
+            <label>Time (UTC)<input type="time" id="mq-time" required /></label>
+            <label>Band
+              <select id="mq-band" required></select>
+            </label>
+            <label>Mode
+              <select id="mq-mode" required></select>
+            </label>
+            <label>Freq (MHz)<input type="text" id="mq-freq" placeholder="optional" /></label>
+            <label>RST Sent<input type="text" id="mq-rst-sent" placeholder="optional" /></label>
+            <label>RST Rcvd<input type="text" id="mq-rst-rcvd" placeholder="optional" /></label>
+            <label>Grid Square<input type="text" id="mq-grid" placeholder="optional" autocapitalize="characters" /></label>
+            <label class="form-grid-wide">Comment<input type="text" id="mq-comment" placeholder="optional" /></label>
+            <label class="form-grid-checkbox"><input type="checkbox" id="mq-send-qrz" checked /> Also send to QRZ.com logbook</label>
+            <p id="manual-status" class="status-line"></p>
+            <button type="submit" class="btn" style="align-self:flex-start;">Log QSO</button>
+          </form>
+        </div>
+
+        <div>
+          <h2>Sync from QRZ.com</h2>
+          <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Pulls only what's changed since the last sync via the QRZ Logbook API &mdash; Full Resync re-pulls the entire logbook.</p>
+          <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+            <button type="button" id="qrz-sync" class="btn">Sync now</button>
+            <button type="button" id="qrz-full-sync" class="btn secondary">Full Resync</button>
+          </div>
+          <p id="qrz-last-synced" class="status-line" style="font-size:0.8rem;"></p>
+          <p id="qrz-status" class="status-line"></p>
+        </div>
+
+        <div>
+          <h2>Import LoTW ADIF</h2>
+          <form id="adif-form" style="display:flex;flex-direction:column;gap:0.75rem;">
+            <input type="file" id="adif-file" accept=".adi,.adif" required />
+            <p id="adif-status" class="status-line"></p>
+            <button type="submit" class="btn" style="align-self:flex-start;">Import</button>
+          </form>
+        </div>
+
+        <div>
+          <h2>Solar data</h2>
+          <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Refreshes recent SFI/A/K-index data used in the Solar column above &mdash; Full Resync rebuilds the entire 1932&ndash;present history.</p>
+          <button type="button" id="solar-sync" class="btn">Sync now</button>
+          <button type="button" id="solar-full-sync" class="btn secondary">Full Resync</button>
+          <p id="solar-last-synced" class="status-line" style="font-size:0.8rem;"></p>
+          <p id="solar-status" class="status-line"></p>
+        </div>
+
+        <div>
+          <h2>Export Log</h2>
+          <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Download every QSO on file &mdash; a backup independent of LoTW/QRZ.</p>
+          <div id="export-buttons">
+            <button type="button" class="btn" id="export-adi-btn">Download ADIF</button>
+            <button type="button" class="btn secondary" id="export-csv-btn">Download CSV</button>
+          </div>
+          <p class="status-line" id="export-status"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <FilterPanel />
+
+  <div class="card" style="padding:0;overflow:hidden;margin-top:1.5rem;">
+    <div style="overflow-x:auto;">
+      <table id="log-table">
+        <thead>
+          <tr>
+            <th>Call</th>
+            <th>Date</th>
+            <th>Band</th>
+            <th>Mode</th>
+            <th>QSL</th>
+            <th>Solar</th>
+            <th>Card</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:0.75rem;">
+    <span id="log-count" class="status-line" style="margin:0;"></span>
+    <button type="button" id="load-more" class="btn secondary" hidden>Load more</button>
+  </div>
+
+  <div id="eqsl-modal-backdrop" class="eqsl-modal-backdrop" hidden>
+    <div class="eqsl-modal">
+      <button type="button" id="eqsl-modal-close" class="btn secondary eqsl-modal-close">&times;</button>
+      <div id="eqsl-modal-body"></div>
+    </div>
+  </div>
+
+  <script>
+    import { initQsoFilters } from '../lib/qsoFilters';
+    import { downloadOrShareImage, downloadOrShareBlob } from '../lib/downloadImage';
+
+    type Qso = {
+      id: number;
+      call: string;
+      qsoDate: string;
+      timeOn: string | null;
+      band: string;
+      mode: string;
+      freq: string | null;
+      gridsquare: string | null;
+      country: string | null;
+      rstSent: string | null;
+      lotwQslRcvd?: string;
+      eqslQslRcvd?: string;
+      sfi: number | null;
+      aIndex: number | null;
+      kIndex: number | null;
+    };
+    type QsoPage = { qsos: Qso[]; total: number; offset: number; limit: number };
+
+    function formatSolar(q: Qso): string {
+      if (q.sfi == null && q.aIndex == null && q.kIndex == null) return '—';
+      const parts = [];
+      if (q.sfi != null) parts.push(`SFI ${q.sfi}`);
+      if (q.aIndex != null) parts.push(`A ${q.aIndex}`);
+      if (q.kIndex != null) parts.push(`K ${q.kIndex.toFixed(1)}`);
+      return parts.join(' · ');
+    }
+
+    const tbody = document.querySelector('#log-table tbody')!;
+    const logCount = document.getElementById('log-count')!;
+    const loadMoreBtn = document.getElementById('load-more') as HTMLButtonElement;
+    const PAGE_SIZE = 50;
+    let loadedCount = 0;
+    let currentQuery = '';
+
+    // Fetched once up front rather than per-card-click -- by the time a user
+    // clicks "download QSL card" (a deliberate action well after page load),
+    // this has virtually always already resolved.
+    let stationCallsign = 'Your Callsign';
+    let stationQth = '';
+    fetch('/api/station-location')
+      .then((r) => r.json())
+      .then((data: { callsign: string | null; location: { label: string | null; grid: string | null } | null }) => {
+        if (data.callsign) stationCallsign = data.callsign;
+        if (data.location) stationQth = [data.location.label, data.location.grid].filter(Boolean).join(' · ');
+      })
+      .catch(() => {});
+
+    function formatDate(d: string) {
+      if (d.length !== 8) return d;
+      return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+    }
+
+    function formatTimeOn(t: string | null): string {
+      if (!t || t.length !== 4) return '—';
+      return `${t.slice(0, 2)}:${t.slice(2, 4)} UTC`;
+    }
+
+    function generateQslCard(q: Qso): string {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1400;
+      canvas.height = 900;
+      const ctx = canvas.getContext('2d')!;
+
+      ctx.fillStyle = '#f7f6f2';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = '#e5e3dc';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
+
+      // Header band
+      ctx.fillStyle = '#0d9488';
+      ctx.fillRect(0, 0, canvas.width, 150);
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#f7f6f2';
+      ctx.font = '700 64px ui-monospace, monospace';
+      ctx.fillText(stationCallsign, 50, 95);
+      ctx.font = '400 22px sans-serif';
+      ctx.fillText(stationQth, 50, 128);
+
+      ctx.textAlign = 'right';
+      ctx.font = '600 20px sans-serif';
+      ctx.fillText('QSL CARD', canvas.width - 50, 95);
+
+      // Confirms QSO with
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#888888';
+      ctx.font = '400 24px sans-serif';
+      ctx.fillText('This QSL confirms a two-way radio contact with', canvas.width / 2, 225);
+
+      ctx.fillStyle = '#1a1a1a';
+      ctx.font = '700 100px ui-monospace, monospace';
+      ctx.fillText(q.call, canvas.width / 2, 330);
+
+      // Detail grid
+      const details: [string, string][] = [
+        ['Date', formatDate(q.qsoDate)],
+        ['Time', formatTimeOn(q.timeOn)],
+        ['Band', q.band ?? '—'],
+        ['Mode', q.mode ?? '—'],
+        ['Frequency', q.freq ? `${q.freq} MHz` : '—'],
+        ['RST Sent', q.rstSent ?? '—'],
+        ['Grid', q.gridsquare ?? '—'],
+        ['Country', q.country ?? '—'],
+      ];
+      const cols = 4;
+      const cellW = (canvas.width - 100) / cols;
+      const startY = 420;
+      const rowH = 110;
+      details.forEach(([label, value], i) => {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const x = 50 + col * cellW;
+        const y = startY + row * rowH;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#888888';
+        ctx.font = '600 16px sans-serif';
+        ctx.fillText(label.toUpperCase(), x, y);
+        ctx.fillStyle = '#1a1a1a';
+        ctx.font = '600 30px sans-serif';
+        ctx.fillText(value, x, y + 36);
+      });
+
+      // LoTW confirmation stamp
+      if (q.lotwQslRcvd === 'Y') {
+        ctx.save();
+        ctx.translate(canvas.width - 200, 700);
+        ctx.rotate(-0.2);
+        ctx.strokeStyle = '#0ca30c';
+        ctx.lineWidth = 5;
+        ctx.strokeRect(-140, -40, 280, 80);
+        ctx.fillStyle = '#0ca30c';
+        ctx.textAlign = 'center';
+        ctx.font = '700 26px sans-serif';
+        ctx.fillText('CONFIRMED', 0, -5);
+        ctx.font = '600 16px sans-serif';
+        ctx.fillText('VIA LOTW', 0, 20);
+        ctx.restore();
+      }
+
+      // Footer
+      ctx.textAlign = 'center';
+      ctx.strokeStyle = '#e5e3dc';
+      ctx.beginPath();
+      ctx.moveTo(50, 800);
+      ctx.lineTo(canvas.width - 50, 800);
+      ctx.stroke();
+      ctx.fillStyle = '#1a1a1a';
+      ctx.font = '600 24px sans-serif';
+      ctx.fillText(`73! de ${stationCallsign}`, canvas.width / 2, 845);
+      ctx.fillStyle = '#999999';
+      ctx.font = '400 16px sans-serif';
+      const genDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      ctx.fillText(`Generated ${genDate} from the station log`, canvas.width / 2, 875);
+
+      return canvas.toDataURL('image/png');
+    }
+
+    function downloadQslCard(q: Qso) {
+      const dataUrl = generateQslCard(q);
+      downloadOrShareImage(dataUrl, `QSL-${stationCallsign}-${q.call}-${q.qsoDate}.png`);
+    }
+
+    function formatQslStatus(q: Qso): string {
+      const parts: string[] = [];
+      if (q.lotwQslRcvd === 'Y') parts.push('<span title="LoTW confirmed">L✅</span>');
+      if (q.eqslQslRcvd === 'Y') parts.push('<span title="eQSL confirmed">E✅</span>');
+      return parts.length ? parts.join(' ') : '—';
+    }
+
+    function appendRows(qsos: Qso[]) {
+      for (const q of qsos) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${q.call}</td>
+          <td>${formatDate(q.qsoDate)}</td>
+          <td>${q.band ?? '—'}</td>
+          <td>${q.mode ?? '—'}</td>
+          <td>${formatQslStatus(q)}</td>
+          <td style="color:var(--muted);white-space:nowrap;">${formatSolar(q)}</td>
+          <td style="display:flex;gap:0.4rem;">
+            <button type="button" class="btn secondary qsl-card-btn" style="padding:0.3rem 0.7rem;font-size:0.78rem;">QSL</button>
+            ${q.eqslQslRcvd === 'Y' ? '<button type="button" class="btn secondary eqsl-view-btn" style="padding:0.3rem 0.7rem;font-size:0.78rem;">eQSL</button>' : ''}
+          </td>
+        `;
+        tr.querySelector('.qsl-card-btn')!.addEventListener('click', () => downloadQslCard(q));
+        tr.querySelector('.eqsl-view-btn')?.addEventListener('click', () => viewEqslCard(q));
+        tbody.appendChild(tr);
+      }
+    }
+
+    async function loadPage(offset: number) {
+      const res = await fetch(`/api/qsos?limit=${PAGE_SIZE}&offset=${offset}&${currentQuery}`);
+      const page: QsoPage = await res.json();
+      if (offset === 0) tbody.innerHTML = '';
+      appendRows(page.qsos);
+      loadedCount = offset + page.qsos.length;
+      if (page.total === 0) {
+        logCount.textContent = 'No contacts match the current filters.';
+      } else {
+        logCount.textContent = `Showing ${loadedCount} of ${page.total}`;
+      }
+      loadMoreBtn.hidden = loadedCount >= page.total;
+    }
+
+    function loadQsos() {
+      loadPage(0).catch(() => {
+        tbody.innerHTML = '<tr><td colspan="7" style="font-family:inherit;color:var(--muted);">Could not load log data.</td></tr>';
+      });
+    }
+
+    loadMoreBtn.addEventListener('click', () => {
+      loadPage(loadedCount).catch(() => {
+        logCount.textContent = 'Could not load more.';
+      });
+    });
+
+    initQsoFilters(
+      (query) => {
+        currentQuery = query;
+        loadQsos();
+      },
+      { startUnselected: true },
+    );
+
+    // --- Password-protected import panel ---
+    const TOKEN_KEY = 'hamstation_admin_token';
+
+    const importToggle = document.getElementById('import-toggle')!;
+    const importPanel = document.getElementById('import-panel')!;
+    const importLogin = document.getElementById('import-login')!;
+    const importUpload = document.getElementById('import-upload')!;
+    const loginStatus = document.getElementById('login-status')!;
+
+    function showUploadForm() {
+      importLogin.setAttribute('hidden', '');
+      importUpload.removeAttribute('hidden');
+      loadSyncStatus();
+    }
+
+    // "Last synced" readouts for the QRZ/Solar sync buttons below, from the
+    // small aggregated status endpoint -- refreshed on login and again after
+    // any sync completes.
+    function formatLastSynced(iso: string | null): string {
+      return iso ? `Last synced ${new Date(iso).toLocaleString()}` : 'Never synced';
+    }
+    async function loadSyncStatus() {
+      const status: { qrz: string | null; solar: string | null } = await fetch('/api/sync-status').then((r) => r.json());
+      document.getElementById('qrz-last-synced')!.textContent = formatLastSynced(status.qrz);
+      document.getElementById('solar-last-synced')!.textContent = formatLastSynced(status.solar);
+    }
+
+    importToggle.addEventListener('click', () => {
+      const willShow = importPanel.hasAttribute('hidden');
+      importPanel.toggleAttribute('hidden');
+      if (willShow && sessionStorage.getItem(TOKEN_KEY)) {
+        showUploadForm();
+      }
+    });
+
+    document.getElementById('login-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = (document.getElementById('password') as HTMLInputElement).value;
+      loginStatus.textContent = 'Checking…';
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (res.ok) {
+        const { token } = await res.json();
+        sessionStorage.setItem(TOKEN_KEY, token);
+        loginStatus.textContent = '';
+        showUploadForm();
+      } else {
+        loginStatus.textContent = 'Wrong password.';
+      }
+    });
+
+    function handleSessionExpired(status: HTMLElement) {
+      sessionStorage.removeItem(TOKEN_KEY);
+      importUpload.setAttribute('hidden', '');
+      importLogin.removeAttribute('hidden');
+      status.textContent = '';
+      loginStatus.textContent = 'Session expired, please log in again.';
+    }
+
+    document.getElementById('adif-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('adif-file') as HTMLInputElement;
+      const status = document.getElementById('adif-status')!;
+      if (!fileInput.files?.length) return;
+      const form = new FormData();
+      form.append('adif', fileInput.files[0]);
+      status.textContent = 'Importing…';
+      const res = await fetch('/api/qsos/import', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: form,
+      });
+      if (res.ok) {
+        const { imported } = await res.json();
+        status.textContent = `Imported ${imported} contacts.`;
+        fileInput.value = '';
+        loadQsos();
+      } else if (res.status === 401) {
+        handleSessionExpired(status);
+      } else {
+        status.textContent = 'Import failed.';
+      }
+    });
+
+    async function syncFromQrz(full: boolean) {
+      const status = document.getElementById('qrz-status')!;
+      status.textContent = full ? 'Running a full resync…' : 'Syncing…';
+      const res = await fetch(`/api/qsos/import/qrz${full ? '?full=1' : ''}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (res.ok) {
+        const { imported, incremental } = await res.json();
+        status.textContent = `Synced ${imported} contact${imported === 1 ? '' : 's'}${incremental ? ' (incremental)' : ' (full)'}.`;
+        loadQsos();
+        loadSyncStatus();
+      } else if (res.status === 401) {
+        handleSessionExpired(status);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        status.textContent = body.error ?? 'QRZ sync failed.';
+      }
+    }
+    document.getElementById('qrz-sync')!.addEventListener('click', () => syncFromQrz(false));
+    document.getElementById('qrz-full-sync')!.addEventListener('click', () => syncFromQrz(true));
+
+    async function syncSolarData(full: boolean) {
+      const status = document.getElementById('solar-status')!;
+      status.textContent = 'Syncing…';
+      const res = await fetch(`/api/solar/sync${full ? '?full=1' : ''}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (res.ok) {
+        const { imported, from, to } = await res.json();
+        status.textContent = `Synced ${imported} days (${from}–${to}).`;
+        loadQsos();
+        loadSyncStatus();
+      } else if (res.status === 401) {
+        handleSessionExpired(status);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        status.textContent = body.error ?? 'Solar sync failed.';
+      }
+    }
+    document.getElementById('solar-sync')!.addEventListener('click', () => syncSolarData(false));
+    document.getElementById('solar-full-sync')!.addEventListener('click', () => syncSolarData(true));
+
+    // --- Export log (shares the same login above rather than its own — was
+    // previously a separate gate on /tools with a duplicate login form) ---
+    const exportStatus = document.getElementById('export-status')!;
+    async function downloadExport(url: string, filename: string) {
+      exportStatus.textContent = 'Preparing download…';
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` } });
+      if (res.status === 401) {
+        handleSessionExpired(exportStatus);
+        return;
+      }
+      if (!res.ok) {
+        exportStatus.textContent = 'Export failed.';
+        return;
+      }
+      const blob = await res.blob();
+      await downloadOrShareBlob(blob, filename);
+      exportStatus.textContent = '';
+    }
+    document.getElementById('export-adi-btn')!.addEventListener('click', () => downloadExport('/api/qsos/export.adi', `${stationCallsign.toLowerCase()}-qsos.adi`));
+    document.getElementById('export-csv-btn')!.addEventListener('click', () => downloadExport('/api/qsos/export.csv', `${stationCallsign.toLowerCase()}-qsos.csv`));
+
+    // --- Manual QSO entry ---
+    const BANDS = ['160M', '80M', '75M', '60M', '40M', '30M', '20M', '17M', '15M', '12M', '10M', '6M', '4M', '2M', '1.25M', '70CM', '33CM', '23CM'];
+    const MODES = ['FT8', 'FT4', 'SSB', 'CW', 'FM', 'RTTY', 'PSK31', 'JT9', 'AM', 'DATA'];
+
+    const bandSelect = document.getElementById('mq-band') as HTMLSelectElement;
+    const modeSelect = document.getElementById('mq-mode') as HTMLSelectElement;
+    bandSelect.innerHTML = BANDS.map((b) => `<option value="${b}">${b}</option>`).join('');
+    modeSelect.innerHTML = MODES.map((m) => `<option value="${m}">${m}</option>`).join('');
+
+    function setNowDefaults() {
+      const now = new Date();
+      (document.getElementById('mq-date') as HTMLInputElement).value = now.toISOString().slice(0, 10);
+      (document.getElementById('mq-time') as HTMLInputElement).value = now.toISOString().slice(11, 16);
+    }
+    setNowDefaults();
+
+    document.getElementById('manual-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const status = document.getElementById('manual-status')!;
+      const call = (document.getElementById('mq-call') as HTMLInputElement).value.trim();
+      if (!call) return;
+      const body = {
+        call,
+        qsoDate: (document.getElementById('mq-date') as HTMLInputElement).value,
+        timeOn: (document.getElementById('mq-time') as HTMLInputElement).value,
+        band: bandSelect.value,
+        mode: modeSelect.value,
+        freq: (document.getElementById('mq-freq') as HTMLInputElement).value.trim() || undefined,
+        rstSent: (document.getElementById('mq-rst-sent') as HTMLInputElement).value.trim() || undefined,
+        rstRcvd: (document.getElementById('mq-rst-rcvd') as HTMLInputElement).value.trim() || undefined,
+        gridsquare: (document.getElementById('mq-grid') as HTMLInputElement).value.trim() || undefined,
+        comment: (document.getElementById('mq-comment') as HTMLInputElement).value.trim() || undefined,
+        sendToQrz: (document.getElementById('mq-send-qrz') as HTMLInputElement).checked,
+      };
+      status.textContent = 'Logging…';
+      const res = await fetch('/api/qsos/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const { resolvedEntity, qrz } = await res.json();
+        let msg = resolvedEntity ? `Logged ${call} (${resolvedEntity}).` : `Logged ${call}.`;
+        if (body.sendToQrz) {
+          if (qrz?.sent) msg += ' Sent to QRZ.com ✓';
+          else if (qrz?.result === 'FAIL' && qrz?.reason) msg += ` QRZ: ${qrz.reason}`;
+          else msg += ` QRZ: ${qrz?.error ?? 'not sent'}`;
+        }
+        status.textContent = msg;
+        (document.getElementById('mq-call') as HTMLInputElement).value = '';
+        (document.getElementById('mq-freq') as HTMLInputElement).value = '';
+        (document.getElementById('mq-rst-sent') as HTMLInputElement).value = '';
+        (document.getElementById('mq-rst-rcvd') as HTMLInputElement).value = '';
+        (document.getElementById('mq-grid') as HTMLInputElement).value = '';
+        (document.getElementById('mq-comment') as HTMLInputElement).value = '';
+        setNowDefaults();
+        loadQsos();
+      } else if (res.status === 401) {
+        handleSessionExpired(status);
+      } else {
+        const errBody = await res.json().catch(() => ({}));
+        status.textContent = errBody.error ?? 'Could not log QSO.';
+      }
+    });
+
+    // --- eQSL card viewer -- fetches (and server-side caches) one card
+    // image on demand, never a bulk gallery. Reuses the same login the
+    // Import panel uses, since this also needs an auth token. ---
+    const eqslModalBackdrop = document.getElementById('eqsl-modal-backdrop')!;
+    const eqslModalBody = document.getElementById('eqsl-modal-body')!;
+
+    function openEqslModal(html: string) {
+      eqslModalBody.innerHTML = html;
+      eqslModalBackdrop.removeAttribute('hidden');
+    }
+    function closeEqslModal() {
+      eqslModalBackdrop.setAttribute('hidden', '');
+    }
+    document.getElementById('eqsl-modal-close')!.addEventListener('click', closeEqslModal);
+    eqslModalBackdrop.addEventListener('click', (e) => {
+      if (e.target === eqslModalBackdrop) closeEqslModal();
+    });
+
+    async function viewEqslCard(q: Qso) {
+      if (!sessionStorage.getItem(TOKEN_KEY)) {
+        openEqslModal('<p>Log in via the Import panel above to view eQSL cards.</p>');
+        return;
+      }
+      openEqslModal('<p>Loading…</p>');
+      const res = await fetch(`/api/qsos/${q.id}/eqsl-card`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (res.status === 401) {
+        openEqslModal('<p>Session expired — log in again via the Import panel above.</p>');
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        openEqslModal(`<p>${body.error ?? 'Could not load eQSL card.'}</p>`);
+        return;
+      }
+      const { imagePath } = await res.json();
+      openEqslModal(
+        imagePath
+          ? `<img src="${imagePath}" alt="eQSL card from ${q.call}" />`
+          : `<p>No eQSL card graphic available for this QSO.</p>`,
+      );
+    }
+  </script>
+</Base>

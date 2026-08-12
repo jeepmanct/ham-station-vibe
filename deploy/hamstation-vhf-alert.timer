@@ -1,0 +1,12 @@
+[Unit]
+Description=Periodic VHF/Sporadic-E band-opening alert check
+
+[Timer]
+# Shorter interval than the DX-alert's 10 min -- Sporadic-E openings can
+# open and close within 15-30 minutes, so a longer gap risks missing one
+# entirely. No-ops immediately unless enabled under Admin.
+OnBootSec=5min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target

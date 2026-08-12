@@ -1,0 +1,91 @@
+#sat-map { height: 420px; width: 100%; }
+
+.satellite-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+.satellite-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+}
+.satellite-card.in-view {
+  border-color: var(--status-good);
+  box-shadow: 0 0 0 1px var(--status-good);
+}
+.satellite-card h2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 1.05rem;
+}
+.satellite-mode-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  color: var(--muted);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+}
+.satellite-freq {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0 0 0.75rem;
+  line-height: 1.6;
+}
+.satellite-status {
+  font-size: 0.85rem;
+  margin: 0.25rem 0;
+}
+.satellite-status .in-view-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--status-good);
+  background: color-mix(in srgb, var(--status-good) 15%, transparent);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  margin-bottom: 0.4rem;
+}
+.satellite-status .live-angles {
+  font-family: var(--font-mono);
+  color: var(--fg);
+}
+.satellite-pass-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  padding: 0.3rem 0;
+  border-top: 1px solid var(--border);
+  margin-top: 0.5rem;
+}
+.satellite-pass-row .val { font-family: var(--font-mono); color: var(--fg); }
+.satellite-notes {
+  margin-top: 0.75rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.config-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+.config-row:last-child { border-bottom: 0; }
+.config-row label { display: flex; align-items: center; gap: 0.6rem; cursor: pointer; }

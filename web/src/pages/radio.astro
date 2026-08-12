@@ -1,0 +1,963 @@
+---
+import Base from '../layouts/Base.astro';
+import '../styles/radio.css';
+---
+<Base title="Radio" active="radio">
+  <h1>Radio</h1>
+  <p class="lede">Live status from the shack's FlexRadio 6400, plus who's actually hearing the signal out in the world.</p>
+
+  <div id="radio-not-configured" class="card" hidden>
+    <p style="margin:0;color:var(--muted);">Radio integration isn't configured on this server.</p>
+  </div>
+
+  <div id="radio-toggle-card" class="card" hidden style="margin-bottom:1.5rem;">
+    <label style="display:flex;align-items:center;gap:0.6rem;cursor:pointer;">
+      <input type="checkbox" id="radio-monitor-toggle" style="width:auto;" />
+      <span style="font-weight:600;">Monitor live status</span>
+    </label>
+    <p style="margin:0.5rem 0 0;color:var(--muted);font-size:0.82rem;">Off by default so the connection to the radio isn't held open constantly &mdash; turn it on to check in, off when you're done.</p>
+  </div>
+
+  <div id="radio-off-message" class="card" hidden>
+    <p style="margin:0;color:var(--muted);">Monitoring is off. Turn it on above to see live status.</p>
+  </div>
+
+  <div id="radio-dashboard" hidden>
+    <p class="status-line" id="radio-conn-status"></p>
+
+    <div class="card radio-onair-card" id="radio-onair-card">
+      <h2>On the Air</h2>
+      <div id="radio-slice-info">
+        <p class="status-line" style="margin:0;">No active slice &mdash; radio online, not currently receiving or transmitting.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:1.5rem;" id="radio-control-card" hidden>
+      <h2>Remote Control (Receive Only)</h2>
+      <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Tune, change band/mode, and browse &mdash; on its own dedicated receiver, never the slice you're actually operating on. Always locked to Antenna 2 with the tuner bypassed. Can never transmit: no command this sends is capable of keying the radio.</p>
+
+      <div id="control-login">
+        <form id="control-login-form" style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+          <input type="password" id="control-password" placeholder="Admin password" autocomplete="current-password" required style="flex:1;min-width:180px;" />
+          <button type="submit" class="btn secondary">Log in</button>
+        </form>
+        <p id="control-login-status" class="status-line"></p>
+      </div>
+
+      <div id="control-panel" hidden>
+        <label class="radio-control-lock">
+          <input type="checkbox" id="control-lock-toggle" />
+          Enable controls &mdash; unlocks the buttons/slider below so a stray click or tap can't tune or key up anything by accident
+        </label>
+        <fieldset id="control-fieldset" disabled style="border:none;margin:0;padding:0;">
+        <div class="radio-band-buttons" id="control-bands"></div>
+
+        <div class="radio-tune-slider">
+          <div class="slider-top-row">
+            <span class="band-label" id="control-slider-band">&mdash;</span>
+            <span class="live-freq" id="control-slider-live">&mdash;</span>
+          </div>
+          <input type="range" id="control-slider" min="0" max="1" step="0.0001" value="0" />
+          <div class="slider-range-labels">
+            <span id="control-slider-min">&mdash;</span>
+            <span id="control-slider-max">&mdash;</span>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem;align-items:center;">
+          <input type="number" id="control-freq" step="0.001" placeholder="Frequency (MHz)" style="max-width:160px;" />
+          <select id="control-mode">
+            <option value="USB">USB</option>
+            <option value="LSB">LSB</option>
+            <option value="CW">CW</option>
+            <option value="AM">AM</option>
+            <option value="DIGU">DIGU</option>
+            <option value="DIGL">DIGL</option>
+            <option value="RTTY">RTTY</option>
+            <option value="FM">FM</option>
+          </select>
+          <button type="button" id="control-tune-btn" class="btn">Tune</button>
+        </div>
+        <div class="radio-step-buttons" id="control-steps">
+          <button type="button" class="btn secondary" data-step="-0.01">−10k</button>
+          <button type="button" class="btn secondary" data-step="-0.001">−1k</button>
+          <button type="button" class="btn secondary" data-step="-0.0001">−100</button>
+          <button type="button" class="btn secondary" data-step="0.0001">+100</button>
+          <button type="button" class="btn secondary" data-step="0.001">+1k</button>
+          <button type="button" class="btn secondary" data-step="0.01">+10k</button>
+        </div>
+        <p id="control-status" class="status-line"></p>
+
+        <div class="radio-tuned-readout">
+          <span class="label">Currently tuned</span>
+          <span class="freq" id="control-tuned-freq">&mdash;</span>
+          <span class="mode" id="control-tuned-mode"></span>
+        </div>
+        <div class="radio-control-smeter">
+          <span class="label" style="color:var(--muted);font-size:0.78rem;">Signal</span>
+          <div class="bar-track"><div class="bar-fill" id="control-smeter-fill"></div></div>
+          <span class="reading" id="control-smeter-reading">&mdash;</span>
+        </div>
+
+        <div class="radio-audio-controls">
+          <button type="button" class="btn" id="control-listen-btn">Listen</button>
+          <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.82rem;color:var(--muted);">
+            Volume
+            <input type="range" id="control-volume" min="0" max="1" step="0.05" value="0.8" />
+          </label>
+          <span class="status-line" id="control-audio-status" style="margin:0;"></span>
+        </div>
+        </fieldset>
+      </div>
+    </div>
+
+    <div class="stat-grid" id="radio-meters">
+      <div class="stat-tile">
+        <div class="label">Signal Level</div>
+        <div class="value" id="radio-signal">&mdash;</div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">SWR</div>
+        <div class="value" id="radio-swr">&mdash;</div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">Forward Power</div>
+        <div class="value" id="radio-fwd">&mdash;</div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">Reflected Power</div>
+        <div class="value" id="radio-ref">&mdash;</div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">PA Temp</div>
+        <div class="value" id="radio-temp">&mdash;</div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">PA Voltage</div>
+        <div class="value" id="radio-volt">&mdash;</div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">Main Fan</div>
+        <div class="value" id="radio-fan">&mdash;</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:1.5rem;">
+      <h2>Recent Sessions</h2>
+      <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Every time the radio has keyed up, so &ldquo;last on the air&rdquo; is still here even if nobody was watching live.</p>
+      <div class="radio-session-list" id="radio-sessions">
+        <p class="status-line">Loading&hellip;</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <h2>Recently Heard (PSK Reporter)</h2>
+    <p style="margin:0;color:var(--muted);font-size:0.85rem;">Who's decoding this station's signal right now, via <a href="https://pskreporter.info" target="_blank" rel="noopener">PSK Reporter</a> &mdash; FT8/FT4/digital modes only, last hour, refreshes every 60s. Independent of the monitoring toggle above &mdash; this is external data, not a connection to the radio itself.</p>
+    <div id="psk-map"></div>
+    <div class="psk-table" id="psk-table"></div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <h2>WSPR Reception Reports</h2>
+    <p style="margin:0;color:var(--muted);font-size:0.85rem;">Who's decoding this station's WSPR beacon, via the <a href="https://wspr.live" target="_blank" rel="noopener">WSPR network</a> &mdash; last hour, refreshes every 60s. Empty whenever the station isn't actively beaconing WSPR.</p>
+    <div id="wspr-map"></div>
+    <div class="psk-table" id="wspr-table"></div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <h2>CW/RTTY Skimmer Reports (Reverse Beacon Network)</h2>
+    <p style="margin:0;color:var(--muted);font-size:0.85rem;">Who's decoding this station's CW/RTTY signal, via the <a href="https://www.reversebeacon.net" target="_blank" rel="noopener">Reverse Beacon Network</a> &mdash; last hour, refreshes every 60s. Empty whenever the station isn't currently on CW or RTTY.</p>
+    <div id="rbn-map"></div>
+    <div class="psk-table" id="rbn-table"></div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <h2>DMR Last Heard (BrandMeister)</h2>
+    <p style="margin:0;color:var(--muted);font-size:0.85rem;">Recent activity on this site's configured DMR talkgroup(s), via <a href="https://brandmeister.network" target="_blank" rel="noopener">BrandMeister</a> &mdash; live, refreshes every 15s. Not specific to this station's own reception, unlike the panels above.</p>
+    <div class="psk-table" id="dmr-table"></div>
+  </div>
+
+  <script>
+    import 'leaflet/dist/leaflet.css';
+    import L from 'leaflet';
+    import { greatCircleArc } from '../lib/geo';
+    import { gridToLatLon } from '../lib/maidenhead';
+    import { escapeHtml } from '../lib/escapeHtml';
+
+    type SliceStatus = { index: number; frequencyMhz: number | null; mode: string | null; txActive: boolean; active: boolean; clientHandle: string | null; signalDbm: number | null };
+    type RadioStatus = {
+      configured: boolean;
+      monitoringEnabled: boolean;
+      controlVisible: boolean;
+      hardwareVisible: boolean;
+      connected: boolean;
+      lastUpdate: string | null;
+      slices: SliceStatus[];
+      controlSliceIndex: number | null;
+      txActive: boolean;
+      swr: number | null;
+      fwdPowerDbm: number | null;
+      refPowerDbm: number | null;
+      paTempC: number | null;
+      voltage: number | null;
+      fanRpm: number | null;
+      signalDbm: number | null;
+      currentSessionStartedAt: string | null;
+    };
+    type RadioSession = { startedAt: string; endedAt: string | null; frequencyMhz: number | null; mode: string | null };
+
+    const notConfigured = document.getElementById('radio-not-configured')!;
+    const toggleCard = document.getElementById('radio-toggle-card')!;
+    const offMessage = document.getElementById('radio-off-message')!;
+    const dashboard = document.getElementById('radio-dashboard')!;
+    const connStatus = document.getElementById('radio-conn-status')!;
+    const onairCard = document.getElementById('radio-onair-card')!;
+    const sliceInfo = document.getElementById('radio-slice-info')!;
+    const controlCard = document.getElementById('radio-control-card')!;
+    const monitorToggle = document.getElementById('radio-monitor-toggle') as HTMLInputElement;
+    let togglingInFlight = false;
+
+    function fmt(value: number | null, digits: number, suffix: string): string {
+      return value == null ? '—' : `${value.toFixed(digits)}${suffix}`;
+    }
+
+    // Standard ham-radio S-meter convention: S9 = -73 dBm, 6 dB per S-unit
+    // below S9, dB-over-S9 above it. The S9 reference point itself is only
+    // loosely standardized and varies by receiver/manufacturer, so this is
+    // an approximation, same spirit as every other "nominal, not certified"
+    // calculator on this site.
+    function dbmToSUnit(dbm: number): string {
+      const sUnits = 9 + (dbm + 73) / 6;
+      if (sUnits >= 9) {
+        const over = Math.round((sUnits - 9) * 6);
+        return over > 0 ? `S9+${over}dB` : 'S9';
+      }
+      return `S${Math.max(1, Math.round(sUnits))}`;
+    }
+
+    function renderStatus(s: RadioStatus) {
+      if (!togglingInFlight) monitorToggle.checked = s.monitoringEnabled;
+
+      if (!s.monitoringEnabled) {
+        offMessage.hidden = false;
+        dashboard.hidden = true;
+        return;
+      }
+      offMessage.hidden = true;
+      dashboard.hidden = false;
+      controlCard.hidden = !s.controlVisible;
+
+      if (!s.connected) {
+        connStatus.textContent = s.lastUpdate
+          ? `Radio unreachable — last heard from ${new Date(s.lastUpdate).toLocaleString()}.`
+          : 'Connecting to the radio…';
+      } else {
+        connStatus.textContent = `Connected — last update ${new Date(s.lastUpdate!).toLocaleTimeString()}.`;
+      }
+
+      onairCard.classList.toggle('tx-active', s.txActive);
+      // Excludes the remote-control feature's own slice -- this card is
+      // about the real operating session, and showing the listen-only
+      // control slice here too would read as "someone's on the air" when
+      // it's really just this feature's own receiver sitting tuned somewhere.
+      const activeSlices = s.slices.filter((sl) => (sl.active || sl.frequencyMhz != null) && sl.index !== s.controlSliceIndex);
+      if (!activeSlices.length) {
+        sliceInfo.innerHTML = '<p class="status-line" style="margin:0;">No active slice — radio online, not currently receiving or transmitting.</p>';
+      } else {
+        sliceInfo.innerHTML = activeSlices
+          .map(
+            (sl) => `
+          <div class="radio-slice-row">
+            <span class="freq">${sl.frequencyMhz != null ? sl.frequencyMhz.toFixed(4) : '—'} MHz</span>
+            <span class="mode">${sl.mode ?? '—'}</span>
+            ${sl.txActive ? '<span class="tx-badge">TX</span>' : ''}
+          </div>`,
+          )
+          .join('');
+      }
+
+      document.getElementById('radio-signal')!.textContent =
+        s.signalDbm == null ? '—' : `${dbmToSUnit(s.signalDbm)} (${s.signalDbm.toFixed(0)}dBm)`;
+      document.getElementById('radio-swr')!.textContent = fmt(s.swr, 2, '');
+      document.getElementById('radio-fwd')!.textContent = fmt(s.fwdPowerDbm, 1, ' dBm');
+      document.getElementById('radio-ref')!.textContent = fmt(s.refPowerDbm, 1, ' dBm');
+      document.getElementById('radio-temp')!.textContent = fmt(s.paTempC, 1, '°C');
+      document.getElementById('radio-volt')!.textContent = fmt(s.voltage, 2, 'V');
+      document.getElementById('radio-fan')!.textContent = s.fanRpm != null ? `${Math.round(s.fanRpm)} RPM` : '—';
+
+      const controlSlice = s.controlSliceIndex != null ? s.slices.find((sl) => sl.index === s.controlSliceIndex) : undefined;
+      const tunedFreq = document.getElementById('control-tuned-freq')!;
+      const tunedMode = document.getElementById('control-tuned-mode')!;
+      const smeterFill = document.getElementById('control-smeter-fill')!;
+      const smeterReading = document.getElementById('control-smeter-reading')!;
+      if (controlSlice?.frequencyMhz != null) {
+        tunedFreq.textContent = `${controlSlice.frequencyMhz.toFixed(4)} MHz`;
+        tunedMode.textContent = controlSlice.mode ?? '';
+        // Keeps the slider's band range and position matching reality
+        // whenever a tune happens some other way (band button, number
+        // input, step buttons) -- skipped mid-drag so a live status poll
+        // can't yank the thumb out from under the user's own gesture.
+        if (!sliderDragging) {
+          const freq = controlSlice.frequencyMhz;
+          const band = bandForFreq(freq);
+          if (band.label !== sliderBand.label) setSliderBand(band, freq);
+          else setSliderValue(freq);
+        }
+      } else {
+        tunedFreq.textContent = '—';
+        tunedMode.textContent = '';
+      }
+      if (controlSlice?.signalDbm != null) {
+        const dbm = controlSlice.signalDbm;
+        smeterReading.textContent = `${dbmToSUnit(dbm)} (${dbm.toFixed(0)}dBm)`;
+        // Bar spans a nominal S0 (-127dBm) to S9+60 (-13dBm) HF noise-floor
+        // range -- same "nominal, not certified" spirit as dbmToSUnit above.
+        const pct = Math.max(0, Math.min(100, ((dbm + 127) / 114) * 100));
+        (smeterFill as HTMLElement).style.width = `${pct}%`;
+      } else {
+        smeterReading.textContent = '—';
+        (smeterFill as HTMLElement).style.width = '0%';
+      }
+    }
+
+    function loadStatus() {
+      fetch('/api/radio/status')
+        .then((r) => r.json())
+        .then((s: RadioStatus) => {
+          // Admin-controlled feature flag, checked before anything else --
+          // an installer without a FlexRadio at all doesn't need to see a
+          // "not configured" message either, just nothing.
+          if (!s.hardwareVisible) {
+            notConfigured.hidden = true;
+            toggleCard.hidden = true;
+            offMessage.hidden = true;
+            dashboard.hidden = true;
+            return;
+          }
+          if (!s.configured) {
+            notConfigured.hidden = false;
+            toggleCard.hidden = true;
+            offMessage.hidden = true;
+            dashboard.hidden = true;
+            return;
+          }
+          notConfigured.hidden = true;
+          toggleCard.hidden = false;
+          renderStatus(s);
+        })
+        .catch(() => {
+          connStatus.textContent = 'Could not reach the site\'s own radio-status endpoint.';
+        });
+    }
+    loadStatus();
+    setInterval(loadStatus, 3000);
+
+    monitorToggle.addEventListener('change', () => {
+      togglingInFlight = true;
+      const enabled = monitorToggle.checked;
+      fetch('/api/radio/monitoring', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      })
+        .then((r) => r.json())
+        .then((s: RadioStatus) => {
+          togglingInFlight = false;
+          renderStatus(s);
+        })
+        .catch(() => {
+          togglingInFlight = false;
+          monitorToggle.checked = !enabled;
+        });
+    });
+
+    // --- Remote control (receive only) -- admin-gated, same TOKEN_KEY/login
+    // pattern used on /log and /admin, so logging in on any of those pages
+    // also unlocks this one for the rest of the browser session. ---
+    const TOKEN_KEY = 'hamstation_admin_token';
+    const controlLogin = document.getElementById('control-login')!;
+    const controlPanel = document.getElementById('control-panel')!;
+    const controlLoginStatus = document.getElementById('control-login-status')!;
+    const controlStatus = document.getElementById('control-status')!;
+    const controlFreq = document.getElementById('control-freq') as HTMLInputElement;
+    const controlMode = document.getElementById('control-mode') as HTMLSelectElement;
+
+    function showControlPanel() {
+      controlLogin.setAttribute('hidden', '');
+      controlPanel.removeAttribute('hidden');
+    }
+    if (sessionStorage.getItem(TOKEN_KEY)) showControlPanel();
+
+    // Locked (fieldset disabled) by default every page load, on purpose --
+    // this is a pure client-side safety catch against a stray click/tap on
+    // the tuning controls, not persisted across reloads, so leaving the tab
+    // open and coming back to it later doesn't leave it unlocked.
+    const controlFieldset = document.getElementById('control-fieldset') as HTMLFieldSetElement;
+    document.getElementById('control-lock-toggle')!.addEventListener('change', (e) => {
+      controlFieldset.disabled = !(e.target as HTMLInputElement).checked;
+    });
+
+    document.getElementById('control-login-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = (document.getElementById('control-password') as HTMLInputElement).value;
+      controlLoginStatus.textContent = 'Checking…';
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (res.ok) {
+        const { token } = await res.json();
+        sessionStorage.setItem(TOKEN_KEY, token);
+        controlLoginStatus.textContent = '';
+        showControlPanel();
+      } else {
+        controlLoginStatus.textContent = 'Wrong password.';
+      }
+    });
+
+    // General SSB/browsing calling-area default per band -- just a
+    // reasonable starting point to jump to, not a claim about where
+    // activity actually is at any given moment.
+    const CONTROL_BANDS = [
+      { label: '160m', mhz: 1.9 },
+      { label: '80m', mhz: 3.75 },
+      { label: '40m', mhz: 7.15 },
+      { label: '20m', mhz: 14.2 },
+      { label: '17m', mhz: 18.13 },
+      { label: '15m', mhz: 21.3 },
+      { label: '12m', mhz: 24.95 },
+      { label: '10m', mhz: 28.4 },
+      { label: '6m', mhz: 50.125 },
+    ];
+    const controlBandsEl = document.getElementById('control-bands')!;
+    for (const b of CONTROL_BANDS) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn secondary';
+      btn.textContent = b.label;
+      btn.addEventListener('click', () => {
+        controlFreq.value = String(b.mhz);
+        setSliderBand(bandForFreq(b.mhz), b.mhz);
+        sendControl();
+      });
+      controlBandsEl.appendChild(btn);
+    }
+
+    // --- Tuning slider: scoped to whichever band the control slice is
+    // currently on (not the whole HF spectrum at once, which would make
+    // fine tuning within a band impractical on a single drag). Only sends a
+    // tune command on release (`change`), not on every `input` while
+    // dragging -- each tune is a real remove-then-recreate-slice round trip
+    // on the radio (see recreateControlSlice()'s comment in flexRadio.ts),
+    // not a cheap operation to fire continuously.
+    const BAND_EDGES = [
+      { label: '160m', min: 1.8, max: 2.0 },
+      { label: '80m', min: 3.5, max: 4.0 },
+      { label: '40m', min: 7.0, max: 7.3 },
+      { label: '20m', min: 14.0, max: 14.35 },
+      { label: '17m', min: 18.068, max: 18.168 },
+      { label: '15m', min: 21.0, max: 21.45 },
+      { label: '12m', min: 24.89, max: 24.99 },
+      { label: '10m', min: 28.0, max: 29.7 },
+      { label: '6m', min: 50.0, max: 54.0 },
+    ];
+    function bandForFreq(mhz: number) {
+      return BAND_EDGES.find((b) => mhz >= b.min && mhz <= b.max) ?? BAND_EDGES[3];
+    }
+
+    const sliderEl = document.getElementById('control-slider') as HTMLInputElement;
+    const sliderBandEl = document.getElementById('control-slider-band')!;
+    const sliderLiveEl = document.getElementById('control-slider-live')!;
+    const sliderMinEl = document.getElementById('control-slider-min')!;
+    const sliderMaxEl = document.getElementById('control-slider-max')!;
+    let sliderDragging = false;
+    let sliderBand = BAND_EDGES[3];
+
+    function setSliderValue(freqMhz: number) {
+      const clamped = Math.min(sliderBand.max, Math.max(sliderBand.min, freqMhz));
+      sliderEl.value = String(clamped);
+      sliderLiveEl.textContent = `${clamped.toFixed(4)} MHz`;
+    }
+
+    function setSliderBand(band: (typeof BAND_EDGES)[number], freqMhz: number) {
+      sliderBand = band;
+      sliderEl.min = String(band.min);
+      sliderEl.max = String(band.max);
+      sliderBandEl.textContent = band.label;
+      sliderMinEl.textContent = band.min.toFixed(3);
+      sliderMaxEl.textContent = band.max.toFixed(3);
+      setSliderValue(freqMhz);
+    }
+    setSliderBand(BAND_EDGES[3], 14.1); // sane default until the first status poll or tune sets the real one
+
+    sliderEl.addEventListener('input', () => {
+      sliderLiveEl.textContent = `${Number(sliderEl.value).toFixed(4)} MHz`;
+    });
+    sliderEl.addEventListener('pointerdown', () => {
+      sliderDragging = true;
+    });
+    sliderEl.addEventListener('change', () => {
+      controlFreq.value = Number(sliderEl.value).toFixed(4);
+      sendControl();
+      sliderDragging = false;
+    });
+
+    function sendControl() {
+      const body: { frequencyMhz?: number; mode?: string } = {};
+      if (controlFreq.value) body.frequencyMhz = Number(controlFreq.value);
+      if (controlMode.value) body.mode = controlMode.value;
+      if (body.frequencyMhz === undefined && body.mode === undefined) return;
+
+      controlStatus.textContent = 'Sending…';
+      fetch('/api/radio/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify(body),
+      })
+        .then(async (res) => {
+          if (res.status === 401) {
+            sessionStorage.removeItem(TOKEN_KEY);
+            controlPanel.setAttribute('hidden', '');
+            controlLogin.removeAttribute('hidden');
+            controlLoginStatus.textContent = 'Session expired, please log in again.';
+            return;
+          }
+          if (res.ok) {
+            controlStatus.textContent = `Tuned${body.frequencyMhz != null ? ` to ${body.frequencyMhz} MHz` : ''}${body.mode ? ` (${body.mode})` : ''} on Antenna 2, tuner bypassed.`;
+          } else {
+            const errBody = await res.json().catch(() => ({}));
+            controlStatus.textContent = errBody.error ?? 'Control command failed.';
+          }
+        })
+        .catch(() => {
+          controlStatus.textContent = 'Could not reach the radio control endpoint.';
+        });
+    }
+    document.getElementById('control-tune-btn')!.addEventListener('click', sendControl);
+
+    // Step buttons nudge the frequency input by a fixed MHz delta (encoded
+    // in each button's data-step) and immediately send it -- "tune around"
+    // without having to type an exact frequency each time. Steps from
+    // whatever's currently in the input, falling back to the last known
+    // tuned frequency if the box is empty (e.g. right after login).
+    document.getElementById('control-steps')!.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest('button[data-step]') as HTMLButtonElement | null;
+      if (!btn) return;
+      const step = Number(btn.dataset.step);
+      const tunedText = document.getElementById('control-tuned-freq')!.textContent ?? '';
+      const base = controlFreq.value ? Number(controlFreq.value) : parseFloat(tunedText) || 14.1;
+      const next = Math.round((base + step) * 1e6) / 1e6;
+      controlFreq.value = next.toFixed(4);
+      if (bandForFreq(next).label === sliderBand.label) setSliderValue(next);
+      sendControl();
+    });
+
+    // --- Audio (receive-only, same shared control slice as tuning above) ---
+    // Server decodes Opus server-side and relays interleaved Int16 PCM
+    // (2ch, 24kHz) over a WebSocket -- see flexRadio.ts's audio section for
+    // why. Playback here schedules each incoming chunk as its own
+    // AudioBufferSourceNode back-to-back on a running clock (nextPlayTime)
+    // rather than playing them as they arrive, which is what avoids
+    // clicks/gaps between chunks on a variable-latency network relay.
+    const listenBtn = document.getElementById('control-listen-btn') as HTMLButtonElement;
+    const volumeSlider = document.getElementById('control-volume') as HTMLInputElement;
+    const audioStatus = document.getElementById('control-audio-status')!;
+    let audioSocket: WebSocket | null = null;
+    let audioCtx: AudioContext | null = null;
+    let gainNode: GainNode | null = null;
+    let nextPlayTime = 0;
+
+    function stopListening(message: string) {
+      audioSocket?.close();
+      audioSocket = null;
+      audioCtx?.close();
+      audioCtx = null;
+      gainNode = null;
+      listenBtn.textContent = 'Listen';
+      listenBtn.classList.remove('listening');
+      audioStatus.textContent = message;
+    }
+
+    async function startListening() {
+      const token = sessionStorage.getItem(TOKEN_KEY);
+      if (!token) return;
+
+      // Short-lived single-use ticket instead of putting the long-lived
+      // session token itself in the WS URL (which the browser's native
+      // WebSocket API can't avoid, since it can't set custom headers on the
+      // upgrade request) -- keeps a leaked Caddy log line from being a
+      // reusable credential.
+      audioStatus.textContent = 'Connecting…';
+      const ticketRes = await fetch('/api/auth/ws-ticket', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!ticketRes.ok) {
+        audioStatus.textContent = 'Could not start audio (auth failed).';
+        return;
+      }
+      const { ticket } = await ticketRes.json();
+
+      audioCtx = new AudioContext();
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = Number(volumeSlider.value);
+      gainNode.connect(audioCtx.destination);
+      nextPlayTime = 0;
+
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const ws = new WebSocket(`${proto}//${location.host}/ws/radio-audio?ticket=${encodeURIComponent(ticket)}`);
+      ws.binaryType = 'arraybuffer';
+      audioSocket = ws;
+      listenBtn.textContent = 'Listening…';
+      listenBtn.classList.add('listening');
+      audioStatus.textContent = 'Connecting…';
+
+      ws.addEventListener('open', () => {
+        audioStatus.textContent = '';
+      });
+      ws.addEventListener('message', (ev) => {
+        if (typeof ev.data === 'string') {
+          const parsed = JSON.parse(ev.data);
+          stopListening(parsed.error ?? 'Audio stream stopped.');
+          return;
+        }
+        if (!audioCtx || !gainNode) return;
+        const pcm = new Int16Array(ev.data as ArrayBuffer);
+        const frames = pcm.length / 2;
+        const buffer = audioCtx.createBuffer(2, frames, 24000);
+        const left = buffer.getChannelData(0);
+        const right = buffer.getChannelData(1);
+        for (let i = 0; i < frames; i++) {
+          left[i] = pcm[i * 2] / 0x8000;
+          right[i] = pcm[i * 2 + 1] / 0x8000;
+        }
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(gainNode);
+        // If playback has fallen behind (network hiccup), resync a small
+        // fixed distance ahead instead of scheduling into the past --
+        // otherwise every subsequent chunk would also queue up in the past
+        // and play back-to-back with no delay, i.e. sped-up/glitchy audio.
+        const startAt = Math.max(nextPlayTime, audioCtx.currentTime + 0.05);
+        source.start(startAt);
+        nextPlayTime = startAt + buffer.duration;
+      });
+      ws.addEventListener('close', () => {
+        if (audioSocket === ws) stopListening('');
+      });
+      ws.addEventListener('error', () => {
+        if (audioSocket === ws) stopListening('Audio connection error.');
+      });
+    }
+
+    listenBtn.addEventListener('click', () => {
+      if (audioSocket) {
+        stopListening('');
+      } else {
+        startListening();
+      }
+    });
+    volumeSlider.addEventListener('input', () => {
+      if (gainNode) gainNode.gain.value = Number(volumeSlider.value);
+    });
+
+    function formatDuration(startIso: string, endIso: string | null): string {
+      const start = new Date(startIso).getTime();
+      const end = endIso ? new Date(endIso).getTime() : Date.now();
+      const minutes = Math.max(0, Math.round((end - start) / 60000));
+      if (minutes < 60) return `${minutes}m`;
+      return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+    }
+
+    function loadSessions() {
+      fetch('/api/radio/sessions')
+        .then((r) => r.json())
+        .then((sessions: RadioSession[]) => {
+          const list = document.getElementById('radio-sessions')!;
+          if (!sessions.length) {
+            list.innerHTML = '<p class="status-line">No sessions recorded yet.</p>';
+            return;
+          }
+          list.innerHTML = '';
+          for (const sess of sessions) {
+            const row = document.createElement('div');
+            row.className = 'radio-session-row';
+            const ongoing = !sess.endedAt;
+            row.innerHTML = `
+              <span class="when">${new Date(sess.startedAt).toLocaleString()}${ongoing ? ' — on the air now' : ''}</span>
+              <span class="freq-mode">${sess.frequencyMhz != null ? sess.frequencyMhz.toFixed(3) + ' MHz' : ''} ${sess.mode ?? ''}</span>
+              <span class="duration">${formatDuration(sess.startedAt, sess.endedAt)}</span>
+            `;
+            list.appendChild(row);
+          }
+        })
+        .catch(() => {
+          document.getElementById('radio-sessions')!.innerHTML = '<p class="status-line">Could not load session history.</p>';
+        });
+    }
+    loadSessions();
+    setInterval(loadSessions, 30000);
+
+    // --- PSK Reporter ("recently heard") — independent of the monitoring
+    // toggle above; this is external data about the station's own signal,
+    // not a connection to the radio itself, so it loads regardless. ---
+    type PskReport = { receiver: string; receiverGrid: string | null; receiverDxcc: string | null; frequency: number | null; mode: string | null; snr: number | null; time: number | null };
+    type WsprReport = { receiver: string; receiverGrid: string | null; lat: number | null; lon: number | null; frequency: number | null; snr: number | null; distanceKm: number | null; time: number | null };
+    type RbnReport = { skimmer: string; lat: number | null; lon: number | null; frequency: number | null; db: number | null; wpm: number | null; mode: string | null; time: number | null };
+
+    function formatTimeAgo(unixSeconds: number | null): string {
+      if (!unixSeconds) return '';
+      const seconds = Math.max(0, Math.round(Date.now() / 1000 - unixSeconds));
+      if (seconds < 60) return `${seconds}s ago`;
+      const minutes = Math.round(seconds / 60);
+      if (minutes < 60) return `${minutes}m ago`;
+      return `${Math.round(minutes / 60)}h ago`;
+    }
+
+    // --- Reception map: great-circle arcs from home to each receiver's grid
+    // square, redrawn every time loadPskReports() refreshes (same 60s cycle). ---
+    const pskMap = L.map('psk-map', { worldCopyJump: true }).setView([20, 0], 2);
+    const pskIsDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${pskIsDark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 18,
+    }).addTo(pskMap);
+    const pskRenderer = L.canvas({ padding: 0.5 });
+    const pskLayer = L.layerGroup().addTo(pskMap);
+    const pskAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#5eead4';
+
+    const wsprMap = L.map('wspr-map', { worldCopyJump: true }).setView([20, 0], 2);
+    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${pskIsDark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 18,
+    }).addTo(wsprMap);
+    const wsprRenderer = L.canvas({ padding: 0.5 });
+    const wsprLayer = L.layerGroup().addTo(wsprMap);
+    const wsprAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent-2').trim() || '#f5a962';
+
+    const rbnMap = L.map('rbn-map', { worldCopyJump: true }).setView([20, 0], 2);
+    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${pskIsDark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 18,
+    }).addTo(rbnMap);
+    const rbnRenderer = L.canvas({ padding: 0.5 });
+    const rbnLayer = L.layerGroup().addTo(rbnMap);
+    const rbnAccent = getComputedStyle(document.documentElement).getPropertyValue('--band-3').trim() || '#199e70';
+
+    let pskHome: { lat: number; lon: number } | null = null;
+    let lastPskReports: PskReport[] = [];
+    let lastWsprReports: WsprReport[] = [];
+    let lastRbnReports: RbnReport[] = [];
+    fetch('/api/conditions/home')
+      .then((r) => r.json())
+      .then((home: { lat: number; lon: number } | null) => {
+        pskHome = home;
+        if (home) {
+          L.circleMarker([home.lat, home.lon], { radius: 6, color: pskAccent, fillColor: pskAccent, fillOpacity: 1, weight: 2, renderer: pskRenderer })
+            .bindTooltip('Home', { permanent: true, direction: 'top', className: 'home-tooltip' })
+            .addTo(pskMap);
+          drawPskMap(lastPskReports);
+          L.circleMarker([home.lat, home.lon], { radius: 6, color: wsprAccent, fillColor: wsprAccent, fillOpacity: 1, weight: 2, renderer: wsprRenderer })
+            .bindTooltip('Home', { permanent: true, direction: 'top', className: 'home-tooltip' })
+            .addTo(wsprMap);
+          drawWsprMap(lastWsprReports);
+          L.circleMarker([home.lat, home.lon], { radius: 6, color: rbnAccent, fillColor: rbnAccent, fillOpacity: 1, weight: 2, renderer: rbnRenderer })
+            .bindTooltip('Home', { permanent: true, direction: 'top', className: 'home-tooltip' })
+            .addTo(rbnMap);
+          drawRbnMap(lastRbnReports);
+        }
+      });
+
+    function drawPskMap(reports: PskReport[]) {
+      pskLayer.clearLayers();
+      if (!pskHome) return;
+      for (const r of reports) {
+        if (!r.receiverGrid) continue;
+        const loc = gridToLatLon(r.receiverGrid);
+        if (!loc) continue;
+        const arc = greatCircleArc(pskHome.lat, pskHome.lon, loc.lat, loc.lon, 16);
+        const tooltipText = `${escapeHtml(r.receiver)}${r.receiverDxcc ? ` (${escapeHtml(r.receiverDxcc)})` : ''} · ${r.snr != null ? `${r.snr > 0 ? '+' : ''}${r.snr}dB` : '—'} · ${formatTimeAgo(r.time)}`;
+        const line = L.polyline(arc, { color: pskAccent, weight: 1.5, opacity: 0.6, renderer: pskRenderer });
+        line.bindTooltip(tooltipText, { sticky: true });
+        pskLayer.addLayer(line);
+        const dot = L.circleMarker([loc.lat, loc.lon], { radius: 4, color: pskAccent, fillColor: pskAccent, fillOpacity: 1, weight: 1, renderer: pskRenderer });
+        dot.bindTooltip(tooltipText, { sticky: true });
+        pskLayer.addLayer(dot);
+      }
+    }
+
+    function drawWsprMap(reports: WsprReport[]) {
+      wsprLayer.clearLayers();
+      if (!pskHome) return;
+      for (const r of reports) {
+        if (r.lat == null || r.lon == null) continue;
+        const arc = greatCircleArc(pskHome.lat, pskHome.lon, r.lat, r.lon, 16);
+        const tooltipText = `${escapeHtml(r.receiver)} · ${r.snr != null ? `${r.snr > 0 ? '+' : ''}${r.snr}dB` : '—'} · ${r.distanceKm != null ? `${r.distanceKm}km` : ''} · ${formatTimeAgo(r.time)}`;
+        const line = L.polyline(arc, { color: wsprAccent, weight: 1.5, opacity: 0.6, renderer: wsprRenderer });
+        line.bindTooltip(tooltipText, { sticky: true });
+        wsprLayer.addLayer(line);
+        const dot = L.circleMarker([r.lat, r.lon], { radius: 4, color: wsprAccent, fillColor: wsprAccent, fillOpacity: 1, weight: 1, renderer: wsprRenderer });
+        dot.bindTooltip(tooltipText, { sticky: true });
+        wsprLayer.addLayer(dot);
+      }
+    }
+
+    function loadWsprReports() {
+      fetch('/api/conditions/wspr')
+        .then((r) => r.json())
+        .then((reports: WsprReport[]) => {
+          lastWsprReports = reports;
+          drawWsprMap(reports);
+          const table = document.getElementById('wspr-table')!;
+          if (!reports.length) {
+            table.innerHTML = '<p class="status-line">No WSPR reception reports in the last hour &mdash; station likely not currently beaconing WSPR.</p>';
+            return;
+          }
+          table.innerHTML = '';
+          for (const r of reports) {
+            const row = document.createElement('div');
+            row.className = 'psk-row';
+            const freqMhz = r.frequency != null ? (r.frequency / 1e6).toFixed(4) : '—';
+            const snrClass = r.snr == null ? '' : r.snr >= -15 ? 'strong' : r.snr <= -25 ? 'weak' : '';
+            row.innerHTML = `
+              <span class="call">${escapeHtml(r.receiver)}</span>
+              <span class="place">${escapeHtml(r.receiverGrid ?? '')}${r.distanceKm != null ? ` · ${r.distanceKm}km` : ''}</span>
+              <span class="freq">${freqMhz}</span>
+              <span class="snr ${snrClass}">${r.snr != null ? `${r.snr > 0 ? '+' : ''}${r.snr}dB` : '—'}</span>
+              <span class="ago">${formatTimeAgo(r.time)}</span>
+            `;
+            table.appendChild(row);
+          }
+        })
+        .catch(() => {
+          document.getElementById('wspr-table')!.innerHTML = '<p class="status-line">Could not load WSPR reception data.</p>';
+        });
+    }
+    loadWsprReports();
+    setInterval(loadWsprReports, 60000);
+
+    function drawRbnMap(reports: RbnReport[]) {
+      rbnLayer.clearLayers();
+      if (!pskHome) return;
+      for (const r of reports) {
+        if (r.lat == null || r.lon == null) continue;
+        const arc = greatCircleArc(pskHome.lat, pskHome.lon, r.lat, r.lon, 16);
+        const tooltipText = `${escapeHtml(r.skimmer)} · ${escapeHtml(r.mode ?? '—')}${r.wpm != null ? ` ${r.wpm}wpm` : ''} · ${r.db != null ? `${r.db}dB` : '—'} · ${formatTimeAgo(r.time)}`;
+        const line = L.polyline(arc, { color: rbnAccent, weight: 1.5, opacity: 0.6, renderer: rbnRenderer });
+        line.bindTooltip(tooltipText, { sticky: true });
+        rbnLayer.addLayer(line);
+        const dot = L.circleMarker([r.lat, r.lon], { radius: 4, color: rbnAccent, fillColor: rbnAccent, fillOpacity: 1, weight: 1, renderer: rbnRenderer });
+        dot.bindTooltip(tooltipText, { sticky: true });
+        rbnLayer.addLayer(dot);
+      }
+    }
+
+    function loadRbnReports() {
+      fetch('/api/conditions/rbn')
+        .then((r) => r.json())
+        .then((reports: RbnReport[]) => {
+          lastRbnReports = reports;
+          drawRbnMap(reports);
+          const table = document.getElementById('rbn-table')!;
+          if (!reports.length) {
+            table.innerHTML = '<p class="status-line">No CW/RTTY skimmer reports in the last hour &mdash; station likely not currently on CW or RTTY.</p>';
+            return;
+          }
+          table.innerHTML = '';
+          for (const r of reports) {
+            const row = document.createElement('div');
+            row.className = 'psk-row';
+            const freqMhz = r.frequency != null ? (r.frequency / 1e6).toFixed(4) : '—';
+            const dbClass = r.db == null ? '' : r.db >= 20 ? 'strong' : r.db <= 5 ? 'weak' : '';
+            row.innerHTML = `
+              <span class="call">${escapeHtml(r.skimmer)}</span>
+              <span class="place">${escapeHtml(r.mode ?? '')}${r.wpm != null ? ` ${r.wpm}wpm` : ''}</span>
+              <span class="freq">${freqMhz}</span>
+              <span class="snr ${dbClass}">${r.db != null ? `${r.db}dB` : '—'}</span>
+              <span class="ago">${formatTimeAgo(r.time)}</span>
+            `;
+            table.appendChild(row);
+          }
+        })
+        .catch(() => {
+          document.getElementById('rbn-table')!.innerHTML = '<p class="status-line">Could not load RBN reception data.</p>';
+        });
+    }
+    loadRbnReports();
+    setInterval(loadRbnReports, 60000);
+
+    type LastHeardEntry = { callsign: string; name: string; talkgroupId: number; talkgroupName: string; startTime: number; durationSec: number };
+    function loadDmrLastHeard() {
+      fetch('/api/brandmeister/lastheard')
+        .then((r) => r.json())
+        .then((body: { configured: boolean; entries: LastHeardEntry[] }) => {
+          const table = document.getElementById('dmr-table')!;
+          if (!body.configured) {
+            table.innerHTML = '<p class="status-line">No DMR talkgroup configured &mdash; set one under Admin to see activity here.</p>';
+            return;
+          }
+          if (!body.entries.length) {
+            table.innerHTML = '<p class="status-line">No DMR activity on the configured talkgroup(s) recently.</p>';
+            return;
+          }
+          table.innerHTML = '';
+          for (const e of body.entries) {
+            const row = document.createElement('div');
+            row.className = 'psk-row';
+            row.innerHTML = `
+              <span class="call">${escapeHtml(e.callsign)}</span>
+              <span class="place">${escapeHtml(e.talkgroupName)}${e.name ? ` &middot; ${escapeHtml(e.name)}` : ''}</span>
+              <span class="freq">${e.durationSec}s</span>
+              <span class="snr"></span>
+              <span class="ago">${formatTimeAgo(e.startTime)}</span>
+            `;
+            table.appendChild(row);
+          }
+        })
+        .catch(() => {
+          document.getElementById('dmr-table')!.innerHTML = '<p class="status-line">Could not load DMR last-heard data.</p>';
+        });
+    }
+    loadDmrLastHeard();
+    setInterval(loadDmrLastHeard, 15000);
+
+    function loadPskReports() {
+      fetch('/api/conditions/pskreporter')
+        .then((r) => r.json())
+        .then((reports: PskReport[]) => {
+          lastPskReports = reports;
+          drawPskMap(reports);
+          const table = document.getElementById('psk-table')!;
+          if (!reports.length) {
+            table.innerHTML = '<p class="status-line">No reception reports in the last hour &mdash; station likely not currently transmitting a decodable digital mode.</p>';
+            return;
+          }
+          table.innerHTML = '';
+          for (const r of reports) {
+            const row = document.createElement('div');
+            row.className = 'psk-row';
+            const freqMhz = r.frequency != null ? (r.frequency / 1e6).toFixed(3) : '—';
+            const snrClass = r.snr == null ? '' : r.snr >= -6 ? 'strong' : r.snr <= -18 ? 'weak' : '';
+            row.innerHTML = `
+              <span class="call">${escapeHtml(r.receiver)}</span>
+              <span class="place">${escapeHtml(r.receiverDxcc ?? '')}${r.receiverGrid ? ` (${escapeHtml(r.receiverGrid.slice(0, 6))})` : ''}</span>
+              <span class="freq">${freqMhz}</span>
+              <span class="snr ${snrClass}">${r.snr != null ? `${r.snr > 0 ? '+' : ''}${r.snr}dB` : '—'}</span>
+              <span class="ago">${formatTimeAgo(r.time)}</span>
+            `;
+            table.appendChild(row);
+          }
+        })
+        .catch(() => {
+          document.getElementById('psk-table')!.innerHTML = '<p class="status-line">Could not load PSK Reporter data.</p>';
+        });
+    }
+    loadPskReports();
+    setInterval(loadPskReports, 60000);
+  </script>
+</Base>

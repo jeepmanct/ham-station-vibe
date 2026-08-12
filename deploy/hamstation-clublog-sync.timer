@@ -1,0 +1,12 @@
+[Unit]
+Description=Weekly Club Log OQRS callsign sync
+
+[Timer]
+# Club Log's own cache-control on this file is 30 days, so weekly is more
+# than enough — no need to hit it daily like the solar/QRZ syncs.
+OnCalendar=Sun *-*-* 06:45:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

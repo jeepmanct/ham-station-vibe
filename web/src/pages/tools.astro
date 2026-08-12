@@ -1,0 +1,1094 @@
+---
+import Base from '../layouts/Base.astro';
+import '../styles/tools.css';
+---
+<Base title="Tools" active="tools">
+  <h1>Tools</h1>
+  <p class="lede">Quick calculators and log lookups for operating.</p>
+
+  <div class="tools-grid">
+    <div class="tool-card">
+      <h2><span>Grid Square Converter</span><button type="button" class="tool-reset-btn" id="grid-reset-btn">Reset</button></h2>
+      <div class="tool-field">
+        <label for="grid-input">Maidenhead grid locator</label>
+        <input type="text" id="grid-input" placeholder="e.g. FN31pr" />
+      </div>
+      <p style="text-align:center;color:var(--muted);margin:0.5rem 0;">or</p>
+      <div style="display:flex;gap:0.5rem;">
+        <div class="tool-field" style="flex:1;">
+          <label for="lat-input">Latitude</label>
+          <input type="text" id="lat-input" placeholder="e.g. 41.19" />
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="lon-input">Longitude</label>
+          <input type="text" id="lon-input" placeholder="e.g. -73.14" />
+        </div>
+      </div>
+      <p style="text-align:center;color:var(--muted);margin:0.5rem 0;">or</p>
+      <div class="tool-field">
+        <label for="geo-input">City, state, ZIP, or address</label>
+        <div style="display:flex;gap:0.5rem;">
+          <input type="text" id="geo-input" placeholder="e.g. Newington, CT or 06111" style="flex:1;" />
+          <button type="button" class="btn secondary" id="geo-lookup-btn" style="white-space:nowrap;">Look Up</button>
+        </div>
+      </div>
+      <button type="button" class="btn secondary" id="geo-locate-btn" style="width:100%;">📍 Use My Location</button>
+      <p class="status-line" id="geo-status"></p>
+      <div class="tool-result" id="grid-result" hidden>
+        <div class="big" id="grid-result-value">&mdash;</div>
+        <div class="sub" id="grid-result-sub"></div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>Distance &amp; Bearing</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <div class="tool-field">
+        <label for="dist-from">From grid square</label>
+        <input type="text" id="dist-from" placeholder="e.g. FN31pr" />
+      </div>
+      <div class="tool-field">
+        <label for="dist-to">To grid square</label>
+        <input type="text" id="dist-to" placeholder="e.g. IO91wm" />
+      </div>
+      <div class="tool-result" id="dist-result" hidden>
+        <div class="big" id="dist-result-value">&mdash;</div>
+        <div class="sub" id="dist-result-sub"></div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>Antenna Length</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <div class="tool-field">
+        <label for="ant-type">Antenna type</label>
+        <select id="ant-type">
+          <option value="dipole">Half-wave dipole</option>
+          <option value="efhw">End-Fed Half-Wave (EFHW)</option>
+          <option value="ocf">Off-Center-Fed (OCF) dipole</option>
+          <option value="vertical">Quarter-wave vertical</option>
+          <option value="fivezeroeighth">5/8-wave vertical (VHF/UHF)</option>
+          <option value="edz">Extended Double Zepp</option>
+          <option value="loop">Full-wave loop</option>
+        </select>
+      </div>
+      <div class="tool-field">
+        <label for="ant-freq">Frequency (MHz)</label>
+        <input type="text" id="ant-freq" placeholder="e.g. 14.175" />
+      </div>
+      <div class="tool-result" id="ant-result" hidden>
+        <div class="big" id="ant-result-value">&mdash;</div>
+        <div class="sub" id="ant-result-sub"></div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>Antenna Takeoff Angle</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Lowest-angle major lobe for a horizontal antenna (dipole/Yagi) over flat ground &mdash; idealized, real terrain varies.</p>
+      <div style="display:flex;gap:0.5rem;">
+        <div class="tool-field" style="flex:1;">
+          <label for="toa-height">Height above ground (ft)</label>
+          <input type="text" id="toa-height" placeholder="e.g. 33" />
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="toa-freq">Frequency (MHz)</label>
+          <input type="text" id="toa-freq" placeholder="e.g. 14.2" />
+        </div>
+      </div>
+      <div class="tool-result" id="toa-result" hidden>
+        <div class="big" id="toa-result-value">&mdash;</div>
+        <div class="sub" id="toa-result-sub"></div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>SWR Calculator</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <div class="tool-field">
+        <label for="swr-fwd">Forward power (W)</label>
+        <input type="text" id="swr-fwd" placeholder="e.g. 100" />
+      </div>
+      <div class="tool-field">
+        <label for="swr-ref">Reflected power (W)</label>
+        <input type="text" id="swr-ref" placeholder="e.g. 4" />
+      </div>
+      <div class="tool-result" id="swr-result" hidden>
+        <div class="big" id="swr-result-value">&mdash;</div>
+        <div class="sub" id="swr-result-sub"></div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>Coax Feedline Loss</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <div class="tool-field">
+        <label for="coax-type">Cable type</label>
+        <select id="coax-type">
+          <option value="RG-58">RG-58</option>
+          <option value="RG-8X">RG-8X</option>
+          <option value="RG-213">RG-213 / RG-8</option>
+          <option value="LMR-400">LMR-400</option>
+          <option value="LMR-600">LMR-600</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:0.5rem;">
+        <div class="tool-field" style="flex:1;">
+          <label for="coax-freq">Frequency (MHz)</label>
+          <input type="text" id="coax-freq" placeholder="e.g. 14.175" />
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="coax-length">Length (ft)</label>
+          <input type="text" id="coax-length" placeholder="e.g. 100" />
+        </div>
+      </div>
+      <div class="tool-result" id="coax-result" hidden>
+        <div class="big" id="coax-result-value">&mdash;</div>
+        <div class="sub" id="coax-result-sub">Nominal figures &mdash; check your cable's datasheet for exact specs.</div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>Wavelength &amp; Frequency</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <div style="display:flex;gap:0.5rem;">
+        <div class="tool-field" style="flex:1;">
+          <label for="wl-freq">Frequency (MHz)</label>
+          <input type="text" id="wl-freq" placeholder="e.g. 146.52" />
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="wl-meters">Wavelength (m)</label>
+          <input type="text" id="wl-meters" placeholder="e.g. 2" />
+        </div>
+      </div>
+      <div class="tool-result" id="wl-result" hidden>
+        <div class="big" id="wl-result-value">&mdash;</div>
+        <div class="sub" id="wl-result-sub"></div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>ERP / EIRP Calculator</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <div class="tool-field">
+        <label for="erp-power">TX power at radio (W)</label>
+        <input type="text" id="erp-power" placeholder="e.g. 100" />
+      </div>
+      <div class="tool-field">
+        <label for="erp-loss">Feedline + connector loss (dB)</label>
+        <input type="text" id="erp-loss" placeholder="e.g. 1.5" />
+      </div>
+      <div style="display:flex;gap:0.5rem;">
+        <div class="tool-field" style="flex:1;">
+          <label for="erp-gain">Antenna gain</label>
+          <input type="text" id="erp-gain" placeholder="e.g. 8.5" />
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="erp-gain-unit">Unit</label>
+          <select id="erp-gain-unit">
+            <option value="dbd">dBd</option>
+            <option value="dbi">dBi</option>
+          </select>
+        </div>
+      </div>
+      <div class="tool-result" id="erp-result" hidden>
+        <div class="big" id="erp-result-value">&mdash;</div>
+        <div class="sub" id="erp-result-sub"></div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>Antenna Gain (dBi &harr; dBd)</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <div style="display:flex;gap:0.5rem;">
+        <div class="tool-field" style="flex:1;">
+          <label for="gain-dbi">dBi (vs. isotropic)</label>
+          <input type="text" id="gain-dbi" placeholder="e.g. 10.15" />
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="gain-dbd">dBd (vs. dipole)</label>
+          <input type="text" id="gain-dbd" placeholder="e.g. 8" />
+        </div>
+      </div>
+      <p style="margin:0.5rem 0 0;color:var(--muted);font-size:0.8rem;">dBi = dBd + 2.15</p>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>Free Space Path Loss</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <div class="tool-field">
+        <label for="fspl-freq">Frequency (MHz)</label>
+        <input type="text" id="fspl-freq" placeholder="e.g. 146.52" />
+      </div>
+      <div class="tool-field">
+        <label for="fspl-dist">Distance (mi)</label>
+        <input type="text" id="fspl-dist" placeholder="e.g. 50" />
+      </div>
+      <div class="tool-result" id="fspl-result" hidden>
+        <div class="big" id="fspl-result-value">&mdash;</div>
+        <div class="sub" id="fspl-result-sub"></div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>VHF/UHF Line-of-Sight Range</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <div style="display:flex;gap:0.5rem;">
+        <div class="tool-field" style="flex:1;">
+          <label for="los-tx">Your antenna height (ft)</label>
+          <input type="text" id="los-tx" placeholder="e.g. 30" />
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="los-rx">Other station height (ft)</label>
+          <input type="text" id="los-rx" placeholder="e.g. 6" />
+        </div>
+      </div>
+      <div class="tool-result" id="los-result" hidden>
+        <div class="big" id="los-result-value">&mdash;</div>
+        <div class="sub" id="los-result-sub"></div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>RF Exposure (MPE) Estimate</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.8rem;">Simplified far-field estimate per FCC OET Bulletin 65 formulas &mdash; not a substitute for a full station evaluation. See <a href="https://www.arrl.org/rf-exposure" target="_blank" rel="noopener">arrl.org/rf-exposure</a>.</p>
+      <div style="display:flex;gap:0.5rem;">
+        <div class="tool-field" style="flex:1;">
+          <label for="mpe-power">TX power at antenna (W)</label>
+          <input type="text" id="mpe-power" placeholder="e.g. 100" />
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="mpe-gain">Antenna gain (dBi)</label>
+          <input type="text" id="mpe-gain" placeholder="e.g. 2.15" />
+        </div>
+      </div>
+      <div style="display:flex;gap:0.5rem;">
+        <div class="tool-field" style="flex:1;">
+          <label for="mpe-freq">Frequency (MHz)</label>
+          <input type="text" id="mpe-freq" placeholder="e.g. 14.2" />
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="mpe-duty">Duty cycle (%)</label>
+          <input type="text" id="mpe-duty" placeholder="e.g. 50" />
+        </div>
+      </div>
+      <div class="tool-field">
+        <label for="mpe-category">Exposure category</label>
+        <select id="mpe-category">
+          <option value="general">General population / uncontrolled</option>
+          <option value="occupational">Occupational / controlled</option>
+        </select>
+      </div>
+      <div class="tool-field">
+        <label for="mpe-distance">Distance to check (ft, optional)</label>
+        <input type="text" id="mpe-distance" placeholder="e.g. 15" />
+      </div>
+      <div class="tool-result" id="mpe-result" hidden>
+        <div class="big" id="mpe-result-value">&mdash;</div>
+        <div class="sub" id="mpe-result-sub"></div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>UTC / Local Time</span><button type="button" class="tool-reset-btn" id="clock-reset-btn">Reset</button></h2>
+      <div class="tool-result" id="utc-clock" style="margin-top:0;padding-top:0;border-top:none;">
+        <div class="big" id="utc-clock-value">&mdash;</div>
+        <div class="sub" id="utc-clock-sub"></div>
+      </div>
+      <p style="margin:1rem 0 0.5rem;color:var(--muted);font-size:0.85rem;">Convert a specific time:</p>
+      <div style="display:flex;gap:0.5rem;">
+        <div class="tool-field" style="flex:1;">
+          <label for="tz-local">Local date/time</label>
+          <input type="datetime-local" id="tz-local" />
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="tz-utc">UTC date/time</label>
+          <input type="datetime-local" id="tz-utc" />
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>Have I Worked This Call?</span><button type="button" class="tool-reset-btn" id="call-reset-btn">Reset</button></h2>
+      <div class="tool-field">
+        <label for="call-search">Callsign</label>
+        <input type="text" id="call-search" placeholder="e.g. W1AW" />
+      </div>
+      <p id="call-status" class="status-line"></p>
+      <div id="call-results"></div>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>Callsign Lookup</span><button type="button" class="tool-reset-btn" id="hamqth-reset-btn">Reset</button></h2>
+      <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Look up any callsign's name, QTH, country, and grid square.</p>
+      <div class="tool-field">
+        <label for="hamqth-search">Callsign</label>
+        <div style="display:flex;gap:0.5rem;">
+          <input type="text" id="hamqth-search" placeholder="e.g. W1AW" style="flex:1;" />
+          <button type="button" class="btn secondary" id="hamqth-search-btn" style="white-space:nowrap;">Look Up</button>
+        </div>
+      </div>
+      <p id="hamqth-status" class="status-line"></p>
+      <div class="tool-result" id="hamqth-result" hidden>
+        <div class="big" id="hamqth-callsign">&mdash;</div>
+        <div class="sub" id="hamqth-name"></div>
+        <div id="hamqth-fields" style="margin-top:0.5rem;display:flex;flex-direction:column;gap:0.2rem;font-size:0.9rem;"></div>
+      </div>
+      <p style="margin:0.75rem 0 0;color:var(--muted);font-size:0.75rem;">Data courtesy of <a href="https://www.hamqth.com" target="_blank" rel="noopener">HamQTH.com</a></p>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>Club Log OQRS Check</span><button type="button" class="tool-reset-btn" id="oqrs-reset-btn">Reset</button></h2>
+      <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Worked stations whose operator has Club Log's Online QSL Request System enabled &mdash; a checklist to visit and see if you've missed requesting a card. This can't tell whether you've already requested one, and not every station with a Club Log account has OQRS turned on.</p>
+      <div class="status-filter" role="group" aria-label="Filter by confirmation status">
+        <button type="button" class="status-btn active" data-status="all">All</button>
+        <button type="button" class="status-btn" data-status="confirmed">LoTW Confirmed</button>
+        <button type="button" class="status-btn" data-status="pending">Not Confirmed</button>
+      </div>
+      <input type="text" id="oqrs-search" class="entity-search" placeholder="Search calls…" />
+      <div class="entity-list" id="oqrs-list"></div>
+      <p class="status-line" id="oqrs-synced"></p>
+    </div>
+
+    <div class="tool-card">
+      <h2><span>Confirmed Nowhere</span></h2>
+      <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Worked stations with no confirmation yet on LoTW or eQSL &mdash; most of these are just too recent for either network to have caught up, not a real problem, but worth a glance for anything old enough that it probably should have confirmed by now.</p>
+      <input type="text" id="unconfirmed-search" class="entity-search" placeholder="Search calls…" />
+      <div class="entity-list" id="unconfirmed-list"></div>
+      <p class="status-line" id="unconfirmed-count"></p>
+    </div>
+  </div>
+
+  <script>
+    import { gridToLatLon, latLonToGrid, distanceKm, bearingDeg } from '../lib/maidenhead';
+
+    // --- Grid <-> Lat/Lon ---
+    const gridInput = document.getElementById('grid-input') as HTMLInputElement;
+    const latInput = document.getElementById('lat-input') as HTMLInputElement;
+    const lonInput = document.getElementById('lon-input') as HTMLInputElement;
+    const gridResult = document.getElementById('grid-result')!;
+    const gridResultValue = document.getElementById('grid-result-value')!;
+    const gridResultSub = document.getElementById('grid-result-sub')!;
+
+    gridInput.addEventListener('input', () => {
+      const value = gridInput.value.trim();
+      if (!value) { gridResult.hidden = true; return; }
+      const pos = gridToLatLon(value);
+      if (!pos) {
+        gridResult.hidden = false;
+        gridResultValue.textContent = 'Invalid grid';
+        gridResultSub.textContent = '';
+        return;
+      }
+      gridResult.hidden = false;
+      gridResultValue.textContent = `${pos.lat.toFixed(4)}, ${pos.lon.toFixed(4)}`;
+      gridResultSub.textContent = 'Center of grid square';
+      latInput.value = '';
+      lonInput.value = '';
+    });
+
+    function convertLatLon() {
+      const lat = Number(latInput.value);
+      const lon = Number(lonInput.value);
+      if (!latInput.value || !lonInput.value || Number.isNaN(lat) || Number.isNaN(lon)) {
+        gridResult.hidden = true;
+        return;
+      }
+      const grid = latLonToGrid(lat, lon);
+      gridResult.hidden = false;
+      gridResultValue.textContent = grid ?? 'Invalid coordinates';
+      gridResultSub.textContent = grid ? '6-character grid square' : '';
+      gridInput.value = '';
+    }
+    latInput.addEventListener('input', convertLatLon);
+    lonInput.addEventListener('input', convertLatLon);
+
+    // --- Grid from city/state/ZIP/address (server-proxied geocoding) ---
+    const geoInput = document.getElementById('geo-input') as HTMLInputElement;
+    const geoLookupBtn = document.getElementById('geo-lookup-btn') as HTMLButtonElement;
+    const geoLocateBtn = document.getElementById('geo-locate-btn') as HTMLButtonElement;
+    const geoStatus = document.getElementById('geo-status')!;
+
+    async function lookupGeo() {
+      const q = geoInput.value.trim();
+      if (!q) return;
+      geoStatus.textContent = 'Looking up…';
+      try {
+        const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
+        const data: { lat: number; lon: number; displayName: string } | null = await res.json();
+        if (!data) {
+          geoStatus.textContent = `Could not find "${q}".`;
+          return;
+        }
+        latInput.value = String(data.lat);
+        lonInput.value = String(data.lon);
+        convertLatLon();
+        geoStatus.textContent = data.displayName;
+      } catch {
+        geoStatus.textContent = 'Lookup failed — try again.';
+      }
+    }
+    geoLookupBtn.addEventListener('click', lookupGeo);
+    geoInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') lookupGeo(); });
+
+    geoLocateBtn.addEventListener('click', () => {
+      if (!navigator.geolocation) {
+        geoStatus.textContent = 'Geolocation is not supported by this browser.';
+        return;
+      }
+      geoStatus.textContent = 'Getting your location…';
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          latInput.value = pos.coords.latitude.toFixed(5);
+          lonInput.value = pos.coords.longitude.toFixed(5);
+          geoInput.value = '';
+          convertLatLon();
+          geoStatus.textContent = `Located within ${Math.round(pos.coords.accuracy)} m.`;
+        },
+        (err) => {
+          geoStatus.textContent = `Could not get location: ${err.message}`;
+        },
+        { enableHighAccuracy: true, timeout: 10000 },
+      );
+    });
+
+    // --- Distance & bearing ---
+    const distFrom = document.getElementById('dist-from') as HTMLInputElement;
+    const distTo = document.getElementById('dist-to') as HTMLInputElement;
+    const distResult = document.getElementById('dist-result')!;
+    const distResultValue = document.getElementById('dist-result-value')!;
+    const distResultSub = document.getElementById('dist-result-sub')!;
+
+    const COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+    function compassPoint(deg: number): string {
+      return COMPASS[Math.round(deg / 22.5) % 16];
+    }
+
+    function computeDistance() {
+      const from = gridToLatLon(distFrom.value.trim());
+      const to = gridToLatLon(distTo.value.trim());
+      if (!distFrom.value || !distTo.value) { distResult.hidden = true; return; }
+      if (!from || !to) {
+        distResult.hidden = false;
+        distResultValue.textContent = 'Invalid grid square(s)';
+        distResultSub.textContent = '';
+        return;
+      }
+      const km = distanceKm(from, to);
+      const bearing = bearingDeg(from, to);
+      distResult.hidden = false;
+      distResultValue.textContent = `${Math.round(km * 0.621371).toLocaleString()} mi`;
+      distResultSub.textContent = `${Math.round(km).toLocaleString()} km · bearing ${Math.round(bearing)}° (${compassPoint(bearing)})`;
+    }
+    distFrom.addEventListener('input', computeDistance);
+    distTo.addEventListener('input', computeDistance);
+
+    // --- Antenna length ---
+    const antType = document.getElementById('ant-type') as HTMLSelectElement;
+    const antFreq = document.getElementById('ant-freq') as HTMLInputElement;
+    const antResult = document.getElementById('ant-result')!;
+    const antResultValue = document.getElementById('ant-result-value')!;
+    const antResultSub = document.getElementById('ant-result-sub')!;
+
+    type AntType = { label: string; k: number; note: (feet: number) => string };
+    const ANT_TYPES: Record<string, AntType> = {
+      dipole: {
+        label: 'Half-wave dipole (total length)',
+        k: 468,
+        note: (feet) => `${(feet / 2).toFixed(2)} ft per leg`,
+      },
+      efhw: {
+        label: 'End-Fed Half-Wave (total length)',
+        k: 468,
+        note: () => `Same length as a dipole, fed at one end via a 49:1 or 64:1 unun`,
+      },
+      ocf: {
+        label: 'Off-Center-Fed dipole (total length)',
+        k: 468,
+        note: (feet) => `${(feet / 3).toFixed(2)} ft / ${((feet * 2) / 3).toFixed(2)} ft split (1:2), fed via 4:1 or 6:1 balun`,
+      },
+      vertical: {
+        label: 'Quarter-wave vertical',
+        k: 234,
+        note: () => `Pair with 3–4 ground/elevated radials of similar or slightly greater length`,
+      },
+      fivezeroeighth: {
+        label: '5/8-wave vertical (VHF/UHF gain vertical)',
+        k: 585,
+        note: () => `Needs a matching network — feedpoint isn't a clean 50Ω`,
+      },
+      edz: {
+        label: 'Extended Double Zepp (total length, ~1.25λ)',
+        k: 1150,
+        note: (feet) => `${(feet / 2).toFixed(2)} ft per leg, fed with ladder line + tuner — ~3 dB gain over a dipole broadside to the wire. Typical design value; several published variants exist.`,
+      },
+      loop: {
+        label: 'Full-wave loop (total length)',
+        k: 1005,
+        note: (feet) => `Delta loop: ${(feet / 3).toFixed(2)} ft/side · Quad loop: ${(feet / 4).toFixed(2)} ft/side`,
+      },
+    };
+
+    function computeAntenna() {
+      const freq = Number(antFreq.value);
+      if (!antFreq.value || Number.isNaN(freq) || freq <= 0) { antResult.hidden = true; return; }
+      const type = ANT_TYPES[antType.value];
+      const feet = type.k / freq;
+      const meters = feet * 0.3048;
+      antResult.hidden = false;
+      antResultValue.textContent = `${feet.toFixed(2)} ft`;
+      antResultSub.textContent = `${meters.toFixed(2)} m · ${type.label} · ${type.note(feet)}`;
+    }
+    antFreq.addEventListener('input', computeAntenna);
+    antType.addEventListener('change', computeAntenna);
+
+    // --- Antenna takeoff angle ---
+    // Lowest-angle major lobe for a horizontal antenna over flat, perfectly
+    // reflecting ground (two-ray ground-reflection model): sin(angle) =
+    // wavelength / (4 * height). Below 1/4 wavelength high there's no
+    // distinct low-angle lobe -- radiation is mostly straight up.
+    const toaHeight = document.getElementById('toa-height') as HTMLInputElement;
+    const toaFreq = document.getElementById('toa-freq') as HTMLInputElement;
+    const toaResult = document.getElementById('toa-result')!;
+    const toaResultValue = document.getElementById('toa-result-value')!;
+    const toaResultSub = document.getElementById('toa-result-sub')!;
+    const SPEED_OF_LIGHT_MHZ_M2 = 299.792458;
+    const FT_TO_M2 = 0.3048;
+
+    function computeTakeoffAngle() {
+      const heightFt = Number(toaHeight.value);
+      const freq = Number(toaFreq.value);
+      if (!toaHeight.value || !toaFreq.value || Number.isNaN(heightFt) || heightFt <= 0 || Number.isNaN(freq) || freq <= 0) {
+        toaResult.hidden = true;
+        return;
+      }
+      const wavelengthM = SPEED_OF_LIGHT_MHZ_M2 / freq;
+      const heightWavelengths = (heightFt * FT_TO_M2) / wavelengthM;
+      const ratio = 1 / (4 * heightWavelengths);
+      toaResult.hidden = false;
+      if (ratio >= 1) {
+        toaResultValue.textContent = 'High angle (NVIS-ish)';
+        toaResultSub.textContent = `${heightWavelengths.toFixed(2)}λ high at ${freq} MHz — below ¼λ, no distinct low-angle lobe; radiation is mostly straight up.`;
+      } else {
+        const angleDeg = Math.asin(ratio) * (180 / Math.PI);
+        toaResultValue.textContent = `${angleDeg.toFixed(1)}°`;
+        toaResultSub.textContent = `${heightWavelengths.toFixed(2)}λ high at ${freq} MHz · idealized flat-ground model, horizontal antennas only`;
+      }
+    }
+    toaHeight.addEventListener('input', computeTakeoffAngle);
+    toaFreq.addEventListener('input', computeTakeoffAngle);
+
+    // --- SWR ---
+    const swrFwd = document.getElementById('swr-fwd') as HTMLInputElement;
+    const swrRef = document.getElementById('swr-ref') as HTMLInputElement;
+    const swrResult = document.getElementById('swr-result')!;
+    const swrResultValue = document.getElementById('swr-result-value')!;
+    const swrResultSub = document.getElementById('swr-result-sub')!;
+
+    function computeSwr() {
+      const fwd = Number(swrFwd.value);
+      const ref = Number(swrRef.value);
+      if (!swrFwd.value || !swrRef.value || Number.isNaN(fwd) || Number.isNaN(ref) || fwd <= 0) {
+        swrResult.hidden = true;
+        return;
+      }
+      if (ref < 0 || ref > fwd) {
+        swrResult.hidden = false;
+        swrResultValue.textContent = 'Invalid readings';
+        swrResultSub.textContent = 'Reflected power can\'t exceed forward power.';
+        return;
+      }
+      const rho = Math.sqrt(ref / fwd);
+      const swr = rho >= 1 ? Infinity : (1 + rho) / (1 - rho);
+      const returnLoss = ref > 0 ? 10 * Math.log10(fwd / ref) : Infinity;
+      swrResult.hidden = false;
+      swrResultValue.textContent = Number.isFinite(swr) ? `${swr.toFixed(2)}:1` : '∞:1';
+      swrResultSub.textContent = `${(fwd - ref).toFixed(1)} W delivered · return loss ${Number.isFinite(returnLoss) ? returnLoss.toFixed(1) + ' dB' : '∞'}`;
+    }
+    swrFwd.addEventListener('input', computeSwr);
+    swrRef.addEventListener('input', computeSwr);
+
+    // --- Coax feedline loss ---
+    // Nominal attenuation in dB per 100ft at reference frequencies (MHz),
+    // drawn from commonly published manufacturer figures. Log-log
+    // interpolated between points — treat as typical, not exact.
+    const COAX_LOSS: Record<string, Record<number, number>> = {
+      'RG-58': { 1.8: 0.3, 3.5: 0.4, 7: 0.6, 14: 0.8, 21: 1.0, 28: 1.2, 50: 1.5, 144: 2.7, 440: 4.9 },
+      'RG-8X': { 1.8: 0.2, 3.5: 0.3, 7: 0.4, 14: 0.6, 21: 0.7, 28: 0.8, 50: 1.1, 144: 2.1, 440: 3.9 },
+      'RG-213': { 1.8: 0.1, 3.5: 0.2, 7: 0.25, 14: 0.35, 21: 0.45, 28: 0.5, 50: 0.7, 144: 1.3, 440: 2.5 },
+      'LMR-400': { 1.8: 0.04, 3.5: 0.06, 7: 0.09, 14: 0.13, 21: 0.16, 28: 0.19, 50: 0.25, 144: 0.44, 440: 0.79 },
+      'LMR-600': { 1.8: 0.025, 3.5: 0.035, 7: 0.05, 14: 0.075, 21: 0.09, 28: 0.11, 50: 0.15, 144: 0.26, 440: 0.47 },
+    };
+
+    function lossPer100ft(cable: string, freqMhz: number): number {
+      const table = COAX_LOSS[cable];
+      const points = Object.keys(table).map(Number).sort((a, b) => a - b);
+      const clamped = Math.min(Math.max(freqMhz, points[0]), points[points.length - 1]);
+      let lo = points[0];
+      let hi = points[points.length - 1];
+      for (let i = 0; i < points.length - 1; i++) {
+        if (clamped >= points[i] && clamped <= points[i + 1]) {
+          lo = points[i];
+          hi = points[i + 1];
+          break;
+        }
+      }
+      if (lo === hi) return table[lo];
+      const logLo = Math.log(lo), logHi = Math.log(hi), logF = Math.log(clamped);
+      const t = (logF - logLo) / (logHi - logLo);
+      return table[lo] + t * (table[hi] - table[lo]);
+    }
+
+    const coaxType = document.getElementById('coax-type') as HTMLSelectElement;
+    const coaxFreq = document.getElementById('coax-freq') as HTMLInputElement;
+    const coaxLength = document.getElementById('coax-length') as HTMLInputElement;
+    const coaxResult = document.getElementById('coax-result')!;
+    const coaxResultValue = document.getElementById('coax-result-value')!;
+
+    function computeCoax() {
+      const freq = Number(coaxFreq.value);
+      const length = Number(coaxLength.value);
+      if (!coaxFreq.value || !coaxLength.value || Number.isNaN(freq) || Number.isNaN(length) || freq <= 0 || length <= 0) {
+        coaxResult.hidden = true;
+        return;
+      }
+      const per100 = lossPer100ft(coaxType.value, freq);
+      const totalDb = per100 * (length / 100);
+      const powerPct = 100 * Math.pow(10, -totalDb / 10);
+      coaxResult.hidden = false;
+      coaxResultValue.textContent = `${totalDb.toFixed(2)} dB`;
+      document.getElementById('coax-result-sub')!.innerHTML = `${powerPct.toFixed(0)}% of power reaches the antenna &middot; Nominal figures &mdash; check your cable's datasheet for exact specs.`;
+    }
+    coaxType.addEventListener('change', computeCoax);
+    coaxFreq.addEventListener('input', computeCoax);
+    coaxLength.addEventListener('input', computeCoax);
+
+    // --- Wavelength & frequency ---
+    const wlFreq = document.getElementById('wl-freq') as HTMLInputElement;
+    const wlMeters = document.getElementById('wl-meters') as HTMLInputElement;
+    const wlResult = document.getElementById('wl-result')!;
+    const wlResultValue = document.getElementById('wl-result-value')!;
+    const wlResultSub = document.getElementById('wl-result-sub')!;
+    const SPEED_OF_LIGHT_MHZ_M = 299.792458; // c, in MHz·m
+
+    function updateWlResult(freqMhz: number, meters: number) {
+      wlResult.hidden = false;
+      wlResultValue.textContent = `${meters.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')} m`;
+      wlResultSub.textContent = `${(meters * 3.28084).toFixed(2)} ft · ${freqMhz.toFixed(4)} MHz`;
+    }
+    function computeWlFromFreq() {
+      const f = Number(wlFreq.value);
+      if (!wlFreq.value || Number.isNaN(f) || f <= 0) { wlResult.hidden = true; return; }
+      const meters = SPEED_OF_LIGHT_MHZ_M / f;
+      wlMeters.value = meters.toFixed(4);
+      updateWlResult(f, meters);
+    }
+    function computeWlFromMeters() {
+      const m = Number(wlMeters.value);
+      if (!wlMeters.value || Number.isNaN(m) || m <= 0) { wlResult.hidden = true; return; }
+      const f = SPEED_OF_LIGHT_MHZ_M / m;
+      wlFreq.value = f.toFixed(4);
+      updateWlResult(f, m);
+    }
+    wlFreq.addEventListener('input', computeWlFromFreq);
+    wlMeters.addEventListener('input', computeWlFromMeters);
+
+    // --- ERP / EIRP ---
+    const erpPower = document.getElementById('erp-power') as HTMLInputElement;
+    const erpLoss = document.getElementById('erp-loss') as HTMLInputElement;
+    const erpGain = document.getElementById('erp-gain') as HTMLInputElement;
+    const erpGainUnit = document.getElementById('erp-gain-unit') as HTMLSelectElement;
+    const erpResult = document.getElementById('erp-result')!;
+    const erpResultValue = document.getElementById('erp-result-value')!;
+    const erpResultSub = document.getElementById('erp-result-sub')!;
+    const DBD_TO_DBI = 2.15; // a dipole has 2.15 dB gain over an isotropic radiator
+
+    function computeErp() {
+      const p = Number(erpPower.value);
+      const loss = Number(erpLoss.value) || 0;
+      const gain = Number(erpGain.value);
+      if (!erpPower.value || !erpGain.value || Number.isNaN(p) || p <= 0 || Number.isNaN(gain)) {
+        erpResult.hidden = true;
+        return;
+      }
+      const atAntenna = p * 10 ** (-loss / 10);
+      const gainDbi = erpGainUnit.value === 'dbd' ? gain + DBD_TO_DBI : gain;
+      const eirp = atAntenna * 10 ** (gainDbi / 10);
+      const erp = eirp / 10 ** (DBD_TO_DBI / 10);
+      erpResult.hidden = false;
+      erpResultValue.textContent = `${eirp.toFixed(1)} W EIRP`;
+      erpResultSub.textContent = `${erp.toFixed(1)} W ERP · ${atAntenna.toFixed(1)} W reaches the antenna after ${loss} dB feedline loss`;
+    }
+    [erpPower, erpLoss, erpGain].forEach((el) => el.addEventListener('input', computeErp));
+    erpGainUnit.addEventListener('change', computeErp);
+
+    // --- Antenna gain dBi <-> dBd ---
+    const gainDbiInput = document.getElementById('gain-dbi') as HTMLInputElement;
+    const gainDbdInput = document.getElementById('gain-dbd') as HTMLInputElement;
+    gainDbiInput.addEventListener('input', () => {
+      const v = Number(gainDbiInput.value);
+      if (!gainDbiInput.value || Number.isNaN(v)) return;
+      gainDbdInput.value = (v - DBD_TO_DBI).toFixed(2);
+    });
+    gainDbdInput.addEventListener('input', () => {
+      const v = Number(gainDbdInput.value);
+      if (!gainDbdInput.value || Number.isNaN(v)) return;
+      gainDbiInput.value = (v + DBD_TO_DBI).toFixed(2);
+    });
+
+    // --- Free Space Path Loss ---
+    const fsplFreq = document.getElementById('fspl-freq') as HTMLInputElement;
+    const fsplDist = document.getElementById('fspl-dist') as HTMLInputElement;
+    const fsplResult = document.getElementById('fspl-result')!;
+    const fsplResultValue = document.getElementById('fspl-result-value')!;
+    const fsplResultSub = document.getElementById('fspl-result-sub')!;
+    const MILES_TO_KM = 1.60934;
+
+    function computeFspl() {
+      const f = Number(fsplFreq.value);
+      const mi = Number(fsplDist.value);
+      if (!fsplFreq.value || !fsplDist.value || Number.isNaN(f) || f <= 0 || Number.isNaN(mi) || mi <= 0) {
+        fsplResult.hidden = true;
+        return;
+      }
+      const km = mi * MILES_TO_KM;
+      const lossDb = 20 * Math.log10(km) + 20 * Math.log10(f) + 32.44;
+      fsplResult.hidden = false;
+      fsplResultValue.textContent = `${lossDb.toFixed(1)} dB`;
+      fsplResultSub.textContent = `at ${mi} mi (${km.toFixed(1)} km), ${f} MHz — free space, no obstructions/fading margin`;
+    }
+    fsplFreq.addEventListener('input', computeFspl);
+    fsplDist.addEventListener('input', computeFspl);
+
+    // --- VHF/UHF line-of-sight range ---
+    const losTx = document.getElementById('los-tx') as HTMLInputElement;
+    const losRx = document.getElementById('los-rx') as HTMLInputElement;
+    const losResult = document.getElementById('los-result')!;
+    const losResultValue = document.getElementById('los-result-value')!;
+    const losResultSub = document.getElementById('los-result-sub')!;
+
+    function radioHorizonMi(heightFt: number): number {
+      return 1.415 * Math.sqrt(heightFt); // standard 4/3-Earth-radius radio horizon approximation
+    }
+    function computeLos() {
+      const tx = Number(losTx.value);
+      const rx = Number(losRx.value);
+      if (!losTx.value || !losRx.value || Number.isNaN(tx) || tx < 0 || Number.isNaN(rx) || rx < 0) {
+        losResult.hidden = true;
+        return;
+      }
+      const rangeMi = radioHorizonMi(tx) + radioHorizonMi(rx);
+      losResult.hidden = false;
+      losResultValue.textContent = `${rangeMi.toFixed(1)} mi`;
+      losResultSub.textContent = `${(rangeMi * MILES_TO_KM).toFixed(1)} km — theoretical smooth-earth max; terrain/obstructions will reduce this in practice`;
+    }
+    losTx.addEventListener('input', computeLos);
+    losRx.addEventListener('input', computeLos);
+
+    // --- RF Exposure (MPE) estimate, per FCC OET Bulletin 65 formulas ---
+    const mpePower = document.getElementById('mpe-power') as HTMLInputElement;
+    const mpeGain = document.getElementById('mpe-gain') as HTMLInputElement;
+    const mpeFreq = document.getElementById('mpe-freq') as HTMLInputElement;
+    const mpeDuty = document.getElementById('mpe-duty') as HTMLInputElement;
+    const mpeCategory = document.getElementById('mpe-category') as HTMLSelectElement;
+    const mpeDistance = document.getElementById('mpe-distance') as HTMLInputElement;
+    const mpeResult = document.getElementById('mpe-result')!;
+    const mpeResultValue = document.getElementById('mpe-result-value')!;
+    const mpeResultSub = document.getElementById('mpe-result-sub')!;
+    const FT_TO_M = 0.3048;
+
+    // Power density limit in mW/cm^2 for a given frequency (MHz) and exposure category.
+    function mpeLimit(freqMhz: number, occupational: boolean): number {
+      if (freqMhz <= 30) return (occupational ? 900 : 180) / (freqMhz * freqMhz);
+      if (freqMhz <= 300) return occupational ? 1.0 : 0.2;
+      if (freqMhz <= 1500) return occupational ? freqMhz / 300 : freqMhz / 1500;
+      return occupational ? 5.0 : 1.0;
+    }
+    // Power density (mW/cm^2) at distance d (m) from an EIRP source (W), far field.
+    function powerDensity(eirpW: number, distM: number): number {
+      return (0.1 * eirpW) / (4 * Math.PI * distM * distM);
+    }
+
+    function computeMpe() {
+      const p = Number(mpePower.value);
+      const gain = Number(mpeGain.value);
+      const f = Number(mpeFreq.value);
+      const duty = mpeDuty.value ? Number(mpeDuty.value) : 100;
+      if (!mpePower.value || !mpeGain.value || !mpeFreq.value || Number.isNaN(p) || p <= 0 || Number.isNaN(gain) || Number.isNaN(f) || f <= 0 || Number.isNaN(duty) || duty <= 0) {
+        mpeResult.hidden = true;
+        return;
+      }
+      const eirp = p * (duty / 100) * 10 ** (gain / 10);
+      const occupational = mpeCategory.value === 'occupational';
+      const limit = mpeLimit(f, occupational);
+      const minDistM = Math.sqrt((0.1 * eirp) / (4 * Math.PI * limit));
+      const minDistFt = minDistM / FT_TO_M;
+
+      mpeResult.hidden = false;
+      mpeResultValue.textContent = `${minDistFt.toFixed(1)} ft minimum`;
+      let sub = `${limit.toFixed(3)} mW/cm² limit at ${f} MHz (${occupational ? 'occupational' : 'general population'}) · ${eirp.toFixed(1)} W EIRP avg`;
+
+      const checkFt = Number(mpeDistance.value);
+      if (mpeDistance.value && !Number.isNaN(checkFt) && checkFt > 0) {
+        const checkM = checkFt * FT_TO_M;
+        const s = powerDensity(eirp, checkM);
+        const pct = (s / limit) * 100;
+        sub += ` — at ${checkFt} ft: ${s.toFixed(4)} mW/cm² (${pct.toFixed(0)}% of limit, ${pct <= 100 ? 'compliant' : 'exceeds limit'})`;
+      }
+      mpeResultSub.textContent = sub;
+    }
+    [mpePower, mpeGain, mpeFreq, mpeDuty, mpeDistance].forEach((el) => el.addEventListener('input', computeMpe));
+    mpeCategory.addEventListener('change', computeMpe);
+
+    // --- UTC / Local time ---
+    const utcClockValue = document.getElementById('utc-clock-value')!;
+    const utcClockSub = document.getElementById('utc-clock-sub')!;
+    function updateUtcClock() {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      utcClockValue.textContent = `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())}Z`;
+      utcClockSub.textContent = `${now.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} UTC · local: ${now.toLocaleTimeString()}`;
+    }
+    updateUtcClock();
+    setInterval(updateUtcClock, 1000);
+
+    const tzLocal = document.getElementById('tz-local') as HTMLInputElement;
+    const tzUtc = document.getElementById('tz-utc') as HTMLInputElement;
+    function pad2(n: number): string {
+      return String(n).padStart(2, '0');
+    }
+    tzLocal.addEventListener('input', () => {
+      if (!tzLocal.value) return;
+      const d = new Date(tzLocal.value); // datetime-local values are parsed as local time
+      tzUtc.value = d.toISOString().slice(0, 16);
+    });
+    tzUtc.addEventListener('input', () => {
+      if (!tzUtc.value) return;
+      const d = new Date(`${tzUtc.value}:00Z`); // force UTC interpretation
+      tzLocal.value = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    });
+    document.getElementById('clock-reset-btn')!.addEventListener('click', () => {
+      tzLocal.value = '';
+      tzUtc.value = '';
+    });
+
+    // --- Club Log OQRS check ---
+    type OqrsMatch = { call: string; qsoCount: number; lastWorked: string; confirmed: boolean };
+    let oqrsStatusFilter: 'all' | 'confirmed' | 'pending' = 'all';
+
+    function applyOqrsFilters() {
+      const q = (document.getElementById('oqrs-search') as HTMLInputElement).value.trim().toLowerCase();
+      document.querySelectorAll<HTMLElement>('#oqrs-list .entity-row').forEach((row) => {
+        const searchOk = !q || row.dataset.label!.includes(q);
+        const confirmed = row.dataset.confirmed === 'true';
+        const statusOk = oqrsStatusFilter === 'all' || (oqrsStatusFilter === 'confirmed' ? confirmed : !confirmed);
+        row.style.display = searchOk && statusOk ? '' : 'none';
+      });
+    }
+
+    document.querySelectorAll<HTMLButtonElement>('.status-filter .status-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        btn.parentElement!.querySelectorAll('.status-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        oqrsStatusFilter = btn.dataset.status as typeof oqrsStatusFilter;
+        applyOqrsFilters();
+      });
+    });
+
+    fetch('/api/qsos/oqrs-matches')
+      .then((r) => r.json())
+      .then((data: { syncedAt: string | null; matches: OqrsMatch[] }) => {
+        const list = document.getElementById('oqrs-list')!;
+        list.innerHTML = '';
+        for (const m of data.matches) {
+          const row = document.createElement('div');
+          row.className = 'entity-row';
+          row.dataset.label = m.call.toLowerCase();
+          row.dataset.confirmed = String(m.confirmed);
+          row.innerHTML = `
+            <span><a href="https://clublog.org/logsearch/${encodeURIComponent(m.call)}" target="_blank" rel="noopener">${m.call}</a><span style="color:var(--muted);"> &middot; ${m.qsoCount} QSO${m.qsoCount === 1 ? '' : 's'} &middot; last ${formatDate(m.lastWorked)}</span></span>
+            <span class="badge ${m.confirmed ? 'confirmed' : 'worked'}">${m.confirmed ? 'LoTW' : 'Not confirmed'}</span>
+          `;
+          list.appendChild(row);
+        }
+        const syncedEl = document.getElementById('oqrs-synced')!;
+        syncedEl.textContent = data.syncedAt
+          ? `${data.matches.length} matches · Club Log list last synced ${formatDate(data.syncedAt.slice(0, 10).replaceAll('-', ''))}`
+          : 'Club Log list not synced yet.';
+      })
+      .catch(() => {
+        document.getElementById('oqrs-synced')!.textContent = 'Could not load Club Log data.';
+      });
+
+    document.getElementById('oqrs-search')!.addEventListener('input', applyOqrsFilters);
+
+    // --- Confirmed nowhere (no LoTW or eQSL confirmation yet) ---
+    type UnconfirmedEntry = { call: string; qsoCount: number; lastWorked: string };
+    let unconfirmedEntries: UnconfirmedEntry[] = [];
+
+    function renderUnconfirmed() {
+      const q = (document.getElementById('unconfirmed-search') as HTMLInputElement).value.trim().toLowerCase();
+      const list = document.getElementById('unconfirmed-list')!;
+      const filtered = q ? unconfirmedEntries.filter((e) => e.call.toLowerCase().includes(q)) : unconfirmedEntries;
+      list.innerHTML = filtered
+        .map(
+          (e) => `
+            <div class="entity-row">
+              <span><a href="https://www.qrz.com/db/${encodeURIComponent(e.call)}" target="_blank" rel="noopener">${e.call}</a><span style="color:var(--muted);"> &middot; ${e.qsoCount} QSO${e.qsoCount === 1 ? '' : 's'} &middot; last ${formatDate(e.lastWorked)}</span></span>
+            </div>
+          `,
+        )
+        .join('');
+      document.getElementById('unconfirmed-count')!.textContent = `${filtered.length} of ${unconfirmedEntries.length} unconfirmed call${unconfirmedEntries.length === 1 ? '' : 's'}`;
+    }
+
+    fetch('/api/qsos/unconfirmed')
+      .then((r) => r.json())
+      .then((rows: UnconfirmedEntry[]) => {
+        unconfirmedEntries = rows;
+        renderUnconfirmed();
+      })
+      .catch(() => {
+        document.getElementById('unconfirmed-count')!.textContent = 'Could not load unconfirmed QSOs.';
+      });
+    document.getElementById('unconfirmed-search')!.addEventListener('input', renderUnconfirmed);
+
+    // --- Have I worked this call ---
+    type Qso = { call: string; qsoDate: string; band: string | null; mode: string | null; gridsquare: string | null; country: string | null; lotwQslRcvd: string | null };
+
+    function formatDate(d: string) {
+      if (d.length !== 8) return d;
+      return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+    }
+
+    const callSearch = document.getElementById('call-search') as HTMLInputElement;
+    const callStatus = document.getElementById('call-status')!;
+    const callResults = document.getElementById('call-results')!;
+    let searchTimer: ReturnType<typeof setTimeout>;
+
+    callSearch.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      const call = callSearch.value.trim();
+      callResults.innerHTML = '';
+      if (!call) { callStatus.textContent = ''; return; }
+      callStatus.textContent = 'Searching…';
+      searchTimer = setTimeout(async () => {
+        const res = await fetch(`/api/qsos/lookup?call=${encodeURIComponent(call)}`);
+        const qsos: Qso[] = await res.json();
+        if (!qsos.length) {
+          callStatus.textContent = `No contacts with "${call}" in the log.`;
+          callResults.innerHTML = `<a class="btn secondary" style="margin-top:0.5rem;display:inline-flex;" href="https://www.qrz.com/db/${encodeURIComponent(call)}" target="_blank" rel="noopener">Look up ${call} on QRZ.com ↗</a>`;
+          return;
+        }
+        callStatus.textContent = `${qsos.length} contact${qsos.length === 1 ? '' : 's'} found:`;
+        for (const q of qsos) {
+          const row = document.createElement('div');
+          row.className = 'lookup-result';
+          row.innerHTML = `
+            <span><strong>${q.call}</strong> &middot; ${formatDate(q.qsoDate)} &middot; ${q.band ?? '—'} &middot; ${q.mode ?? '—'} ${q.lotwQslRcvd === 'Y' ? '✅' : ''}</span>
+            <a class="btn secondary" href="https://www.qrz.com/db/${encodeURIComponent(q.call)}" target="_blank" rel="noopener">QRZ ↗</a>
+          `;
+          callResults.appendChild(row);
+        }
+      }, 300);
+    });
+
+    // --- Callsign Lookup (HamQTH) -- explicit button/Enter trigger rather
+    // than debounced-as-you-type, since this hits an external API rather
+    // than the site's own local log. ---
+    type HamQthResult = {
+      callsign: string;
+      nick: string | null;
+      name: string | null;
+      qth: string | null;
+      country: string | null;
+      grid: string | null;
+      usState: string | null;
+      iota: string | null;
+      qslVia: string | null;
+      lotw: boolean;
+      eqsl: boolean;
+      email: string | null;
+      web: string | null;
+    };
+
+    const hamqthSearch = document.getElementById('hamqth-search') as HTMLInputElement;
+    const hamqthStatus = document.getElementById('hamqth-status')!;
+    const hamqthResult = document.getElementById('hamqth-result')!;
+    const hamqthCallsign = document.getElementById('hamqth-callsign')!;
+    const hamqthName = document.getElementById('hamqth-name')!;
+    const hamqthFields = document.getElementById('hamqth-fields')!;
+
+    async function runHamqthLookup() {
+      const call = hamqthSearch.value.trim();
+      hamqthResult.setAttribute('hidden', '');
+      if (!call) { hamqthStatus.textContent = 'Enter a callsign.'; return; }
+      hamqthStatus.textContent = 'Looking up…';
+      const res = await fetch(`/api/hamqth/lookup?callsign=${encodeURIComponent(call)}`);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        hamqthStatus.textContent = body.error ?? 'Lookup failed.';
+        return;
+      }
+      const r: HamQthResult = body;
+      hamqthStatus.textContent = '';
+      hamqthCallsign.textContent = r.callsign;
+      hamqthName.textContent = [r.name, r.nick && `"${r.nick}"`].filter(Boolean).join(' ');
+      hamqthFields.replaceChildren();
+      const rows: [string, string | null][] = [
+        ['QTH', r.qth],
+        ['Country', r.country],
+        ['Grid', r.grid],
+        ['State', r.usState],
+        ['IOTA', r.iota],
+        ['QSL via', r.qslVia],
+        ['LoTW', r.lotw ? 'Yes' : null],
+        ['eQSL', r.eqsl ? 'Yes' : null],
+      ];
+      for (const [label, value] of rows) {
+        if (!value) continue;
+        const div = document.createElement('div');
+        const strong = document.createElement('strong');
+        strong.textContent = `${label}: `;
+        div.appendChild(strong);
+        div.appendChild(document.createTextNode(value));
+        hamqthFields.appendChild(div);
+      }
+      hamqthResult.hidden = false;
+    }
+
+    document.getElementById('hamqth-search-btn')!.addEventListener('click', runHamqthLookup);
+    hamqthSearch.addEventListener('keydown', (e) => { if (e.key === 'Enter') runHamqthLookup(); });
+    document.getElementById('hamqth-reset-btn')!.addEventListener('click', () => {
+      hamqthStatus.textContent = '';
+      hamqthResult.setAttribute('hidden', '');
+    });
+
+    // --- Reset buttons — wired last so every calculator above has already set
+    // its own initial defaults (e.g. RF Exposure's category select), which
+    // this captures and restores on click rather than assuming everything
+    // resets to blank/first-option. ---
+    document.querySelectorAll<HTMLButtonElement>('.tool-reset-btn').forEach((button) => {
+      const card = button.closest('.tool-card')!;
+      const inputDefaults = new Map<HTMLInputElement, string>();
+      card.querySelectorAll<HTMLInputElement>('input[type="text"]').forEach((input) => inputDefaults.set(input, input.value));
+      const selectDefaults = new Map<HTMLSelectElement, string>();
+      card.querySelectorAll<HTMLSelectElement>('select').forEach((select) => selectDefaults.set(select, select.value));
+
+      button.addEventListener('click', () => {
+        inputDefaults.forEach((value, input) => { input.value = value; });
+        selectDefaults.forEach((value, select) => {
+          select.value = value;
+          select.dispatchEvent(new Event('change'));
+        });
+        card.querySelectorAll('.tool-result').forEach((el) => el.setAttribute('hidden', ''));
+      });
+    });
+
+    document.getElementById('call-reset-btn')!.addEventListener('click', () => {
+      callStatus.textContent = '';
+      callResults.innerHTML = '';
+    });
+
+    document.getElementById('grid-reset-btn')!.addEventListener('click', () => {
+      geoStatus.textContent = '';
+    });
+
+    document.getElementById('oqrs-reset-btn')!.addEventListener('click', () => {
+      oqrsStatusFilter = 'all';
+      document.querySelectorAll('.status-filter .status-btn').forEach((b) => b.classList.remove('active'));
+      document.querySelector('.status-filter .status-btn[data-status="all"]')?.classList.add('active');
+      applyOqrsFilters();
+    });
+  </script>
+</Base>

@@ -1,0 +1,288 @@
+---
+import Base from '../layouts/Base.astro';
+import '../styles/reference.css';
+---
+<Base title="Reference" active="reference">
+  <h1>Reference</h1>
+  <p class="lede">Morse code practice, the US band plan, Q-codes, and prosigns.</p>
+
+  <div class="card">
+    <h2>Morse Code Trainer</h2>
+    <p style="margin:0;color:var(--muted);font-size:0.85rem;">Type text and play it as Morse code, or test yourself in quiz mode.</p>
+
+    <div class="morse-trainer">
+      <div class="morse-controls">
+        <div class="tool-field">
+          <label class="morse-field-label" for="morse-text">Text to send</label>
+          <input type="text" id="morse-text" placeholder="e.g. CQ CQ DE W1AW" />
+        </div>
+        <div class="tool-field" style="max-width:120px;">
+          <label class="morse-field-label" for="morse-wpm">Speed (WPM)</label>
+          <input type="text" id="morse-wpm" value="15" />
+        </div>
+      </div>
+      <div style="display:flex;gap:0.75rem;">
+        <button type="button" class="btn" id="morse-play">Play</button>
+        <button type="button" class="btn secondary" id="morse-stop">Stop</button>
+      </div>
+      <div class="morse-output" id="morse-output">&mdash;</div>
+    </div>
+
+    <div class="quiz-panel">
+      <h3 style="margin:0 0 0.25rem;">Quiz Mode</h3>
+      <p style="margin:0;color:var(--muted);font-size:0.85rem;">Plays a random character &mdash; type what you hear.</p>
+      <div class="quiz-char" id="quiz-char">?</div>
+      <div class="quiz-guess">
+        <input type="text" id="quiz-guess-input" maxlength="1" placeholder="?" autocomplete="off" />
+        <button type="button" class="btn" id="quiz-submit">Check</button>
+      </div>
+      <div class="quiz-feedback" id="quiz-feedback"></div>
+      <div class="quiz-score" id="quiz-score">0 / 0 correct</div>
+      <div style="display:flex;gap:0.75rem;justify-content:center;margin-top:1rem;">
+        <button type="button" class="btn" id="quiz-new">New Character</button>
+        <button type="button" class="btn secondary" id="quiz-replay">Replay</button>
+      </div>
+    </div>
+
+    <div class="code-table-wrap">
+      <table>
+        <thead><tr><th>Character</th><th>Code</th></tr></thead>
+        <tbody id="morse-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>US Amateur Band Plan</h2>
+    <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
+      Per the <a href="https://www.arrl.org/graphical-frequency-allocations" target="_blank" rel="noopener">ARRL band chart</a> (rev. 1/16/2026). <strong>N</strong> = Novice, <strong>T</strong> = Technician, <strong>G</strong> = General, <strong>A</strong> = Advanced, <strong>E</strong> = Extra (Novice/Advanced are legacy classes, no longer newly issued but grandfathered). Max power 1.5kW PEP &mdash; always the minimum needed. See <a href="https://www.arrl.org/band-plan" target="_blank" rel="noopener">arrl.org/band-plan</a> for full band-plan detail including recommended (not just legally-allowed) sub-band usage.
+    </p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Band</th><th>Range</th><th>CW / Data</th><th>Phone / Image</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>160m</td><td>1.800&ndash;2.000 MHz</td><td colspan="2">CW/data below ~1.840 MHz, phone above &mdash; General/Advanced/Extra</td><td>No Technician access</td></tr>
+          <tr><td>80m</td><td>3.500&ndash;4.000 MHz</td><td>3.500&ndash;3.600 (N/T: 3.525&ndash;3.600, CW only, 200W)</td><td>3.600&ndash;3.700 Extra; 3.700&ndash;3.800 Adv+Extra; 3.800&ndash;4.000 General+</td><td></td></tr>
+          <tr><td>60m</td><td>5330.5&ndash;5406.5 kHz</td><td colspan="2">5 channels, USB voice &amp; data, 2.8kHz BW, 100W (9.15W on the WRC-15 channel)</td><td>General/Advanced/Extra, secondary/channelized</td></tr>
+          <tr><td>40m</td><td>7.000&ndash;7.300 MHz</td><td>7.000&ndash;7.125 (N/T: 7.025&ndash;7.075 CW only, 200W &mdash; Region 2)</td><td>7.125&ndash;7.175 Adv+Extra; 7.175&ndash;7.300 General+</td><td></td></tr>
+          <tr><td>30m</td><td>10.100&ndash;10.150 MHz</td><td colspan="2">CW/data only &mdash; no phone, ever</td><td>General/Advanced/Extra only, secondary allocation</td></tr>
+          <tr><td>20m</td><td>14.000&ndash;14.350 MHz</td><td>14.000&ndash;14.150 (Adv/Gen: 14.025&ndash;14.150)</td><td>14.150&ndash;14.350 (Adv: 14.175+; Gen: 14.225+)</td><td>No Technician access</td></tr>
+          <tr><td>17m</td><td>18.068&ndash;18.168 MHz</td><td>18.068&ndash;18.110</td><td>18.110&ndash;18.168</td><td>General/Advanced/Extra, full band</td></tr>
+          <tr><td>15m</td><td>21.000&ndash;21.450 MHz</td><td>21.000&ndash;21.200 (N/T: 21.025&ndash;21.200 CW only, 200W)</td><td>21.200&ndash;21.450 (Adv: 21.225+; Gen: 21.275+)</td><td></td></tr>
+          <tr><td>12m</td><td>24.890&ndash;24.990 MHz</td><td>24.890&ndash;24.930</td><td>24.930&ndash;24.990</td><td>General/Advanced/Extra, full band</td></tr>
+          <tr><td>10m</td><td>28.000&ndash;29.700 MHz</td><td>28.000&ndash;28.300</td><td>28.300&ndash;29.700 (N/T phone: 28.300&ndash;28.500, 200W)</td><td>Only HF band with Technician phone privileges</td></tr>
+          <tr><td>6m</td><td>50.0&ndash;54.0 MHz</td><td>50.0&ndash;50.1 CW only</td><td>50.1&ndash;54.0, all modes</td><td>Technician and above, full access</td></tr>
+          <tr><td>2m</td><td>144.0&ndash;148.0 MHz</td><td>144.0&ndash;144.1 CW only</td><td>144.1&ndash;148.0, all modes</td><td>Technician and above, full access</td></tr>
+          <tr><td>1.25m</td><td>222.0&ndash;225.0 MHz</td><td colspan="2">All modes (219.0&ndash;220.0 reserved for digital message forwarding only)</td><td>Technician and above</td></tr>
+          <tr><td>70cm</td><td>420.0&ndash;450.0 MHz</td><td colspan="2">All modes</td><td>Technician and above; geographic restrictions may apply</td></tr>
+          <tr><td>33cm</td><td>902.0&ndash;928.0 MHz</td><td colspan="2">All modes</td><td>Technician and above; geographic restrictions may apply</td></tr>
+          <tr><td>23cm</td><td>1240&ndash;1300 MHz</td><td colspan="2">All modes (Novice restricted to 1270&ndash;1295 MHz, 5W)</td><td>Technician and above</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="qcode-grid">
+    <div class="card">
+      <h2>Q-Codes</h2>
+      <table>
+        <thead><tr><th>Code</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td>QRG</td><td>What is my exact frequency?</td></tr>
+          <tr><td>QRL</td><td>Is this frequency in use? / I am busy</td></tr>
+          <tr><td>QRM</td><td>Are you troubled by interference? / I am troubled by interference</td></tr>
+          <tr><td>QRN</td><td>Are you troubled by static? / I am troubled by static</td></tr>
+          <tr><td>QRO</td><td>Shall I increase power? / Increase power</td></tr>
+          <tr><td>QRP</td><td>Shall I decrease power? / Decrease power (low-power operating)</td></tr>
+          <tr><td>QRQ</td><td>Shall I send faster? / Send faster</td></tr>
+          <tr><td>QRS</td><td>Shall I send slower? / Send slower</td></tr>
+          <tr><td>QRT</td><td>Shall I stop sending? / Stop sending</td></tr>
+          <tr><td>QRU</td><td>Have you anything for me? / I have nothing for you</td></tr>
+          <tr><td>QRV</td><td>Are you ready? / I am ready</td></tr>
+          <tr><td>QRX</td><td>When will you call again? / Standby</td></tr>
+          <tr><td>QRZ</td><td>Who is calling me?</td></tr>
+          <tr><td>QSB</td><td>Are my signals fading? / Your signals are fading</td></tr>
+          <tr><td>QSL</td><td>Can you acknowledge receipt? / I acknowledge receipt</td></tr>
+          <tr><td>QSO</td><td>Can you communicate with...? / A contact</td></tr>
+          <tr><td>QSY</td><td>Shall I change frequency? / Change frequency</td></tr>
+          <tr><td>QTH</td><td>What is your location? / My location is...</td></tr>
+          <tr><td>QTR</td><td>What is the correct time? / The time is...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Prosigns</h2>
+      <table>
+        <thead><tr><th>Prosign</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td>AR</td><td>End of message ("over")</td></tr>
+          <tr><td>AS</td><td>Please stand by</td></tr>
+          <tr><td>BT</td><td>Break &mdash; separates parts of a message</td></tr>
+          <tr><td>CL</td><td>I am closing my station</td></tr>
+          <tr><td>K</td><td>Invitation to transmit (go ahead)</td></tr>
+          <tr><td>KN</td><td>Invitation for a specific station only to transmit</td></tr>
+          <tr><td>SK</td><td>End of contact ("out")</td></tr>
+          <tr><td>SOS</td><td>Distress signal</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const MORSE: Record<string, string> = {
+      A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.', H: '....', I: '..', J: '.---',
+      K: '-.-', L: '.-..', M: '--', N: '-.', O: '---', P: '.--.', Q: '--.-', R: '.-.', S: '...', T: '-',
+      U: '..-', V: '...-', W: '.--', X: '-..-', Y: '-.--', Z: '--..',
+      '0': '-----', '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....',
+      '6': '-....', '7': '--...', '8': '---..', '9': '----.',
+      '.': '.-.-.-', ',': '--..--', '?': '..--..', '/': '-..-.', '=': '-...-', '+': '.-.-.',
+    };
+
+    // Reference table
+    const tableBody = document.getElementById('morse-table-body')!;
+    for (const [ch, code] of Object.entries(MORSE)) {
+      const row = document.createElement('tr');
+      row.innerHTML = `<td>${ch}</td><td class="morse-pattern">${code}</td>`;
+      tableBody.appendChild(row);
+    }
+
+    // --- Playback (Web Audio API) ---
+    let audioCtx: AudioContext | null = null;
+    function getAudioCtx(): AudioContext {
+      if (!audioCtx) audioCtx = new AudioContext();
+      return audioCtx;
+    }
+
+    let currentOsc: OscillatorNode | null = null;
+    let currentGain: GainNode | null = null;
+
+    function stopPlayback() {
+      if (currentOsc && audioCtx) {
+        try {
+          currentGain?.gain.cancelScheduledValues(audioCtx.currentTime);
+          currentGain?.gain.setValueAtTime(0, audioCtx.currentTime);
+          currentOsc.stop(audioCtx.currentTime + 0.01);
+        } catch {}
+      }
+      currentOsc = null;
+      currentGain = null;
+    }
+
+    function playMorse(text: string, wpm: number, onDone?: () => void) {
+      stopPlayback();
+      const ctx = getAudioCtx();
+      const dit = 1.2 / Math.max(wpm, 1);
+      const dah = dit * 3;
+      const intraGap = dit;
+      const charGap = dit * 3;
+      const wordGap = dit * 7;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = 600;
+      osc.type = 'sine';
+      gain.gain.value = 0;
+      osc.connect(gain).connect(ctx.destination);
+
+      let t = ctx.currentTime + 0.1;
+      let pendingGap = 0;
+      for (const ch of text.toUpperCase()) {
+        if (ch === ' ') { pendingGap = Math.max(pendingGap, wordGap); continue; }
+        const pattern = MORSE[ch];
+        if (!pattern) continue;
+        t += pendingGap;
+        for (let i = 0; i < pattern.length; i++) {
+          if (i > 0) t += intraGap;
+          const dur = pattern[i] === '.' ? dit : dah;
+          gain.gain.setValueAtTime(1, t);
+          gain.gain.setValueAtTime(0, t + dur);
+          t += dur;
+        }
+        pendingGap = charGap;
+      }
+
+      osc.start();
+      osc.stop(t + 0.1);
+      currentOsc = osc;
+      currentGain = gain;
+      osc.onended = () => {
+        if (currentOsc === osc) { currentOsc = null; currentGain = null; }
+        onDone?.();
+      };
+    }
+
+    const morseText = document.getElementById('morse-text') as HTMLInputElement;
+    const morseWpm = document.getElementById('morse-wpm') as HTMLInputElement;
+    const morseOutput = document.getElementById('morse-output')!;
+    const morsePlayBtn = document.getElementById('morse-play')!;
+    const morseStopBtn = document.getElementById('morse-stop')!;
+
+    function updateMorseOutput() {
+      const text = morseText.value.toUpperCase();
+      const encoded = text
+        .split('')
+        .map((ch) => (ch === ' ' ? '/' : MORSE[ch] ?? ''))
+        .filter(Boolean)
+        .join(' ');
+      morseOutput.textContent = encoded || '—';
+    }
+    morseText.addEventListener('input', updateMorseOutput);
+
+    morsePlayBtn.addEventListener('click', () => {
+      const text = morseText.value.trim();
+      if (!text) return;
+      const wpm = Number(morseWpm.value) || 15;
+      playMorse(text, wpm);
+    });
+    morseStopBtn.addEventListener('click', stopPlayback);
+
+    // --- Quiz mode ---
+    const QUIZ_POOL = Object.keys(MORSE).filter((c) => /[A-Z0-9]/.test(c));
+    let quizAnswer = '';
+    const quizScore = { correct: 0, total: 0 };
+
+    const quizGuessInput = document.getElementById('quiz-guess-input') as HTMLInputElement;
+    const quizFeedback = document.getElementById('quiz-feedback')!;
+    const quizScoreEl = document.getElementById('quiz-score')!;
+    const quizNewBtn = document.getElementById('quiz-new')!;
+    const quizReplayBtn = document.getElementById('quiz-replay')!;
+    const quizSubmitBtn = document.getElementById('quiz-submit')!;
+
+    function newQuizChar() {
+      quizAnswer = QUIZ_POOL[Math.floor(Math.random() * QUIZ_POOL.length)];
+      quizFeedback.textContent = '';
+      quizFeedback.className = 'quiz-feedback';
+      quizGuessInput.value = '';
+      quizGuessInput.focus();
+      const wpm = Number(morseWpm.value) || 15;
+      playMorse(quizAnswer, wpm);
+    }
+
+    function submitGuess() {
+      if (!quizAnswer) return;
+      const guess = quizGuessInput.value.trim().toUpperCase();
+      quizScore.total++;
+      if (guess === quizAnswer) {
+        quizScore.correct++;
+        quizFeedback.textContent = `Correct — that was "${quizAnswer}"`;
+        quizFeedback.className = 'quiz-feedback correct';
+      } else {
+        quizFeedback.textContent = `Not quite — that was "${quizAnswer}", you guessed "${guess || '(blank)'}"`;
+        quizFeedback.className = 'quiz-feedback wrong';
+      }
+      quizScoreEl.textContent = `${quizScore.correct} / ${quizScore.total} correct`;
+    }
+
+    quizNewBtn.addEventListener('click', newQuizChar);
+    quizReplayBtn.addEventListener('click', () => {
+      if (!quizAnswer) return;
+      const wpm = Number(morseWpm.value) || 15;
+      playMorse(quizAnswer, wpm);
+    });
+    quizSubmitBtn.addEventListener('click', submitGuess);
+    quizGuessInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submitGuess();
+    });
+  </script>
+</Base>

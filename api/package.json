@@ -1,0 +1,17 @@
+{
+  "name": "hamstation-api",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "bun --hot run src/index.ts",
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "hono": "^4.6.0",
+    "nodemailer": "^9.0.4",
+    "opus-decoder": "^0.7.11",
+    "sharp": "^0.35.3",
+    "socket.io-client": "^4.8.3"
+  }
+}

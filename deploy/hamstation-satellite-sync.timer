@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily satellite TLE sync
+
+[Timer]
+# LEO orbital elements drift enough that daily refresh is worth it, unlike
+# the weekly Club Log OQRS sync.
+OnCalendar=*-*-* 06:50:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

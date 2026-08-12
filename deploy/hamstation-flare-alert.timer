@@ -1,0 +1,12 @@
+[Unit]
+Description=Periodic X-class solar flare alert check
+
+[Timer]
+# Same 5-minute cadence as the VHF-opening check -- flux data itself updates
+# roughly every minute at the source, but checking every 5 min is a
+# reasonable balance between promptness and load.
+OnBootSec=5min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,109 @@
+---
+import Base from '../layouts/Base.astro';
+import '../styles/activations.css';
+---
+<Base title="Activations" active="activations">
+  <h1>Activations</h1>
+  <p class="lede">Parks on the Air (POTA) activity, pulled live from pota.app.</p>
+
+  <div id="pota-content">
+    <div class="activation-stats">
+      <div class="activation-tile"><div class="label">Activations</div><div class="value" id="pota-activations">&mdash;</div></div>
+      <div class="activation-tile"><div class="label">Parks Activated</div><div class="value" id="pota-parks-activated">&mdash;</div></div>
+      <div class="activation-tile"><div class="label">Parks Hunted</div><div class="value" id="pota-parks-hunted">&mdash;</div></div>
+      <div class="activation-tile"><div class="label">Hunter QSOs</div><div class="value" id="pota-hunter-qsos">&mdash;</div></div>
+      <div class="activation-tile"><div class="label">Awards</div><div class="value" id="pota-awards">&mdash;</div></div>
+    </div>
+
+    <div class="award-badges" id="pota-award-badges"></div>
+
+    <div class="card" style="margin-top:1.5rem;">
+      <h2>Recent Activations</h2>
+      <div class="activation-list" id="pota-activation-list"></div>
+    </div>
+
+    <div class="card" style="margin-top:1.5rem;">
+      <h2>Recent Hunter QSOs</h2>
+      <div class="activation-list" id="pota-hunter-list"></div>
+    </div>
+  </div>
+  <p id="pota-status" class="status-line" hidden>Could not load POTA data right now.</p>
+
+  <script>
+    import { escapeHtml } from '../lib/escapeHtml';
+
+    type PotaActivation = { date: string; reference: string; park: string; location: string; cw: number; data: number; phone: number; total: number };
+    type PotaHunterQso = { date: string; callsign: string; band: string; mode: string; reference: string; park: string; location: string };
+    type PotaAward = { name: string; granted: string; endorsements: string[] };
+    type PotaProfile = {
+      name: string;
+      stats: { activator: { activations: number; parks: number; qsos: number }; hunter: { parks: number; qsos: number }; awards: number; endorsements: number };
+      recent_activity: { activations: PotaActivation[]; hunter_qsos: PotaHunterQso[] };
+      awards: PotaAward[];
+    } | null;
+
+    function formatDate(d: string) {
+      return d.length >= 10 ? d.slice(0, 10) : d;
+    }
+
+    fetch('/api/pota/profile')
+      .then((r) => r.json())
+      .then((profile: PotaProfile) => {
+        if (!profile) {
+          document.getElementById('pota-content')!.hidden = true;
+          document.getElementById('pota-status')!.hidden = false;
+          return;
+        }
+        document.getElementById('pota-activations')!.textContent = String(profile.stats.activator.activations);
+        document.getElementById('pota-parks-activated')!.textContent = String(profile.stats.activator.parks);
+        document.getElementById('pota-parks-hunted')!.textContent = String(profile.stats.hunter.parks);
+        document.getElementById('pota-hunter-qsos')!.textContent = String(profile.stats.hunter.qsos);
+        document.getElementById('pota-awards')!.textContent = String(profile.stats.awards);
+
+        const badges = document.getElementById('pota-award-badges')!;
+        for (const award of profile.awards) {
+          const badge = document.createElement('span');
+          badge.className = 'award-badge';
+          badge.textContent = award.name;
+          const when = document.createElement('span');
+          when.className = 'when';
+          when.textContent = formatDate(award.granted);
+          badge.appendChild(when);
+          badges.appendChild(badge);
+        }
+
+        const activationList = document.getElementById('pota-activation-list')!;
+        if (!profile.recent_activity.activations.length) {
+          activationList.innerHTML = '<p class="status-line">No activations yet.</p>';
+        } else {
+          for (const a of profile.recent_activity.activations) {
+            const row = document.createElement('div');
+            row.className = 'activation-row';
+            row.innerHTML = `
+              <span><span class="park">${escapeHtml(a.park)}</span> (${escapeHtml(a.reference)})<div class="meta">${escapeHtml(a.location)} &middot; ${formatDate(a.date)}</div></span>
+              <span class="count">${a.total} QSO${a.total === 1 ? '' : 's'}</span>
+            `;
+            activationList.appendChild(row);
+          }
+        }
+
+        const hunterList = document.getElementById('pota-hunter-list')!;
+        if (!profile.recent_activity.hunter_qsos.length) {
+          hunterList.innerHTML = '<p class="status-line">No hunter QSOs yet.</p>';
+        } else {
+          for (const q of profile.recent_activity.hunter_qsos) {
+            const row = document.createElement('div');
+            row.className = 'activation-row';
+            row.innerHTML = `
+              <span><span class="park">${escapeHtml(q.callsign)}</span> at ${escapeHtml(q.park)} (${escapeHtml(q.reference)})<div class="meta">${escapeHtml(q.location)} &middot; ${escapeHtml(q.band)} ${escapeHtml(q.mode)} &middot; ${formatDate(q.date)}</div></span>
+            `;
+            hunterList.appendChild(row);
+          }
+        }
+      })
+      .catch(() => {
+        document.getElementById('pota-content')!.hidden = true;
+        document.getElementById('pota-status')!.hidden = false;
+      });
+  </script>
+</Base>

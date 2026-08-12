@@ -1,0 +1,641 @@
+---
+import Base from '../layouts/Base.astro';
+import '../styles/awards.css';
+---
+<Base title="Awards" active="awards">
+  <h1>Awards</h1>
+  <p class="lede">Progress toward DXCC, WAS, WAC, VUCC, WAZ, WPX, and more &mdash; computed live from the QSO log.</p>
+
+  <div class="award-legend">
+    <span><span class="dot confirmed"></span>Confirmed (LoTW)</span>
+    <span><span class="dot worked"></span>Worked, not confirmed</span>
+    <span><span class="dot none"></span>Not worked</span>
+  </div>
+
+  <div class="award-toolbar">
+    <div class="award-field">
+      <label for="award-band">Band</label>
+      <select id="award-band">
+        <option value="">All bands</option>
+      </select>
+    </div>
+    <div class="award-field">
+      <label>Status</label>
+      <div class="status-filter" role="group" aria-label="Filter by confirmation status">
+        <button type="button" class="status-btn active" data-status="all">All</button>
+        <button type="button" class="status-btn" data-status="confirmed">Confirmed</button>
+        <button type="button" class="status-btn" data-status="pending">Pending</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="award-card" style="margin-bottom:1.25rem;">
+    <h2>Awards by Band</h2>
+    <p class="award-substat">Single-band endorsements: LoTW issues DXCC at 100 confirmed entities and WAS at 50 confirmed states on one band. VUCC thresholds vary by band (5&ndash;100 grids), so those are shown as counts only.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Band</th><th>DXCC</th><th>WAS</th><th>VUCC (grids)</th></tr></thead>
+        <tbody id="band-awards-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="award-card" style="margin-bottom:1.25rem;">
+    <h2>DXCC Map</h2>
+    <p class="award-substat">Worked entities, positioned at the average location of their QSOs (not official country boundaries) &mdash; green is LoTW/eQSL confirmed, amber is worked but not yet confirmed anywhere. Entities never worked aren't shown here; see Most-Wanted below for those.</p>
+    <div id="dxcc-map"></div>
+  </div>
+
+  <div class="award-card" style="margin-bottom:1.25rem;">
+    <h2>Most-Wanted DXCC</h2>
+    <p class="award-substat">Entities not yet in the log, from a <a href="https://www.country-files.com/cty/" target="_blank" rel="noopener">community-maintained reference list</a> &mdash; may not perfectly track ARRL's current/deleted entity status. Sorted by <a href="https://clublog.org/mostwanted.php" target="_blank" rel="noopener">Club Log's global most-wanted ranking</a> (rarest first) where available, alphabetical for the rest.</p>
+    <input type="text" id="wanted-search" class="entity-search" placeholder="Search entities…" />
+    <div class="entity-list" id="wanted-list"></div>
+  </div>
+
+  <div class="award-grid">
+    <div class="award-card">
+      <h2>DXCC</h2>
+      <div class="award-stat"><span class="n" id="dxcc-worked">&mdash;</span><span class="of">entities worked</span></div>
+      <p class="award-substat"><span class="good" id="dxcc-confirmed">&mdash;</span> confirmed via LoTW</p>
+      <input type="text" id="dxcc-search" class="entity-search" placeholder="Search countries…" />
+      <div class="entity-list" id="dxcc-list"></div>
+      <button type="button" class="btn secondary cert-btn" id="dxcc-cert-btn" hidden>Download Certificate</button>
+    </div>
+
+    <div class="award-card">
+      <h2>Worked All States</h2>
+      <div class="award-stat"><span class="n" id="was-worked">&mdash;</span><span class="of">of 50</span></div>
+      <div class="progress-bar"><div class="progress-fill" id="was-bar"></div></div>
+      <p class="award-substat"><span class="good" id="was-confirmed">&mdash;</span> confirmed via LoTW</p>
+      <div class="checklist-grid" id="was-grid"></div>
+      <button type="button" class="btn secondary cert-btn" id="was-cert-btn" hidden>Download Certificate</button>
+    </div>
+
+    <div class="award-card">
+      <h2>Worked All Continents</h2>
+      <div class="award-stat"><span class="n" id="wac-worked">&mdash;</span><span class="of">of 6</span></div>
+      <div class="progress-bar"><div class="progress-fill" id="wac-bar"></div></div>
+      <p class="award-substat"><span class="good" id="wac-confirmed">&mdash;</span> confirmed via LoTW</p>
+      <div class="checklist-grid" id="wac-grid"></div>
+      <p id="wac-antarctica" class="award-substat" style="margin-top:0.75rem;" hidden></p>
+      <button type="button" class="btn secondary cert-btn" id="wac-cert-btn" hidden>Download Certificate</button>
+    </div>
+
+    <div class="award-card">
+      <h2>VUCC (Grid Squares)</h2>
+      <div class="award-stat"><span class="n" id="vucc-worked">&mdash;</span><span class="of">grids worked</span></div>
+      <p class="award-substat"><span class="good" id="vucc-confirmed">&mdash;</span> confirmed via LoTW</p>
+      <input type="text" id="vucc-search" class="entity-search" placeholder="Search grid squares…" />
+      <div class="entity-list" id="vucc-list"></div>
+      <button type="button" class="btn secondary cert-btn" id="vucc-cert-btn" hidden>Download Certificate</button>
+    </div>
+
+    <div class="award-card">
+      <h2>Worked All Zones</h2>
+      <div class="award-stat"><span class="n" id="waz-worked">&mdash;</span><span class="of">of 40 CQ zones</span></div>
+      <div class="progress-bar"><div class="progress-fill" id="waz-bar"></div></div>
+      <p class="award-substat"><span class="good" id="waz-confirmed">&mdash;</span> confirmed via LoTW</p>
+      <div class="checklist-grid" id="waz-grid"></div>
+      <button type="button" class="btn secondary cert-btn" id="waz-cert-btn" hidden>Download Certificate</button>
+    </div>
+
+    <div class="award-card">
+      <h2>DXCC by Mode</h2>
+      <p class="award-substat" style="margin-bottom:0.75rem;">Not an official award name &mdash; just DXCC progress split by mode category.</p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Category</th><th>Worked</th><th>Confirmed</th></tr></thead>
+          <tbody id="dxcc-mode-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="award-card">
+      <h2>WPX (Worked All Prefixes)</h2>
+      <div class="award-stat"><span class="n" id="wpx-worked">&mdash;</span><span class="of">prefixes worked</span></div>
+      <p class="award-substat"><span class="good" id="wpx-confirmed">&mdash;</span> confirmed via LoTW <span id="wpx-tier"></span></p>
+      <p class="award-substat" style="font-size:0.78rem;">Prefix parsing follows the standard CQ WPX convention as closely as practical; some portable/reciprocal calls are approximated.</p>
+      <input type="text" id="wpx-search" class="entity-search" placeholder="Search prefixes…" />
+      <div class="entity-list" id="wpx-list"></div>
+      <button type="button" class="btn secondary cert-btn" id="wpx-cert-btn" hidden>Download Certificate</button>
+    </div>
+
+    <div class="award-card">
+      <h2>Triple Play WAS</h2>
+      <p class="award-substat">Confirm all 50 states on Phone, CW, <em>and</em> Digital &mdash; the real ARRL award, not the informal DXCC-by-mode split above.</p>
+      <div id="triple-play-body"></div>
+      <button type="button" class="btn secondary cert-btn" id="triple-play-cert-btn" hidden>Download Certificate</button>
+    </div>
+
+    <div class="award-card">
+      <h2>USA Counties (USA-CA)</h2>
+      <div class="award-stat"><span class="n" id="cnty-worked">&mdash;</span><span class="of">counties worked</span></div>
+      <p class="award-substat"><span class="good" id="cnty-confirmed">&mdash;</span> confirmed via LoTW <span id="cnty-tier"></span></p>
+      <input type="text" id="cnty-search" class="entity-search" placeholder="Search counties…" />
+      <div class="entity-list" id="cnty-list"></div>
+      <button type="button" class="btn secondary cert-btn" id="cnty-cert-btn" hidden>Download Certificate</button>
+    </div>
+
+    <div class="award-card">
+      <h2>IOTA (Islands on the Air)</h2>
+      <div class="award-stat"><span class="n" id="iota-worked">&mdash;</span><span class="of">island groups worked</span></div>
+      <p class="award-substat"><span class="good" id="iota-confirmed">&mdash;</span> confirmed via LoTW <span id="iota-tier"></span></p>
+      <input type="text" id="iota-search" class="entity-search" placeholder="Search IOTA references…" />
+      <div class="entity-list" id="iota-list"></div>
+      <button type="button" class="btn secondary cert-btn" id="iota-cert-btn" hidden>Download Certificate</button>
+    </div>
+  </div>
+
+  <script>
+    import 'leaflet/dist/leaflet.css';
+    import L from 'leaflet';
+    import { downloadOrShareImage } from '../lib/downloadImage';
+
+    // Fetched once up front for use in certificate rendering/filenames --
+    // see log.astro's identical pattern for why a one-shot fetch is enough.
+    let stationCallsign = 'Your Callsign';
+    fetch('/api/station-location')
+      .then((r) => r.json())
+      .then((data: { callsign: string | null }) => {
+        if (data.callsign) stationCallsign = data.callsign;
+      })
+      .catch(() => {});
+
+    // --- DXCC map: one marker per worked entity, positioned at the average
+    // location of its own QSOs (see the route's own comment for why there's
+    // no proper per-entity centroid/boundary data available). ---
+    type DxccMapEntry = { country: string; lat: number; lon: number; qsoCount: number; confirmed: boolean };
+    const dxccMap = L.map('dxcc-map', { worldCopyJump: true }).setView([20, 0], 2);
+    const dxccMapIsDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dxccMapIsDark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 18,
+    }).addTo(dxccMap);
+    const dxccMapRenderer = L.canvas({ padding: 0.5 });
+    const dxccMapGoodColor = getComputedStyle(document.documentElement).getPropertyValue('--status-good').trim() || '#22c55e';
+    const dxccMapWarningColor = getComputedStyle(document.documentElement).getPropertyValue('--status-warning').trim() || '#eab308';
+
+    fetch('/api/awards/dxcc-map')
+      .then((r) => r.json())
+      .then((rows: DxccMapEntry[]) => {
+        for (const r of rows) {
+          const color = r.confirmed ? dxccMapGoodColor : dxccMapWarningColor;
+          L.circleMarker([r.lat, r.lon], { radius: 5, color, fillColor: color, fillOpacity: 0.85, weight: 1, renderer: dxccMapRenderer })
+            .bindTooltip(`${r.country} — ${r.qsoCount} QSO${r.qsoCount === 1 ? '' : 's'}${r.confirmed ? ' (confirmed)' : ''}`, { sticky: true })
+            .addTo(dxccMap);
+        }
+      });
+
+    type Entity = { country: string; qsoCount: number; firstWorked: string; confirmed: boolean };
+    type StateEntry = { code: string; name: string; worked: boolean; confirmed: boolean; qsoCount: number };
+    type ContinentEntry = { code: string; name: string; worked: boolean; confirmed: boolean; qsoCount: number };
+    type Grid = { grid: string; qsoCount: number; confirmed: boolean };
+    type BandDxcc = { band: string; worked: number; confirmed: number; achieved: boolean };
+    type BandWas = { band: string; worked: number; confirmed: number; achieved: boolean };
+    type BandVucc = { band: string; worked: number; confirmed: number };
+    type ModeCategory = { category: string; worked: number; confirmed: number };
+    type ZoneEntry = { zone: number; worked: boolean; confirmed: boolean; qsoCount: number };
+    type WantedEntity = { name: string; cqZone: number; continent: string; rank: number | null };
+    type WpxPrefix = { prefix: string; qsoCount: number; confirmed: boolean; firstWorked: string };
+    type TriplePlay = { phone: number; cw: number; digital: number };
+    type CountyEntry = { cnty: string; qsoCount: number; confirmed: boolean; firstWorked: string };
+    type IotaEntry = { iota: string; qsoCount: number; confirmed: boolean; firstWorked: string };
+    type Awards = {
+      band: string | null;
+      bands: string[];
+      bandDxcc: BandDxcc[];
+      bandWas: BandWas[];
+      bandVucc: BandVucc[];
+      dxccByMode: ModeCategory[];
+      waz: { worked: number; confirmed: number; zones: ZoneEntry[] };
+      mostWanted: WantedEntity[];
+      wpx: { worked: number; confirmed: number; tier: number | null; nextTier: number | null; prefixes: WpxPrefix[] };
+      triplePlay: TriplePlay;
+      usaCounties: { worked: number; confirmed: number; tier: number | null; nextTier: number | null; counties: CountyEntry[] };
+      iota: { worked: number; confirmed: number; tier: number | null; nextTier: number | null; groups: IotaEntry[] };
+      dxcc: { worked: number; confirmed: number; entities: Entity[] };
+      was: { worked: number; confirmed: number; states: StateEntry[] };
+      wac: { worked: number; confirmed: number; continents: ContinentEntry[]; antarctica: { worked: boolean; confirmed: boolean; qsoCount: number } | null };
+      vucc: { worked: number; confirmed: number; grids: Grid[] };
+    };
+
+    let statusFilter: 'all' | 'confirmed' | 'pending' = 'all';
+
+    function renderEntityList(container: HTMLElement, rows: { label: string; sub: string; confirmed: boolean }[]) {
+      container.innerHTML = '';
+      for (const row of rows) {
+        const div = document.createElement('div');
+        div.className = 'entity-row';
+        div.dataset.label = row.label.toLowerCase();
+        div.dataset.confirmed = String(row.confirmed);
+        div.innerHTML = `
+          <span>${row.label}<span style="color:var(--muted);"> &middot; ${row.sub}</span></span>
+          <span class="badge ${row.confirmed ? 'confirmed' : 'worked'}">${row.confirmed ? 'Confirmed' : 'Worked'}</span>
+        `;
+        container.appendChild(div);
+      }
+    }
+
+    function applyEntityVisibility(containerId: string, searchInputId: string) {
+      const container = document.getElementById(containerId)!;
+      const input = document.getElementById(searchInputId) as HTMLInputElement;
+      const q = input.value.trim().toLowerCase();
+      container.querySelectorAll<HTMLElement>('.entity-row').forEach((row) => {
+        const searchOk = !q || row.dataset.label!.includes(q);
+        const confirmed = row.dataset.confirmed === 'true';
+        const statusOk = statusFilter === 'all' || (statusFilter === 'confirmed' ? confirmed : !confirmed);
+        row.style.display = searchOk && statusOk ? '' : 'none';
+      });
+    }
+
+    function applyPillVisibility(containerId: string) {
+      const container = document.getElementById(containerId)!;
+      container.querySelectorAll<HTMLElement>('.checklist-pill').forEach((pill) => {
+        const status = pill.dataset.status;
+        const ok = statusFilter === 'all' || (statusFilter === 'confirmed' ? status === 'confirmed' : status === 'worked');
+        pill.style.display = ok ? '' : 'none';
+      });
+    }
+
+    function applyAllFilters() {
+      applyEntityVisibility('dxcc-list', 'dxcc-search');
+      applyEntityVisibility('vucc-list', 'vucc-search');
+      applyEntityVisibility('wpx-list', 'wpx-search');
+      applyEntityVisibility('cnty-list', 'cnty-search');
+      applyEntityVisibility('iota-list', 'iota-search');
+      applyPillVisibility('was-grid');
+      applyPillVisibility('wac-grid');
+      applyPillVisibility('waz-grid');
+    }
+
+    function wireSearch(inputId: string, containerId: string) {
+      const input = document.getElementById(inputId) as HTMLInputElement;
+      input.addEventListener('input', () => applyEntityVisibility(containerId, inputId));
+    }
+
+    document.querySelectorAll<HTMLButtonElement>('.status-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.status-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        statusFilter = btn.dataset.status as typeof statusFilter;
+        applyAllFilters();
+      });
+    });
+
+    function formatDate(d: string) {
+      if (d.length !== 8) return d;
+      return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+    }
+
+    function generateCertificate(title: string, subtitle: string, statLine: string): string {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1600;
+      canvas.height = 1131;
+      const ctx = canvas.getContext('2d')!;
+
+      ctx.fillStyle = '#f7f6f2';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = '#0d9488';
+      ctx.lineWidth = 10;
+      ctx.strokeRect(30, 30, canvas.width - 60, canvas.height - 60);
+      ctx.lineWidth = 2;
+      ctx.strokeRect(55, 55, canvas.width - 110, canvas.height - 110);
+
+      ctx.textAlign = 'center';
+
+      ctx.font = '600 30px sans-serif';
+      ctx.fillStyle = '#0d9488';
+      ctx.fillText('CERTIFICATE OF ACHIEVEMENT', canvas.width / 2, 210);
+
+      ctx.font = '700 76px Georgia, serif';
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillText(title, canvas.width / 2, 330);
+
+      ctx.font = '400 28px sans-serif';
+      ctx.fillStyle = '#555555';
+      ctx.fillText(subtitle, canvas.width / 2, 385);
+
+      ctx.font = '400 24px sans-serif';
+      ctx.fillStyle = '#888888';
+      ctx.fillText('issued to', canvas.width / 2, 480);
+
+      ctx.font = '700 110px ui-monospace, monospace';
+      ctx.fillStyle = '#0d9488';
+      ctx.fillText(stationCallsign, canvas.width / 2, 610);
+
+      ctx.font = '400 34px sans-serif';
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillText(statLine, canvas.width / 2, 700);
+
+      const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      ctx.font = '400 20px sans-serif';
+      ctx.fillStyle = '#999999';
+      ctx.fillText(`Generated ${dateStr} from the station log`, canvas.width / 2, 1040);
+
+      return canvas.toDataURL('image/png');
+    }
+
+    // Certificates feature disabled for now — buttons stay hidden regardless
+    // of achieved status. To re-enable, restore the body to:
+    //   btn.hidden = !achieved;
+    //   if (!achieved) return;
+    //   btn.onclick = () => downloadOrShareImage(generateCertificate(title, subtitle, statLine), filename);
+    function wireCertificate(buttonId: string, _achieved: boolean, _title: string, _subtitle: string, _statLine: string, _filename: string) {
+      const btn = document.getElementById(buttonId) as HTMLButtonElement;
+      btn.hidden = true;
+    }
+
+    const bandSelect = document.getElementById('award-band') as HTMLSelectElement;
+    let bandOptionsPopulated = false;
+
+    function loadAwards(band: string) {
+      const url = band ? `/api/awards?band=${encodeURIComponent(band)}` : '/api/awards';
+      fetch(url)
+        .then((r) => r.json())
+        .then((data: Awards) => {
+          if (!bandOptionsPopulated) {
+            for (const b of data.bands) {
+              const opt = document.createElement('option');
+              opt.value = b;
+              opt.textContent = b;
+              bandSelect.appendChild(opt);
+            }
+            bandOptionsPopulated = true;
+          }
+
+          // Awards by band (always full — not affected by the band filter)
+          const dxccByBand = new Map(data.bandDxcc.map((b) => [b.band, b]));
+          const wasByBand = new Map(data.bandWas.map((b) => [b.band, b]));
+          const vuccByBand = new Map(data.bandVucc.map((b) => [b.band, b]));
+          const bandAwardsBody = document.getElementById('band-awards-body')!;
+          bandAwardsBody.innerHTML = '';
+          for (const band of data.bands) {
+            const d = dxccByBand.get(band);
+            const w = wasByBand.get(band);
+            const v = vuccByBand.get(band);
+            const cell = (entry: { worked: number; confirmed: number; achieved?: boolean } | undefined) => {
+              if (!entry) return '<span style="color:var(--muted);">&mdash;</span>';
+              const achievedMark = entry.achieved ? ' <span class="band-dxcc-status achieved">✓</span>' : '';
+              return `${entry.worked}/${entry.confirmed}${achievedMark}`;
+            };
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${band}</td>
+              <td>${cell(d)}</td>
+              <td>${cell(w)}</td>
+              <td>${cell(v)}</td>
+            `;
+            bandAwardsBody.appendChild(tr);
+          }
+
+          // DXCC by mode
+          const dxccModeBody = document.getElementById('dxcc-mode-body')!;
+          dxccModeBody.innerHTML = '';
+          for (const m of data.dxccByMode) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${m.category}</td><td>${m.worked}</td><td>${m.confirmed}</td>`;
+            dxccModeBody.appendChild(tr);
+          }
+
+          // Most-wanted DXCC
+          const wantedList = document.getElementById('wanted-list')!;
+          wantedList.innerHTML = '';
+          for (const e of data.mostWanted) {
+            const div = document.createElement('div');
+            div.className = 'entity-row';
+            div.dataset.label = e.name.toLowerCase();
+            const rankLabel = e.rank != null ? `#${e.rank} &middot; ` : '';
+            div.innerHTML = `<span>${e.name}<span style="color:var(--muted);"> &middot; ${rankLabel}Zone ${e.cqZone} &middot; ${e.continent}</span></span>`;
+            wantedList.appendChild(div);
+          }
+
+          // WPX
+          document.getElementById('wpx-worked')!.textContent = String(data.wpx.worked);
+          document.getElementById('wpx-confirmed')!.textContent = `${data.wpx.confirmed} confirmed`;
+          const wpxTierEl = document.getElementById('wpx-tier')!;
+          wpxTierEl.textContent = data.wpx.tier
+            ? `· ${data.wpx.tier}+ tier${data.wpx.nextTier ? ` (${data.wpx.nextTier - data.wpx.confirmed} to ${data.wpx.nextTier}+)` : ''}`
+            : data.wpx.nextTier
+              ? `· ${data.wpx.nextTier - data.wpx.confirmed} to first tier (${data.wpx.nextTier}+)`
+              : '';
+          renderEntityList(
+            document.getElementById('wpx-list')!,
+            data.wpx.prefixes.map((p) => ({ label: p.prefix, sub: `${p.qsoCount} QSO${p.qsoCount === 1 ? '' : 's'} · since ${formatDate(p.firstWorked)}`, confirmed: p.confirmed })),
+          );
+          wireCertificate(
+            'wpx-cert-btn',
+            data.wpx.tier !== null,
+            'WPX Award',
+            `${data.wpx.tier}+ prefixes confirmed`,
+            `${data.wpx.confirmed} prefixes confirmed via LoTW`,
+            `${stationCallsign}-WPX.png`,
+          );
+
+          // Triple Play WAS
+          const tp = data.triplePlay;
+          const tripleBody = document.getElementById('triple-play-body')!;
+          tripleBody.innerHTML = ['Phone', 'CW', 'Digital']
+            .map((label) => {
+              const count = label === 'Phone' ? tp.phone : label === 'CW' ? tp.cw : tp.digital;
+              return `
+                <div class="triple-play-row">
+                  <div class="triple-play-label"><span>${label}</span><span class="count">${count}/50</span></div>
+                  <div class="progress-bar"><div class="progress-fill" style="width:${(count / 50) * 100}%"></div></div>
+                </div>
+              `;
+            })
+            .join('');
+          wireCertificate(
+            'triple-play-cert-btn',
+            tp.phone >= 50 && tp.cw >= 50 && tp.digital >= 50,
+            'Triple Play WAS',
+            'All 50 states confirmed on Phone, CW & Digital',
+            `${tp.phone}/50 Phone · ${tp.cw}/50 CW · ${tp.digital}/50 Digital`,
+            `${stationCallsign}-TriplePlayWAS.png`,
+          );
+
+          // USA Counties (USA-CA)
+          document.getElementById('cnty-worked')!.textContent = String(data.usaCounties.worked);
+          document.getElementById('cnty-confirmed')!.textContent = `${data.usaCounties.confirmed} confirmed`;
+          const cntyTierEl = document.getElementById('cnty-tier')!;
+          cntyTierEl.textContent = data.usaCounties.tier
+            ? `· ${data.usaCounties.tier}+ tier${data.usaCounties.nextTier ? ` (${data.usaCounties.nextTier - data.usaCounties.confirmed} to ${data.usaCounties.nextTier}+)` : ''}`
+            : data.usaCounties.nextTier
+              ? `· ${data.usaCounties.nextTier - data.usaCounties.confirmed} to first tier (${data.usaCounties.nextTier}+)`
+              : '';
+          renderEntityList(
+            document.getElementById('cnty-list')!,
+            data.usaCounties.counties.map((c) => {
+              const [st, name] = c.cnty.split(',');
+              return { label: `${name}, ${st}`, sub: `${c.qsoCount} QSO${c.qsoCount === 1 ? '' : 's'} · since ${formatDate(c.firstWorked)}`, confirmed: c.confirmed };
+            }),
+          );
+          wireCertificate(
+            'cnty-cert-btn',
+            data.usaCounties.tier !== null,
+            'USA Counties Award',
+            `${data.usaCounties.tier}+ counties confirmed`,
+            `${data.usaCounties.confirmed} counties confirmed via LoTW`,
+            `${stationCallsign}-USA-CA.png`,
+          );
+
+          // IOTA
+          document.getElementById('iota-worked')!.textContent = String(data.iota.worked);
+          document.getElementById('iota-confirmed')!.textContent = `${data.iota.confirmed} confirmed`;
+          const iotaTierEl = document.getElementById('iota-tier')!;
+          iotaTierEl.textContent = data.iota.tier
+            ? `· ${data.iota.tier}+ tier${data.iota.nextTier ? ` (${data.iota.nextTier - data.iota.confirmed} to ${data.iota.nextTier}+)` : ''}`
+            : data.iota.nextTier
+              ? `· ${data.iota.nextTier - data.iota.confirmed} to first tier (${data.iota.nextTier}+)`
+              : '';
+          renderEntityList(
+            document.getElementById('iota-list')!,
+            data.iota.groups.map((g) => ({ label: g.iota, sub: `${g.qsoCount} QSO${g.qsoCount === 1 ? '' : 's'} · since ${formatDate(g.firstWorked)}`, confirmed: g.confirmed })),
+          );
+          wireCertificate(
+            'iota-cert-btn',
+            data.iota.tier !== null,
+            'IOTA Award',
+            `${data.iota.tier}+ island groups confirmed`,
+            `${data.iota.confirmed} IOTA references confirmed via LoTW`,
+            `${stationCallsign}-IOTA.png`,
+          );
+
+          // DXCC
+          document.getElementById('dxcc-worked')!.textContent = String(data.dxcc.worked);
+          document.getElementById('dxcc-confirmed')!.textContent = `${data.dxcc.confirmed} confirmed`;
+          renderEntityList(
+            document.getElementById('dxcc-list')!,
+            data.dxcc.entities.map((e) => ({ label: e.country, sub: `since ${formatDate(e.firstWorked)}`, confirmed: e.confirmed })),
+          );
+          wireCertificate(
+            'dxcc-cert-btn',
+            data.dxcc.confirmed >= 100,
+            data.band ? `Single-Band DXCC — ${data.band}` : 'DXCC Award',
+            'Worked & confirmed 100+ DXCC entities',
+            `${data.dxcc.confirmed} entities confirmed via LoTW`,
+            `${stationCallsign}-DXCC${data.band ? '-' + data.band : ''}.png`,
+          );
+
+          // WAS
+          document.getElementById('was-worked')!.textContent = String(data.was.worked);
+          document.getElementById('was-confirmed')!.textContent = `${data.was.confirmed} confirmed`;
+          const wasBar = document.getElementById('was-bar')!;
+          wasBar.style.width = `${(data.was.worked / 50) * 100}%`;
+          wasBar.classList.toggle('partial', data.was.confirmed < data.was.worked);
+          const wasGrid = document.getElementById('was-grid')!;
+          wasGrid.innerHTML = '';
+          for (const s of data.was.states) {
+            const pill = document.createElement('div');
+            pill.className = 'checklist-pill';
+            pill.dataset.status = s.confirmed ? 'confirmed' : s.worked ? 'worked' : 'none';
+            pill.title = `${s.name}${s.worked ? ` — ${s.qsoCount} QSO${s.qsoCount === 1 ? '' : 's'}` : ' — not worked'}`;
+            pill.textContent = s.code;
+            wasGrid.appendChild(pill);
+          }
+          wireCertificate(
+            'was-cert-btn',
+            data.was.confirmed >= 50,
+            data.band ? `Single-Band WAS — ${data.band}` : 'Worked All States',
+            'Worked & confirmed all 50 U.S. states',
+            `${data.was.confirmed} of 50 states confirmed via LoTW`,
+            `${stationCallsign}-WAS${data.band ? '-' + data.band : ''}.png`,
+          );
+
+          // WAC
+          document.getElementById('wac-worked')!.textContent = String(data.wac.worked);
+          document.getElementById('wac-confirmed')!.textContent = `${data.wac.confirmed} confirmed`;
+          const wacBar = document.getElementById('wac-bar')!;
+          wacBar.style.width = `${(data.wac.worked / 6) * 100}%`;
+          wacBar.classList.toggle('partial', data.wac.confirmed < data.wac.worked);
+          const wacGrid = document.getElementById('wac-grid')!;
+          wacGrid.innerHTML = '';
+          for (const cont of data.wac.continents) {
+            const pill = document.createElement('div');
+            pill.className = 'checklist-pill';
+            pill.dataset.status = cont.confirmed ? 'confirmed' : cont.worked ? 'worked' : 'none';
+            pill.title = `${cont.name}${cont.worked ? ` — ${cont.qsoCount} QSO${cont.qsoCount === 1 ? '' : 's'}` : ' — not worked'}`;
+            pill.textContent = cont.code;
+            wacGrid.appendChild(pill);
+          }
+          const wacAntarctica = document.getElementById('wac-antarctica')!;
+          if (data.wac.antarctica) {
+            wacAntarctica.hidden = false;
+            wacAntarctica.innerHTML = `Bonus: also worked <strong>Antarctica</strong> (${data.wac.antarctica.confirmed ? 'confirmed' : 'not yet confirmed'}) &mdash; doesn't count toward the traditional 6.`;
+          } else {
+            wacAntarctica.hidden = true;
+          }
+          wireCertificate(
+            'wac-cert-btn',
+            data.wac.confirmed >= 6,
+            data.band ? `Worked All Continents — ${data.band}` : 'Worked All Continents',
+            'Worked & confirmed all 6 continents',
+            `${data.wac.confirmed} of 6 continents confirmed via LoTW`,
+            `${stationCallsign}-WAC${data.band ? '-' + data.band : ''}.png`,
+          );
+
+          // VUCC
+          document.getElementById('vucc-worked')!.textContent = String(data.vucc.worked);
+          document.getElementById('vucc-confirmed')!.textContent = `${data.vucc.confirmed} confirmed`;
+          renderEntityList(
+            document.getElementById('vucc-list')!,
+            data.vucc.grids.map((g) => ({ label: g.grid, sub: `${g.qsoCount} QSO${g.qsoCount === 1 ? '' : 's'}`, confirmed: g.confirmed })),
+          );
+          wireCertificate(
+            'vucc-cert-btn',
+            data.vucc.confirmed >= 100,
+            data.band ? `VUCC — ${data.band}` : 'VUCC Award',
+            'Worked & confirmed 100+ grid squares',
+            `${data.vucc.confirmed} grids confirmed via LoTW`,
+            `${stationCallsign}-VUCC${data.band ? '-' + data.band : ''}.png`,
+          );
+
+          // WAZ
+          document.getElementById('waz-worked')!.textContent = String(data.waz.worked);
+          document.getElementById('waz-confirmed')!.textContent = `${data.waz.confirmed} confirmed`;
+          const wazBar = document.getElementById('waz-bar')!;
+          wazBar.style.width = `${(data.waz.worked / 40) * 100}%`;
+          wazBar.classList.toggle('partial', data.waz.confirmed < data.waz.worked);
+          const wazGrid = document.getElementById('waz-grid')!;
+          wazGrid.innerHTML = '';
+          for (const z of data.waz.zones) {
+            const pill = document.createElement('div');
+            pill.className = 'checklist-pill';
+            pill.dataset.status = z.confirmed ? 'confirmed' : z.worked ? 'worked' : 'none';
+            pill.title = `Zone ${z.zone}${z.worked ? ` — ${z.qsoCount} QSO${z.qsoCount === 1 ? '' : 's'}` : ' — not worked'}`;
+            pill.textContent = String(z.zone);
+            wazGrid.appendChild(pill);
+          }
+          wireCertificate(
+            'waz-cert-btn',
+            data.waz.confirmed >= 40,
+            'Worked All Zones',
+            'Worked & confirmed all 40 CQ zones',
+            `${data.waz.confirmed} of 40 zones confirmed via LoTW`,
+            `${stationCallsign}-WAZ.png`,
+          );
+
+          applyAllFilters();
+        })
+        .catch(() => {
+          document.querySelectorAll('.award-stat .n').forEach((el) => (el.textContent = '?'));
+        });
+    }
+
+    wireSearch('dxcc-search', 'dxcc-list');
+    wireSearch('vucc-search', 'vucc-list');
+    wireSearch('wpx-search', 'wpx-list');
+    wireSearch('cnty-search', 'cnty-list');
+    wireSearch('iota-search', 'iota-list');
+    document.getElementById('wanted-search')!.addEventListener('input', (e) => {
+      const q = (e.target as HTMLInputElement).value.trim().toLowerCase();
+      document.querySelectorAll<HTMLElement>('#wanted-list .entity-row').forEach((row) => {
+        row.style.display = !q || row.dataset.label!.includes(q) ? '' : 'none';
+      });
+    });
+    bandSelect.addEventListener('change', () => loadAwards(bandSelect.value));
+    loadAwards('');
+  </script>
+</Base>

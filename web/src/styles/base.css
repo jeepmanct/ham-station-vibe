@@ -1,0 +1,705 @@
+:root {
+  color-scheme: light dark;
+  --bg: #0b0d10;
+  --bg-2: #0f1215;
+  --fg: #eef1f3;
+  --muted: #8d98a1;
+  --accent: #5eead4;
+  --accent-2: #f5a962;
+  --on-accent: #04211d;
+  --card: #14171c;
+  --card-hover: #191d23;
+  --border: #232830;
+  --radius: 14px;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  /* Categorical palette for band-coded data (QSO map, legends). Fixed hue order — never cycled. */
+  --band-1: #3987e5;
+  --band-2: #d95926;
+  --band-3: #199e70;
+  --band-4: #c98500;
+  --band-5: #d55181;
+  --band-6: #008300;
+  --band-7: #9085e9;
+  --band-8: #e66767;
+  --band-other: #8d98a1;
+  /* Status colors (fixed — same in light/dark, never themed) */
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --bg: #f7f6f2;
+    --bg-2: #f1efe9;
+    --fg: #1b1f24;
+    --muted: #656e77;
+    --accent: #0d9488;
+    --accent-2: #c2660a;
+    --on-accent: #04211d;
+    --card: #ffffff;
+    --card-hover: #fbfbfa;
+    --border: #e5e3dc;
+    --shadow: 0 8px 30px rgba(20, 20, 15, 0.08);
+    --band-1: #2a78d6;
+    --band-2: #eb6834;
+    --band-3: #1baf7a;
+    --band-4: #eda100;
+    --band-5: #e87ba4;
+    --band-6: #008300;
+    --band-7: #4a3aa7;
+    --band-8: #e34948;
+    --band-other: #656e77;
+  }
+}
+/* Manual theme picker overrides — each wins over the OS preference. Band/
+   status colors are deliberately shared across every dark-surface theme
+   (validated once for the original dark theme) rather than re-picked and
+   re-validated per theme — the picker reskins general UI chrome, not the
+   accessibility-checked data-viz palette (map bands, award status colors). */
+:root[data-theme="light"] {
+  --bg: #f7f6f2;
+  --bg-2: #f1efe9;
+  --fg: #1b1f24;
+  --muted: #656e77;
+  --accent: #0d9488;
+  --accent-2: #c2660a;
+  --on-accent: #04211d;
+  --card: #ffffff;
+  --card-hover: #fbfbfa;
+  --border: #e5e3dc;
+  --shadow: 0 8px 30px rgba(20, 20, 15, 0.08);
+  --band-1: #2a78d6;
+  --band-2: #eb6834;
+  --band-3: #1baf7a;
+  --band-4: #eda100;
+  --band-5: #e87ba4;
+  --band-6: #008300;
+  --band-7: #4a3aa7;
+  --band-8: #e34948;
+  --band-other: #656e77;
+}
+:root[data-theme="dark"] {
+  --bg: #0b0d10;
+  --bg-2: #0f1215;
+  --fg: #eef1f3;
+  --muted: #8d98a1;
+  --accent: #5eead4;
+  --accent-2: #f5a962;
+  --on-accent: #04211d;
+  --card: #14171c;
+  --card-hover: #191d23;
+  --border: #232830;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  --band-1: #3987e5;
+  --band-2: #d95926;
+  --band-3: #199e70;
+  --band-4: #c98500;
+  --band-5: #d55181;
+  --band-6: #008300;
+  --band-7: #9085e9;
+  --band-8: #e66767;
+  --band-other: #8d98a1;
+}
+:root[data-theme="dracula"] {
+  --bg: #282a36;
+  --bg-2: #21222c;
+  --fg: #f8f8f2;
+  --muted: #8494c2;
+  --accent: #8be9fd;
+  --accent-2: #ff79c6;
+  --on-accent: #0b1a1f;
+  --card: #343746;
+  --card-hover: #3b3e50;
+  --border: #44475a;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  --band-1: #3987e5;
+  --band-2: #d95926;
+  --band-3: #199e70;
+  --band-4: #c98500;
+  --band-5: #d55181;
+  --band-6: #008300;
+  --band-7: #9085e9;
+  --band-8: #e66767;
+  --band-other: #8d98a1;
+}
+:root[data-theme="nord"] {
+  --bg: #2e3440;
+  --bg-2: #333a48;
+  --fg: #eceff4;
+  --muted: #8891a8;
+  --accent: #88c0d0;
+  --accent-2: #ebcb8b;
+  --on-accent: #0d2129;
+  --card: #3b4252;
+  --card-hover: #434c5e;
+  --border: #4c566a;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  --band-1: #3987e5;
+  --band-2: #d95926;
+  --band-3: #199e70;
+  --band-4: #c98500;
+  --band-5: #d55181;
+  --band-6: #008300;
+  --band-7: #9085e9;
+  --band-8: #e66767;
+  --band-other: #8d98a1;
+}
+:root[data-theme="amber"] {
+  --bg: #120d08;
+  --bg-2: #1a130b;
+  --fg: #f3e3c9;
+  --muted: #a3835c;
+  --accent: #ffb000;
+  --accent-2: #ff7a00;
+  --on-accent: #1a0f00;
+  --card: #1f1710;
+  --card-hover: #271c12;
+  --border: #3a2c1a;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  --band-1: #3987e5;
+  --band-2: #d95926;
+  --band-3: #199e70;
+  --band-4: #c98500;
+  --band-5: #d55181;
+  --band-6: #008300;
+  --band-7: #9085e9;
+  --band-8: #e66767;
+  --band-other: #8d98a1;
+}
+:root[data-theme="green"] {
+  --bg: #060a06;
+  --bg-2: #0c130c;
+  --fg: #baffc9;
+  --muted: #5f9e6f;
+  --accent: #3ddc84;
+  --accent-2: #ffd23f;
+  --on-accent: #032b0d;
+  --card: #0f1a10;
+  --card-hover: #142014;
+  --border: #1f3320;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  --band-1: #3987e5;
+  --band-2: #d95926;
+  --band-3: #199e70;
+  --band-4: #c98500;
+  --band-5: #d55181;
+  --band-6: #008300;
+  --band-7: #9085e9;
+  --band-8: #e66767;
+  --band-other: #8d98a1;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background:
+    radial-gradient(1200px 600px at 15% -10%, color-mix(in srgb, var(--accent) 10%, transparent), transparent),
+    radial-gradient(900px 500px at 110% 10%, color-mix(in srgb, var(--accent-2) 8%, transparent), transparent),
+    var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  line-height: 1.55;
+  min-height: 100vh;
+}
+a { color: inherit; }
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  /* `position: sticky` + z-index makes header its own stacking context, so
+     its dropdown children (nav#site-nav, .theme-menu, both z-index: 20
+     below) only rank against each other -- the header as a whole competes
+     against sibling contexts like a Leaflet map elsewhere on the page using
+     *this* z-index. Leaflet's own panes/controls reach up to 1000
+     (.leaflet-top/.leaflet-bottom, confirmed in leaflet.css), so the old
+     value of 10 let map content paint over the nav dropdown on any page
+     with a map. Comfortably above that ceiling. */
+  z-index: 2000;
+}
+header .brand {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+header .brand .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 80%, transparent);
+  display: inline-block;
+}
+nav { display: flex; flex-wrap: wrap; gap: 0.15rem; }
+nav a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.86rem;
+  font-weight: 500;
+  padding: 0.45rem 0.6rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+nav a:hover { color: var(--fg); background: var(--card); }
+nav a[aria-current="page"] { color: var(--bg); background: var(--accent); }
+
+.nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.nav-toggle:hover { color: var(--fg); }
+.nav-toggle svg { width: 18px; height: 18px; }
+
+/* Below this width the link list collapses behind the toggle button above --
+   with 15 nav items, letting it wrap freely (the desktop behavior) ate up
+   to a quarter of the screen on a phone. Since every link is a full page
+   navigation here (no client-side routing), the menu naturally re-collapses
+   on its own the moment a page loads — no "close after picking" JS needed. */
+@media (max-width: 720px) {
+  .nav-toggle { display: inline-flex; }
+  /* Floating compact dropdown, anchored under the toggle button — same
+     pattern as .theme-menu, rather than a full-width list pushed into the
+     normal document flow (that was the original fix, but still read as
+     "the whole menu, just stacked" rather than an actually small popover). */
+  nav#site-nav {
+    display: none;
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 1.5rem;
+    z-index: 20;
+    min-width: 170px;
+    max-width: 220px;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.4rem;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    box-shadow: var(--shadow);
+  }
+  nav#site-nav.nav-open { display: flex; }
+  nav#site-nav a {
+    width: 100%;
+    padding: 0.5rem 0.6rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+  }
+}
+
+.theme-picker { position: relative; margin-left: 0.4rem; flex-shrink: 0; }
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  cursor: pointer;
+}
+.theme-toggle:hover { color: var(--fg); }
+.theme-toggle svg { width: 16px; height: 16px; }
+
+.theme-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 20;
+  min-width: 190px;
+  padding: 0.4rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.theme-menu[hidden] { display: none; }
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+.theme-option:hover { background: var(--card-hover); }
+.theme-option.active { background: var(--card-hover); font-weight: 600; }
+.theme-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.theme-swatch span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: block;
+}
+.theme-swatch-auto {
+  background: linear-gradient(135deg, #f7f6f2 50%, #0b0d10 50%);
+}
+
+main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vw, 3rem) 1.5rem 5rem;
+}
+
+h1 {
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.5rem;
+}
+h2 {
+  font-size: 1.15rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 1rem;
+}
+p.lede {
+  color: var(--muted);
+  font-size: 1.05rem;
+  max-width: 46ch;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+}
+section + section { margin-top: 2.5rem; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.1rem;
+  border-radius: 999px;
+  border: 0;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.1s ease, opacity 0.15s ease;
+}
+.btn:active { transform: scale(0.97); }
+.btn[hidden] { display: none; }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn.secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg);
+}
+
+input[type="text"],
+input[type="password"] {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--fg);
+  font-size: 1rem;
+}
+input[type="text"]:focus,
+input[type="password"]:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+input[type="file"] { color: var(--muted); font-size: 0.9rem; }
+
+.status-line {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0;
+  min-height: 1.2em;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.85rem;
+  align-items: end;
+}
+.form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.form-grid input,
+.form-grid select {
+  padding: 0.6rem 0.7rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--fg);
+  font-size: 0.9rem;
+  text-transform: none;
+}
+.form-grid-wide { grid-column: 1 / -1; }
+.form-grid-checkbox {
+  grid-column: 1 / -1;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem !important;
+  text-transform: none;
+  font-size: 0.85rem;
+  color: var(--fg);
+}
+.form-grid-checkbox input { width: auto; }
+.form-grid .status-line,
+.form-grid > button { grid-column: 1 / -1; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+tr:last-child td { border-bottom: 0; }
+tr:hover td { background: var(--card-hover); }
+
+footer {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+  padding: 2.5rem 0 1rem;
+  font-family: var(--font-mono);
+}
+footer a { color: var(--accent); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+
+.links-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+.link-group h2, .link-group h3 { margin-bottom: 0.6rem; }
+.link-group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.link-group a {
+  text-decoration: none;
+  font-size: 0.92rem;
+}
+.link-group a:hover { text-decoration: underline; }
+.link-group .desc {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-top: 0.1rem;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+.stat-tile {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  text-align: center;
+}
+.stat-tile .label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.stat-tile .value {
+  font-family: var(--font-mono);
+  font-size: 1.9rem;
+  font-weight: 700;
+  margin-top: 0.35rem;
+}
+
+#import-upload { display: flex; flex-direction: column; gap: 1.5rem; }
+#import-upload[hidden] { display: none; }
+#export-buttons { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+#export-buttons[hidden] { display: none; }
+
+/* Shared hand-rolled SVG chart wrapper — used by /stats and /conditions. */
+.chart-svg-wrap { width: 100%; }
+.chart-svg-wrap svg { display: block; }
+.chart-svg-wrap rect.bar { transition: opacity 0.15s ease; }
+.chart-svg-wrap rect.bar:hover { opacity: 0.75; }
+
+/* Shared calculator-card layout — used by /tools and /electronics. */
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+.tool-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+}
+.tool-card h2 {
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.tool-reset-btn {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tool-reset-btn:hover { color: var(--fg); border-color: var(--fg); }
+.tool-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.85rem;
+}
+.tool-field[hidden] { display: none; }
+.tool-field label {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.tool-result {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+.tool-result .big {
+  font-family: var(--font-mono);
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+.tool-result .sub {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: 0.2rem;
+}
+
+#ota-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--status-good) 15%, transparent);
+  color: var(--status-good);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+#ota-badge[hidden] { display: none; }
+
+/* Generic modal overlay -- first user is the eQSL card viewer on /log;
+   reuse this shape for any future modal rather than inventing a new one. */
+.eqsl-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+.eqsl-modal-backdrop[hidden] { display: none; }
+.eqsl-modal {
+  position: relative;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.5rem;
+  max-width: min(600px, 100%);
+  max-height: 85vh;
+  overflow: auto;
+}
+.eqsl-modal img { max-width: 100%; display: block; border-radius: 6px; }
+.eqsl-modal-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.2rem 0.6rem;
+  font-size: 1.1rem;
+  line-height: 1;
+}

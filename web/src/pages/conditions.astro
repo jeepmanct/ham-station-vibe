@@ -1,0 +1,377 @@
+---
+import Base from '../layouts/Base.astro';
+import '../styles/conditions.css';
+---
+<Base title="Conditions" active="conditions">
+  <h1>Conditions</h1>
+  <p class="lede">Right-now propagation numbers, live DX spots, upcoming DXpeditions, and contests.</p>
+
+  <div class="stat-grid">
+    <div class="stat-tile">
+      <div class="label">Solar Flux</div>
+      <div class="value" id="cond-sfi">&mdash;</div>
+    </div>
+    <div class="stat-tile">
+      <div class="label">A-Index</div>
+      <div class="value" id="cond-a">&mdash;</div>
+    </div>
+    <div class="stat-tile">
+      <div class="label">K-Index</div>
+      <div class="value" id="cond-k">&mdash;</div>
+    </div>
+    <div class="stat-tile">
+      <div class="label">Sunspot No.</div>
+      <div class="value" id="cond-sn">&mdash;</div>
+    </div>
+  </div>
+  <p class="status-line" id="cond-date"></p>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <h2>Propagation Trend</h2>
+    <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Last 90 days, from the same daily solar data behind the numbers above.</p>
+    <select id="trend-metric" style="margin-bottom:0.75rem;">
+      <option value="sfi">Solar Flux Index</option>
+      <option value="kIndex">K-Index</option>
+      <option value="aIndex">A-Index</option>
+      <option value="sunspotNumber">Sunspot Number</option>
+    </select>
+    <div class="chart-svg-wrap" id="trend-chart"></div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <h2>27-Day Forecast</h2>
+    <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">NOAA's predicted SFI/A/Kp for the next 27 days &mdash; what's coming, not what's happened.</p>
+    <select id="forecast-metric" style="margin-bottom:0.75rem;">
+      <option value="sfi">Solar Flux Index</option>
+      <option value="kIndex">K-Index</option>
+      <option value="aIndex">A-Index</option>
+    </select>
+    <div class="chart-svg-wrap" id="forecast-chart"></div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <h2>Real-Time MUF Map</h2>
+    <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Maximum Usable Frequency for a 3000km hop, from live worldwide ionosonde data via <a href="https://prop.kc2g.com" target="_blank" rel="noopener">prop.kc2g.com</a> &mdash; updates every ~15 minutes. Where a contour reads "16", expect a long-hop 20m path to be open somewhere along that line; higher numbers mean higher bands are open.</p>
+    <img id="muf-map" alt="Live worldwide MUF map" style="width:100%;border-radius:var(--radius);border:1px solid var(--border);display:block;" />
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <h2>NCDXF/IARU Beacons</h2>
+    <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Which of the 18 international beacons is transmitting on each band right now, via the <a href="https://www.ncdxf.org/beacon/" target="_blank" rel="noopener">NCDXF/IARU Beacon Project</a>'s fixed schedule &mdash; each cycles through 5 bands every 3 minutes, computed client-side from the current time (no live data pulled).</p>
+    <div class="beacon-table" id="beacon-table"></div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <h2>Sun &amp; Grayline</h2>
+    <p style="margin:0;color:var(--muted);font-size:0.85rem;">For the station QTH<span id="sun-grid"></span>, computed client-side when the page loads &mdash; reload for a new day's times.</p>
+    <div class="stat-grid" style="margin-top:1rem;">
+      <div class="stat-tile">
+        <div class="label">Sunrise</div>
+        <div class="value" id="sun-sunrise">&mdash;</div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">Sunset</div>
+        <div class="value" id="sun-sunset">&mdash;</div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">Solar Noon</div>
+        <div class="value" id="sun-noon">&mdash;</div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">Day Length</div>
+        <div class="value" id="sun-daylength">&mdash;</div>
+      </div>
+    </div>
+    <p class="status-line" id="sun-status"></p>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <h2>Live DX Spots</h2>
+    <p style="margin:0;color:var(--muted);font-size:0.85rem;">Via <a href="https://dxheat.com" target="_blank" rel="noopener">dxheat.com</a>, refreshes every 60s. <strong style="color:var(--status-warning);">Needed</strong> flags a spot from a DXCC entity not yet worked, resolved from the spotted callsign itself &mdash; still a personal convenience list, not a certified award tracker.</p>
+    <div class="spot-table" id="spot-table"></div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <h2>Announced DX Operations</h2>
+    <p style="margin:0;color:var(--muted);font-size:0.85rem;">Via <a href="https://www.ng3k.com/Misc/adxo.html" target="_blank" rel="noopener">NG3K's ADXO list</a>. <strong style="color:var(--status-warning);">Needed</strong> flags an entity not yet worked.</p>
+    <div class="dxpedition-list" id="dxpedition-list"></div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <h2>Upcoming Contests</h2>
+    <p style="margin:0;color:var(--muted);font-size:0.85rem;">Via the <a href="https://www.contestcalendar.com" target="_blank" rel="noopener">WA7BNM Contest Calendar</a>.</p>
+    <div class="contest-list" id="contest-list"></div>
+  </div>
+
+  <script>
+    import { sunriseSunset } from '../lib/grayline';
+    import { renderLineChart } from '../lib/charts';
+    import { escapeHtml } from '../lib/escapeHtml';
+
+    // --- Propagation trend (last 90 days) — distinct from /stats' yearly
+    // solar-cycle-context chart; this answers "how has it been lately,"
+    // using the same daily solar_data rows already synced for the numbers
+    // above, no new data collection needed. ---
+    type RecentSolar = { date: string; sfi: number | null; aIndex: number | null; kIndex: number | null; sunspotNumber: number | null };
+    let recentSolar: RecentSolar[] = [];
+
+    function daysSinceEpoch(yyyymmdd: string): number {
+      const d = Date.UTC(Number(yyyymmdd.slice(0, 4)), Number(yyyymmdd.slice(4, 6)) - 1, Number(yyyymmdd.slice(6, 8)));
+      return Math.floor(d / 86400000);
+    }
+    function formatTrendDate(days: number): string {
+      const d = new Date(days * 86400000);
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    }
+
+    const trendAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#5eead4';
+
+    function renderTrendChart() {
+      const metric = (document.getElementById('trend-metric') as HTMLSelectElement).value as keyof RecentSolar;
+      const container = document.getElementById('trend-chart')!;
+      const points = recentSolar.filter((r) => r[metric] != null).map((r) => ({ x: daysSinceEpoch(r.date), y: Number(r[metric]) }));
+      renderLineChart(container, points, trendAccent, { minY: 0, formatX: formatTrendDate });
+    }
+
+    fetch('/api/solar/recent?days=90')
+      .then((r) => r.json())
+      .then((rows: RecentSolar[]) => {
+        recentSolar = rows;
+        renderTrendChart();
+      });
+    document.getElementById('trend-metric')!.addEventListener('change', renderTrendChart);
+
+    // --- 27-day forecast — distinct from the trend chart above (that's
+    // historical; this is NOAA's own predicted SFI/A/Kp going forward). ---
+    type ForecastRow = { date: string; sfi: number; aIndex: number; kIndex: number };
+    let solarForecast: ForecastRow[] = [];
+    const forecastAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent-2').trim() || '#f5a962';
+
+    function renderForecastChart() {
+      const metric = (document.getElementById('forecast-metric') as HTMLSelectElement).value as keyof ForecastRow;
+      const container = document.getElementById('forecast-chart')!;
+      const points = solarForecast.map((r) => ({ x: daysSinceEpoch(r.date), y: Number(r[metric]) }));
+      renderLineChart(container, points, forecastAccent, { minY: 0, formatX: formatTrendDate });
+    }
+
+    fetch('/api/solar/forecast')
+      .then((r) => r.json())
+      .then((rows: ForecastRow[]) => {
+        solarForecast = rows;
+        renderForecastChart();
+      });
+    document.getElementById('forecast-metric')!.addEventListener('change', renderForecastChart);
+
+    // Live SVG re-rendered server-side by prop.kc2g.com roughly every 15
+    // minutes from real ionosonde network data -- embedded directly rather
+    // than reimplemented client-side, since correctly computing MUF from
+    // raw foF2 station data requires real ionospheric-propagation formulas
+    // this project has no way to verify independently, unlike e.g. the
+    // antenna-takeoff-angle calculator which had textbook reference values
+    // to check against. Cache-busted on each refresh since it's a plain
+    // <img>, not a fetch(), so the browser would otherwise keep serving a
+    // stale cached copy for the image's own cache lifetime.
+    function refreshMufMap() {
+      const img = document.getElementById('muf-map') as HTMLImageElement;
+      img.src = `https://prop.kc2g.com/renders/current/mufd-normal-now.svg?_=${Date.now()}`;
+    }
+    refreshMufMap();
+    setInterval(refreshMufMap, 5 * 60 * 1000);
+
+    // NCDXF/IARU beacon schedule, verified against the official schedule
+    // table at ncdxf.org/beacon/beaconschedule.html (2026-08-10) -- no live
+    // data needed at all, the whole thing is a fixed, UTC-synchronized
+    // rotation: beacon index B starts transmitting on band index F at
+    // second 10*((B+F) mod 18) within each repeating 3-minute (180s) cycle,
+    // so at any instant every band has a different beacon active
+    // simultaneously. Verified by reproducing the published table's start
+    // times for the first and last beacon before trusting the formula.
+    const BEACONS = [
+      { call: '4U1UN', place: 'United Nations, NY' },
+      { call: 'VE8AT', place: 'Canada (Inuvik, NT)' },
+      { call: 'W6WX', place: 'United States (Mt. Umunhum, CA)' },
+      { call: 'KH6RS', place: 'Hawaii (Maui)' },
+      { call: 'ZL6B', place: 'New Zealand (Masterton)' },
+      { call: 'VK6RBP', place: 'Australia (Rolystone)' },
+      { call: 'JA2IGY', place: 'Japan (Mt. Asama)' },
+      { call: 'RR9O', place: 'Russia (Novosibirsk)' },
+      { call: 'VR2B', place: 'Hong Kong' },
+      { call: '4S7B', place: 'Sri Lanka (Colombo)' },
+      { call: 'ZS6DN', place: 'South Africa (Pretoria)' },
+      { call: '5Z4B', place: 'Kenya (Kikuyu)' },
+      { call: '4X6TU', place: 'Israel (Tel Aviv)' },
+      { call: 'OH2B', place: 'Finland (Lohja)' },
+      { call: 'CS3B', place: 'Madeira (São Jorge)' },
+      { call: 'LU4AA', place: 'Argentina (Buenos Aires)' },
+      { call: 'OA4B', place: 'Peru (Lima)' },
+      { call: 'YV5B', place: 'Venezuela (Caracas)' },
+    ];
+    const BEACON_BANDS = [
+      { mhz: 14.1, label: '20m' },
+      { mhz: 18.11, label: '17m' },
+      { mhz: 21.15, label: '15m' },
+      { mhz: 24.93, label: '12m' },
+      { mhz: 28.2, label: '10m' },
+    ];
+
+    function renderBeaconTable() {
+      const nowSec = Math.floor(Date.now() / 1000);
+      const secondsIntoCycle = nowSec % 180;
+      const slotIndex = Math.floor(secondsIntoCycle / 10);
+      const secondsLeft = 10 - (secondsIntoCycle % 10);
+
+      const table = document.getElementById('beacon-table')!;
+      table.innerHTML = BEACON_BANDS.map((band, bandIndex) => {
+        const beaconIndex = (slotIndex - bandIndex + 18) % 18;
+        const beacon = BEACONS[beaconIndex];
+        return `
+          <div class="beacon-row">
+            <span class="beacon-freq">${band.mhz.toFixed(3)} (${band.label})</span>
+            <span class="beacon-call">${beacon.call}</span>
+            <span class="beacon-place">${beacon.place}</span>
+            <span class="beacon-countdown">${secondsLeft}s</span>
+          </div>
+        `;
+      }).join('');
+    }
+    renderBeaconTable();
+    setInterval(renderBeaconTable, 1000);
+
+    type Today = { date: string; sfi: number | null; aIndex: number | null; kIndex: number | null; sunspotNumber: number | null } | null;
+    type Spot = { spotter: string; call: string; frequency: string; band: number; mode: string; comment: string; time: string; continent: string; grid: string; lotw: boolean; needed: 'needed' | 'worked' | null };
+    type Contest = { title: string; link: string; description: string };
+    type HomeCoords = { lat: number; lon: number; grid: string | null } | null;
+    type Dxpedition = { entity: string; dateRange: string; call: string; qslVia: string; info: string; needed: boolean | null };
+
+    function formatDate(d: string) {
+      if (d.length !== 8) return d;
+      return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+    }
+
+    function formatClock(d: Date) {
+      return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    }
+
+    fetch('/api/conditions/home')
+      .then((r) => r.json())
+      .then((home: HomeCoords) => {
+        if (!home) return;
+        if (home.grid) document.getElementById('sun-grid')!.textContent = ` (${home.grid.slice(0, 6)})`;
+        const now = new Date();
+        const sun = sunriseSunset(now, home.lat, home.lon);
+        if (!sun) {
+          document.getElementById('sun-status')!.textContent = 'Sun never rises or sets today at this latitude (polar day/night).';
+          return;
+        }
+        document.getElementById('sun-sunrise')!.textContent = formatClock(sun.sunrise);
+        document.getElementById('sun-sunset')!.textContent = formatClock(sun.sunset);
+        document.getElementById('sun-noon')!.textContent = formatClock(sun.solarNoon);
+        const dayMinutes = Math.round((sun.sunset.getTime() - sun.sunrise.getTime()) / 60000);
+        document.getElementById('sun-daylength')!.textContent = `${Math.floor(dayMinutes / 60)}h ${dayMinutes % 60}m`;
+        const status = now < sun.sunrise || now > sun.sunset ? 'Currently dark' : 'Currently daylight';
+        document.getElementById('sun-status')!.textContent = `${status} at the station QTH · see the grayline overlay on the Map page for the current worldwide day/night line.`;
+      });
+
+    fetch('/api/conditions/today')
+      .then((r) => r.json())
+      .then((data: Today) => {
+        if (!data) return;
+        document.getElementById('cond-sfi')!.textContent = data.sfi != null ? String(data.sfi) : '—';
+        document.getElementById('cond-a')!.textContent = data.aIndex != null ? String(data.aIndex) : '—';
+        document.getElementById('cond-k')!.textContent = data.kIndex != null ? data.kIndex.toFixed(1) : '—';
+        document.getElementById('cond-sn')!.textContent = data.sunspotNumber != null ? String(data.sunspotNumber) : '—';
+        document.getElementById('cond-date')!.textContent = `As of ${formatDate(data.date)} (most recent available solar data)`;
+      });
+
+    function loadSpots() {
+      fetch('/api/conditions/spots')
+        .then((r) => r.json())
+        .then((spots: Spot[]) => {
+          const table = document.getElementById('spot-table')!;
+          if (!spots.length) {
+            table.innerHTML = '<p class="status-line">No spots available right now.</p>';
+            return;
+          }
+          table.innerHTML = '';
+          for (const s of spots) {
+            const row = document.createElement('div');
+            row.className = 'spot-row';
+            if (s.needed === 'needed') row.classList.add('needed');
+            const freqMhz = (Number(s.frequency) / 1000).toFixed(3);
+            const comment = escapeHtml(s.comment ?? '');
+            row.innerHTML = `
+              <span class="call">${escapeHtml(s.call)}${s.needed === 'needed' ? ' <span class="needed-badge">Needed</span>' : ''}</span>
+              <span class="freq">${freqMhz}</span>
+              <span>${escapeHtml(s.mode ?? '')}</span>
+              <span class="comment" title="${comment}">${comment}</span>
+              <span class="time">${escapeHtml(s.time ?? '')}z</span>
+            `;
+            table.appendChild(row);
+          }
+        })
+        .catch(() => {
+          document.getElementById('spot-table')!.innerHTML = '<p class="status-line">Could not load spots.</p>';
+        });
+    }
+    loadSpots();
+    setInterval(loadSpots, 60000);
+
+    function loadDxpeditions() {
+      fetch('/api/conditions/dxpeditions')
+        .then((r) => r.json())
+        .then((ops: Dxpedition[]) => {
+          const list = document.getElementById('dxpedition-list')!;
+          if (!ops.length) {
+            list.innerHTML = '<p class="status-line">No DXpedition data available right now.</p>';
+            return;
+          }
+          list.innerHTML = '';
+          for (const op of ops) {
+            const row = document.createElement('div');
+            row.className = 'dxpedition-row';
+            if (op.needed) row.classList.add('needed');
+            row.innerHTML = `
+              <div class="headline">
+                <span class="call">${escapeHtml(op.call)}</span>
+                <span class="entity">${escapeHtml(op.entity)}${op.needed ? ' <span class="needed-badge">Needed</span>' : ''}</span>
+                <span class="dates">${escapeHtml(op.dateRange)}</span>
+              </div>
+              <div class="info">${escapeHtml(op.info)}${op.qslVia ? ` &mdash; QSL via ${escapeHtml(op.qslVia)}` : ''}</div>
+            `;
+            list.appendChild(row);
+          }
+        })
+        .catch(() => {
+          document.getElementById('dxpedition-list')!.innerHTML = '<p class="status-line">Could not load DXpedition calendar.</p>';
+        });
+    }
+    loadDxpeditions();
+
+    fetch('/api/conditions/contests')
+      .then((r) => r.json())
+      .then((contests: Contest[]) => {
+        const list = document.getElementById('contest-list')!;
+        if (!contests.length) {
+          list.innerHTML = '<p class="status-line">No contest data available right now.</p>';
+          return;
+        }
+        list.innerHTML = '';
+        for (const contest of contests) {
+          const row = document.createElement('div');
+          row.className = 'contest-row';
+          // Only accept a plain http(s) link as an href -- the feed is
+          // external (contestcalendar.com), so a malicious/compromised
+          // entry could otherwise supply a `javascript:` URI.
+          const safeLink = /^https?:\/\//i.test(contest.link) ? escapeHtml(contest.link) : '#';
+          row.innerHTML = `
+            <a href="${safeLink}" target="_blank" rel="noopener">${escapeHtml(contest.title)}</a>
+            <div class="when">${escapeHtml(contest.description)}</div>
+          `;
+          list.appendChild(row);
+        }
+      })
+      .catch(() => {
+        document.getElementById('contest-list')!.innerHTML = '<p class="status-line">Could not load contest calendar.</p>';
+      });
+  </script>
+</Base>

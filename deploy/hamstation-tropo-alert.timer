@@ -1,0 +1,12 @@
+[Unit]
+Description=Hourly tropospheric ducting alert check
+
+[Timer]
+# Weather forecasts update a handful of times a day, not every few minutes
+# like the space-weather feeds -- hourly is plenty and keeps Open-Meteo
+# request volume trivial.
+OnBootSec=5min
+OnUnitActiveSec=1h
+
+[Install]
+WantedBy=timers.target
