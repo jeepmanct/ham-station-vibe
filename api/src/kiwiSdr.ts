@@ -1,6 +1,6 @@
 // Live client for a KiwiSDR receiver on the local network (verified live
-// against a real Kiwi, firmware v1.902, at 192.168.2.104:8073). KiwiSDR has
-// no official protocol documentation -- this is ported from the community
+// against a real Kiwi, firmware v1.902). KiwiSDR has no official protocol
+// documentation -- this is ported from the community
 // reference implementation (github.com/jks-prv/kiwiclient's kiwi/client.py)
 // and confirmed byte-for-byte against real captured frames (see the probe
 // scripts used during development), not trusted from the Python source
