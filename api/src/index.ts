@@ -51,12 +51,20 @@ app.route('/api/tile-layout', tileLayoutRoutes);
 // directory, not under PHOTOS_DIR.
 //
 // Cache-Control set explicitly since Hono's serveStatic doesn't set one on
-// its own -- every filename under /media/* is a content-stable
+// its own -- every full-size photo/card filename is a content-stable
 // crypto.randomUUID() (a new upload always gets a new name, never reuses an
-// existing URL for different content), so a long immutable cache is safe:
-// previously every photo/card was re-downloaded in full on every page view.
+// existing URL for different content), so a long immutable cache is safe
+// there. Thumbnails are the one exception: thumbFilename() derives a
+// thumbnail's name from the ORIGINAL photo's filename, not its own content
+// hash, so a thumbnail that's later regenerated (a thumbnailing bugfix, an
+// intentional backfill) reuses the same URL for genuinely different bytes
+// -- immutable caching on that URL would keep serving the stale version
+// forever. Kept short + revalidatable instead, just for that one path.
 app.use('/media/*', async (c, next) => {
-  c.header('Cache-Control', 'public, max-age=31536000, immutable');
+  c.header(
+    'Cache-Control',
+    c.req.path.startsWith('/media/thumbs/') ? 'public, max-age=3600, must-revalidate' : 'public, max-age=31536000, immutable',
+  );
   await next();
 });
 app.use('/media/eqsl-cards/*', serveStatic({ root: EQSL_CARDS_DIR, rewriteRequestPath: (p) => p.replace(/^\/media\/eqsl-cards/, '') }));

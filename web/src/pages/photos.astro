@@ -9,6 +9,14 @@ import '../styles/gallery.css';
   <div id="gallery" class="gallery"></div>
   <p id="empty-state" class="status-line" hidden>No photos yet.</p>
 
+  <div id="photo-modal-backdrop" class="eqsl-modal-backdrop" hidden>
+    <div class="eqsl-modal photo-modal">
+      <button type="button" id="photo-modal-close" class="btn secondary eqsl-modal-close">&times;</button>
+      <img id="photo-modal-img" src="" alt="" />
+      <p id="photo-modal-caption" class="photo-modal-caption"></p>
+    </div>
+  </div>
+
   <section style="margin-top:2rem;">
     <button type="button" id="upload-toggle" class="btn secondary">Upload photo</button>
 
@@ -42,6 +50,35 @@ import '../styles/gallery.css';
     const gallery = document.getElementById('gallery')!;
     const emptyState = document.getElementById('empty-state')!;
 
+    // --- Full-size photo viewer -- an in-page lightbox, not a target="_blank"
+    // link. A new-tab full-size view is a dead end on iOS when this site is
+    // opened from the home-screen icon (no tab chrome, no way back short of
+    // force-closing and reopening the app) -- a same-page overlay sidesteps
+    // that entirely, closed the normal way (backdrop click, close button,
+    // or Escape) rather than needing any navigation at all.
+    const photoModalBackdrop = document.getElementById('photo-modal-backdrop')!;
+    const photoModalImg = document.getElementById('photo-modal-img') as HTMLImageElement;
+    const photoModalCaption = document.getElementById('photo-modal-caption')!;
+
+    function openPhotoModal(photo: Photo) {
+      photoModalImg.src = photo.url;
+      photoModalImg.alt = photo.caption ?? '';
+      photoModalCaption.textContent = photo.caption ?? '';
+      photoModalCaption.hidden = !photo.caption;
+      photoModalBackdrop.removeAttribute('hidden');
+    }
+    function closePhotoModal() {
+      photoModalBackdrop.setAttribute('hidden', '');
+      photoModalImg.src = '';
+    }
+    document.getElementById('photo-modal-close')!.addEventListener('click', closePhotoModal);
+    photoModalBackdrop.addEventListener('click', (e) => {
+      if (e.target === photoModalBackdrop) closePhotoModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !photoModalBackdrop.hidden) closePhotoModal();
+    });
+
     async function deletePhoto(id: number) {
       if (!confirm('Delete this photo? This can\'t be undone.')) return;
       const res = await fetch(`/api/photos/${id}`, {
@@ -72,16 +109,17 @@ import '../styles/gallery.css';
           emptyState.hidden = true;
           for (const photo of photos) {
             const figure = document.createElement('figure');
-            const link = document.createElement('a');
-            link.href = photo.url;
-            link.target = '_blank';
-            link.rel = 'noopener';
+            const viewBtn = document.createElement('button');
+            viewBtn.type = 'button';
+            viewBtn.setAttribute('aria-label', 'View full size');
+            viewBtn.style.cssText = 'display:block;width:100%;height:100%;padding:0;margin:0;border:0;background:none;cursor:pointer;';
             const img = document.createElement('img');
             img.src = photo.thumbUrl;
             img.alt = photo.caption ?? '';
             img.loading = 'lazy';
-            link.appendChild(img);
-            figure.appendChild(link);
+            viewBtn.appendChild(img);
+            viewBtn.addEventListener('click', () => openPhotoModal(photo));
+            figure.appendChild(viewBtn);
             if (photo.caption) {
               const caption = document.createElement('figcaption');
               caption.textContent = photo.caption;
