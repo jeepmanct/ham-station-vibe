@@ -36,12 +36,13 @@ type Row = {
   vhf_us_spotters_only: number;
   kp_enabled: number;
   tropo_enabled: number;
+  sat_pass_enabled: number;
 };
 
 function getRow(): Row | null {
   return db
     .query(
-      'SELECT smtp_host, smtp_port, smtp_user, smtp_pass, alert_to, enabled, ntfy_topic, ntfy_enabled, vhf_enabled, flare_enabled, wind_enabled, dx_us_spotters_only, vhf_us_spotters_only, kp_enabled, tropo_enabled FROM alert_email_config WHERE id = 1',
+      'SELECT smtp_host, smtp_port, smtp_user, smtp_pass, alert_to, enabled, ntfy_topic, ntfy_enabled, vhf_enabled, flare_enabled, wind_enabled, dx_us_spotters_only, vhf_us_spotters_only, kp_enabled, tropo_enabled, sat_pass_enabled FROM alert_email_config WHERE id = 1',
     )
     .get() as Row | null;
 }
@@ -57,6 +58,7 @@ export function getAlertConfig(): {
   vhfUsSpottersOnly: boolean;
   kpEnabled: boolean;
   tropoEnabled: boolean;
+  satPassEnabled: boolean;
 } {
   const row = getRow();
   const email =
@@ -79,6 +81,7 @@ export function getAlertConfig(): {
     windEnabled: row?.wind_enabled === 1,
     kpEnabled: row?.kp_enabled === 1,
     tropoEnabled: row?.tropo_enabled === 1,
+    satPassEnabled: row?.sat_pass_enabled === 1,
     // Both default true when no config row exists yet at all, unlike the
     // other flags above -- these are meant to be on out of the box, not
     // opted into (see db.ts's migration comment for why).
@@ -108,6 +111,7 @@ export function getAlertConfigPublic() {
     windEnabled: row?.wind_enabled === 1,
     kpEnabled: row?.kp_enabled === 1,
     tropoEnabled: row?.tropo_enabled === 1,
+    satPassEnabled: row?.sat_pass_enabled === 1,
     dxUsSpottersOnly: row ? row.dx_us_spotters_only === 1 : true,
     vhfUsSpottersOnly: row ? row.vhf_us_spotters_only === 1 : true,
   };
@@ -131,6 +135,7 @@ export function setAlertConfig(cfg: {
   vhfUsSpottersOnly?: boolean;
   kpEnabled?: boolean;
   tropoEnabled?: boolean;
+  satPassEnabled?: boolean;
 }) {
   const existing = getRow();
   const email = cfg.email;
@@ -151,10 +156,11 @@ export function setAlertConfig(cfg: {
   const vhfUsSpottersOnly = cfg.vhfUsSpottersOnly !== undefined ? (cfg.vhfUsSpottersOnly ? 1 : 0) : (existing ? existing.vhf_us_spotters_only : 1);
   const kpEnabled = cfg.kpEnabled !== undefined ? (cfg.kpEnabled ? 1 : 0) : (existing?.kp_enabled ?? 0);
   const tropoEnabled = cfg.tropoEnabled !== undefined ? (cfg.tropoEnabled ? 1 : 0) : (existing?.tropo_enabled ?? 0);
+  const satPassEnabled = cfg.satPassEnabled !== undefined ? (cfg.satPassEnabled ? 1 : 0) : (existing?.sat_pass_enabled ?? 0);
 
   db.query(
-    `INSERT INTO alert_email_config (id, smtp_host, smtp_port, smtp_user, smtp_pass, alert_to, enabled, ntfy_topic, ntfy_enabled, vhf_enabled, flare_enabled, wind_enabled, dx_us_spotters_only, vhf_us_spotters_only, kp_enabled, tropo_enabled)
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO alert_email_config (id, smtp_host, smtp_port, smtp_user, smtp_pass, alert_to, enabled, ntfy_topic, ntfy_enabled, vhf_enabled, flare_enabled, wind_enabled, dx_us_spotters_only, vhf_us_spotters_only, kp_enabled, tropo_enabled, sat_pass_enabled)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        smtp_host = excluded.smtp_host,
        smtp_port = excluded.smtp_port,
@@ -170,7 +176,8 @@ export function setAlertConfig(cfg: {
        dx_us_spotters_only = excluded.dx_us_spotters_only,
        vhf_us_spotters_only = excluded.vhf_us_spotters_only,
        kp_enabled = excluded.kp_enabled,
-       tropo_enabled = excluded.tropo_enabled`,
+       tropo_enabled = excluded.tropo_enabled,
+       sat_pass_enabled = excluded.sat_pass_enabled`,
   ).run(
     smtpHost,
     smtpPort,
@@ -187,5 +194,6 @@ export function setAlertConfig(cfg: {
     vhfUsSpottersOnly,
     kpEnabled,
     tropoEnabled,
+    satPassEnabled,
   );
 }

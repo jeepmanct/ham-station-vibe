@@ -16,6 +16,27 @@ export function getStationLocation(): StationLocation | null {
   return { label: row.label, lat: row.lat, lon: row.lon, grid: row.grid };
 }
 
+/**
+ * Admin-configured location if set, else the QSO-inference fallback
+ * (most-common logged home coordinate) -- the same two-step lookup
+ * conditions.ts's /home, qsos.ts's /geo, and stats.ts's /distance each
+ * independently implement inline. New callers should use this instead of
+ * re-deriving it; the existing inline copies are unchanged (low-risk,
+ * already-working code, not worth touching just for this).
+ */
+export function getEffectiveHomeLocation(): { lat: number; lon: number; grid: string | null } | null {
+  const configured = getStationLocation();
+  if (configured) return { lat: configured.lat, lon: configured.lon, grid: configured.grid };
+  const row = db
+    .query(
+      `SELECT my_lat as lat, my_lon as lon, my_gridsquare as grid, COUNT(*) as count
+       FROM qsos WHERE my_lat IS NOT NULL AND my_lon IS NOT NULL
+       GROUP BY my_lat, my_lon ORDER BY count DESC LIMIT 1`,
+    )
+    .get() as { lat: number; lon: number; grid: string | null } | null;
+  return row ? { lat: row.lat, lon: row.lon, grid: row.grid } : null;
+}
+
 export function setStationLocation(cfg: { label?: string; lat: number; lon: number }) {
   const grid = latLonToGrid(cfg.lat, cfg.lon);
   const existing = getRow();

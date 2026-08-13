@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodic satellite pass alert check
+
+[Timer]
+# Same 5-minute cadence as the other alert checks -- frequent enough that
+# a pass starting soon is caught within the alert's lookahead window.
+OnBootSec=5min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target
