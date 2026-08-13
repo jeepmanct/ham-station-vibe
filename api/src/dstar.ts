@@ -1,3 +1,10 @@
+// Example integration, watching one specific reflector (REF069, Connecticut's
+// D-STAR network) -- there's no single universal D-STAR "last heard" API the
+// way BrandMeister provides for DMR, so this points at one reflector's own
+// dashboard. Swap REF069_URL and MODULE_LABELS below for your own local
+// reflector's dashboard URL and module usage (most REF/XRF/DCS reflectors
+// running the classic DPLUS software publish the same page shape -- check
+// yours at the same path this one uses, `/`).
 export type DstarLastHeardEntry = { call: string; message: string; module: string; time: string };
 
 const REF069_URL = 'http://ref069.dyndns.org/';
