@@ -1,0 +1,8 @@
+[Unit]
+Description=Database and photos backup
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+WorkingDirectory=__APP_DIR__/api
+ExecStart=__BUN_BIN__ run scripts/backup.ts

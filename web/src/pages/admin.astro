@@ -265,6 +265,22 @@ import Base from '../layouts/Base.astro';
 
     <section>
       <div class="card">
+        <h2>Backups</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">A nightly job snapshots the database and photos to <code id="backup-destination">&mdash;</code>, keeping the last 14 days. Runs on its own timer &mdash; this button is just for an on-demand copy right now. Download a backup to save a copy to iCloud Drive (or wherever) via your device's own Save/Share sheet; upload one the same way to bring it back.</p>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+          <button type="button" id="backup-run" class="btn">Back up now</button>
+          <label class="btn secondary" style="cursor:pointer;">
+            Upload a backup&hellip;
+            <input type="file" id="backup-upload-input" accept=".gz,.tar.gz" style="display:none;" />
+          </label>
+        </div>
+        <p id="backup-status" class="status-line"></p>
+        <div id="backup-list" style="margin-top:0.75rem;display:flex;flex-direction:column;gap:0.5rem;"></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
         <h2>Alerts &amp; Notifications</h2>
         <p style="margin:0 0 1.25rem;color:var(--muted);font-size:0.9rem;">
           Email and/or push notification for four independent things worth knowing about right away &mdash; set up either delivery channel, or both, then turn on whichever alert type(s) you want below.
@@ -381,6 +397,18 @@ import Base from '../layouts/Base.astro';
             <button type="submit" class="btn">Save</button>
           </div>
         </form>
+
+        <h3 style="margin:1.75rem 0 0.5rem;font-size:0.95rem;">Satellite Passes</h3>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
+          Notifies you shortly before a good pass (20&deg;+ max elevation) of any enabled satellite over your configured Station Location. Requires a Station Location set above. Checked every 5 minutes, once per pass.
+        </p>
+        <form id="alert-sat-pass-form" class="form-grid">
+          <label class="form-grid-checkbox"><input type="checkbox" id="asp-enabled" /> Satellite pass alerts enabled</label>
+          <p id="alert-sat-pass-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
       </div>
     </section>
   </section>
@@ -402,6 +430,7 @@ import Base from '../layouts/Base.astro';
       loadRadioHardwareVisibility();
       loadStationLocation();
       loadTileLayout(tlPageSelect.value);
+      loadBackupStatus();
     }
 
     if (sessionStorage.getItem(TOKEN_KEY)) {
@@ -1140,6 +1169,135 @@ import Base from '../layouts/Base.astro';
     document.getElementById('solar-sync')!.addEventListener('click', () => syncSolarData(false));
     document.getElementById('solar-full-sync')!.addEventListener('click', () => syncSolarData(true));
 
+    // --- Backups ---
+    type BackupEntry = { name: string; date: string; sizeBytes: number };
+    function formatBackupBytes(bytes: number): string {
+      const mb = bytes / 1024 ** 2;
+      return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(1)} MB`;
+    }
+
+    async function loadBackupStatus() {
+      const res = await fetch('/api/backup/status', {
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (!res.ok) return;
+      const { destination, backups }: { destination: string; backups: BackupEntry[] } = await res.json();
+      document.getElementById('backup-destination')!.textContent = destination;
+      const list = document.getElementById('backup-list')!;
+      list.innerHTML = '';
+      if (!backups.length) {
+        list.innerHTML = '<p class="status-line" style="margin:0;">No backups yet.</p>';
+        return;
+      }
+      for (const b of backups) {
+        const row = document.createElement('div');
+        row.style.cssText = 'border:1px solid var(--border);border-radius:8px;padding:0.6rem 0.75rem;';
+        row.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+            <span style="font-size:0.85rem;">${new Date(b.date).toLocaleString()} <span style="color:var(--muted);">(${formatBackupBytes(b.sizeBytes)})</span></span>
+            <div style="display:flex;gap:0.4rem;">
+              <a class="btn secondary" style="font-size:0.8rem;padding:0.35rem 0.7rem;" href="/api/backup/${encodeURIComponent(b.name)}/download" id="dl-${b.name}">Download</a>
+              <button type="button" class="btn secondary" style="font-size:0.8rem;padding:0.35rem 0.7rem;color:var(--status-critical);" data-restore-name="${b.name}">Restore&hellip;</button>
+            </div>
+          </div>
+          <div class="restore-confirm" id="restore-confirm-${b.name}" hidden style="margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid var(--border);">
+            <p style="margin:0 0 0.5rem;color:var(--status-critical);font-size:0.85rem;">This replaces the live database and photos with this backup's contents. A safety backup of the current state is taken first automatically, and the site restarts afterward. Type <strong>RESTORE</strong> to confirm:</p>
+            <div style="display:flex;gap:0.5rem;">
+              <input type="text" class="restore-confirm-input" placeholder="RESTORE" style="max-width:160px;" />
+              <button type="button" class="btn" style="background:var(--status-critical);" data-restore-confirm-name="${b.name}">Confirm Restore</button>
+              <button type="button" class="btn secondary" data-restore-cancel-name="${b.name}">Cancel</button>
+            </div>
+            <p class="status-line restore-status" id="restore-status-${b.name}"></p>
+          </div>
+        `;
+        // The download link needs auth like everything else here, but a
+        // plain <a href> can't send an Authorization header -- fetch the
+        // file as the logged-in admin instead, then hand the browser a
+        // local blob: URL to actually save, same end result for the user.
+        row.querySelector<HTMLAnchorElement>(`#dl-${b.name}`)!.addEventListener('click', async (e) => {
+          e.preventDefault();
+          const dlRes = await fetch(`/api/backup/${encodeURIComponent(b.name)}/download`, {
+            headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+          });
+          if (!dlRes.ok) return;
+          const blob = await dlRes.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${b.name}.tar.gz`;
+          a.click();
+          URL.revokeObjectURL(url);
+        });
+        row.querySelector<HTMLButtonElement>('[data-restore-name]')!.addEventListener('click', () => {
+          document.getElementById(`restore-confirm-${b.name}`)!.hidden = false;
+        });
+        row.querySelector<HTMLButtonElement>('[data-restore-cancel-name]')!.addEventListener('click', () => {
+          document.getElementById(`restore-confirm-${b.name}`)!.hidden = true;
+        });
+        row.querySelector<HTMLButtonElement>('[data-restore-confirm-name]')!.addEventListener('click', async () => {
+          const input = row.querySelector<HTMLInputElement>('.restore-confirm-input')!;
+          const restoreStatus = document.getElementById(`restore-status-${b.name}`)!;
+          if (input.value !== 'RESTORE') {
+            restoreStatus.textContent = 'Type RESTORE exactly to confirm.';
+            return;
+          }
+          restoreStatus.textContent = 'Restoring… the site will be briefly unreachable while it restarts.';
+          const res = await fetch(`/api/backup/${encodeURIComponent(b.name)}/restore`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+            body: JSON.stringify({ confirmPhrase: 'RESTORE' }),
+          });
+          if (res.ok) {
+            restoreStatus.textContent = 'Restore complete — reloading…';
+            setTimeout(() => window.location.reload(), 4000);
+          } else {
+            const body = await res.json().catch(() => ({}));
+            restoreStatus.textContent = body.error ?? 'Restore failed.';
+          }
+        });
+        list.appendChild(row);
+      }
+    }
+
+    document.getElementById('backup-run')!.addEventListener('click', async () => {
+      const status = document.getElementById('backup-status')!;
+      status.textContent = 'Backing up…';
+      const res = await fetch('/api/backup/run', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (res.ok) {
+        status.textContent = 'Backup complete.';
+        loadBackupStatus();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        status.textContent = body.error ?? 'Backup failed.';
+      }
+    });
+
+    document.getElementById('backup-upload-input')!.addEventListener('change', async (e) => {
+      const status = document.getElementById('backup-status')!;
+      const input = e.target as HTMLInputElement;
+      const file = input.files?.[0];
+      if (!file) return;
+      status.textContent = 'Uploading…';
+      const form = new FormData();
+      form.append('backup', file);
+      const res = await fetch('/api/backup/upload', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: form,
+      });
+      input.value = '';
+      if (res.ok) {
+        status.textContent = 'Uploaded — it now shows up in the list below, ready to restore.';
+        loadBackupStatus();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        status.textContent = body.error ?? 'Upload failed.';
+      }
+    });
+
     // --- Needed-DX alert config (email + ntfy push, saved independently) ---
     type AlertConfigPublic = {
       email: { smtpHost: string; smtpPort: number; smtpUser: string; alertTo: string; enabled: boolean; passwordConfigured: boolean };
@@ -1151,6 +1309,7 @@ import Base from '../layouts/Base.astro';
       vhfUsSpottersOnly: boolean;
       kpEnabled: boolean;
       tropoEnabled: boolean;
+      satPassEnabled: boolean;
     };
 
     const aeHost = document.getElementById('ae-host') as HTMLInputElement;
@@ -1181,6 +1340,9 @@ import Base from '../layouts/Base.astro';
     const atEnabled = document.getElementById('at-enabled') as HTMLInputElement;
     const alertTropoStatus = document.getElementById('alert-tropo-status')!;
 
+    const aspEnabled = document.getElementById('asp-enabled') as HTMLInputElement;
+    const alertSatPassStatus = document.getElementById('alert-sat-pass-status')!;
+
     const adxUsOnly = document.getElementById('adx-us-only') as HTMLInputElement;
     const alertDxFilterStatus = document.getElementById('alert-dx-filter-status')!;
 
@@ -1204,6 +1366,7 @@ import Base from '../layouts/Base.astro';
       awEnabled.checked = cfg.windEnabled;
       akEnabled.checked = cfg.kpEnabled;
       atEnabled.checked = cfg.tropoEnabled;
+      aspEnabled.checked = cfg.satPassEnabled;
       adxUsOnly.checked = cfg.dxUsSpottersOnly;
     }
 
@@ -1361,6 +1524,22 @@ import Base from '../layouts/Base.astro';
       } else {
         const body = await res.json().catch(() => ({}));
         alertTropoStatus.textContent = body.error ?? 'Save failed.';
+      }
+    });
+
+    document.getElementById('alert-sat-pass-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertSatPassStatus.textContent = 'Saving…';
+      const res = await fetch('/api/alert-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ satPassEnabled: aspEnabled.checked }),
+      });
+      if (res.ok) {
+        alertSatPassStatus.textContent = 'Saved.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alertSatPassStatus.textContent = body.error ?? 'Save failed.';
       }
     });
 

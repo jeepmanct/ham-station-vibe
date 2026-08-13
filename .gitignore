@@ -6,6 +6,9 @@ dist/
 # Runtime data — QSO database, uploaded photos, sessions
 api/data/
 
+# Backups (default BACKUP_DIR)
+api/backups/
+
 # Secrets
 .env
 .env.*

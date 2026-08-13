@@ -207,25 +207,27 @@ else
 fi
 echo
 
-# --- 7. Reboot capability (Device Stats page) --------------------------------
-bold "7. Reboot capability"
-info "The Device Stats page has an admin-only 'Reboot device' button. Using it"
-info "requires a narrowly-scoped sudo rule granting $APP_USER passwordless sudo"
-info "for exactly 'systemctl reboot' -- nothing broader. Skip this if you'd"
-info "rather reboot the machine yourself over SSH; the button will just fail."
+# --- 7. System actions (reboot + restore-triggered restart) ------------------
+bold "7. System actions"
+info "The Device Stats page has an admin-only 'Reboot device' button, and"
+info "restoring a backup restarts the API service afterward. Both need a"
+info "narrowly-scoped sudo rule granting $APP_USER passwordless sudo for exactly"
+info "'systemctl reboot' and 'systemctl restart --no-block hamstation-api' --"
+info "nothing broader. Skip this if you'd rather reboot/restart manually over"
+info "SSH; those buttons will just fail without it."
 if confirm "Grant that sudo rule now?"; then
   TMP_SUDOERS="$(mktemp)"
-  sed "s#__APP_USER__#$APP_USER#g" "$APP_DIR/deploy/hamstation-reboot-sudoers" > "$TMP_SUDOERS"
+  sed "s#__APP_USER__#$APP_USER#g" "$APP_DIR/deploy/hamstation-system-sudoers" > "$TMP_SUDOERS"
   if sudo visudo -c -f "$TMP_SUDOERS" >/dev/null 2>&1; then
-    sudo install -m 0440 -o root -g root "$TMP_SUDOERS" /etc/sudoers.d/hamstation-reboot
+    sudo install -m 0440 -o root -g root "$TMP_SUDOERS" /etc/sudoers.d/hamstation-system
     ok "Sudo rule installed"
   else
     err "Generated sudoers file failed validation -- skipping, nothing installed."
   fi
   rm -f "$TMP_SUDOERS"
 else
-  warn "Skipped. The Reboot device button will show an error until this is set up manually --"
-  warn "see deploy/hamstation-reboot-sudoers."
+  warn "Skipped. The Reboot device button and post-restore restart will show an"
+  warn "error until this is set up manually -- see deploy/hamstation-system-sudoers."
 fi
 echo
 

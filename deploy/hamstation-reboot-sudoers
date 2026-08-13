@@ -1,6 +1,0 @@
-# Grants the app's own user passwordless sudo for exactly one command --
-# `systemctl reboot` -- and nothing else, so the Admin page's "Reboot
-# device" button can actually reboot the host. Install with:
-#   sudo install -m 0440 hamstation-reboot-sudoers /etc/sudoers.d/hamstation-reboot
-# then validate with `sudo visudo -c` before trusting it.
-__APP_USER__ ALL=(root) NOPASSWD: /usr/bin/systemctl reboot

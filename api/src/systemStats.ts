@@ -97,7 +97,7 @@ export async function getSystemStats(): Promise<SystemStats> {
 
 /**
  * Reboots the host. Requires a narrowly-scoped sudoers rule (see
- * deploy/hamstation-reboot-sudoers) granting this process's user
+ * deploy/hamstation-system-sudoers) granting this process's user
  * passwordless sudo for exactly `systemctl reboot` -- nothing broader.
  * `systemctl reboot` schedules the shutdown and returns quickly, so the
  * HTTP response reaches the caller before the machine actually goes down.

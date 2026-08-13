@@ -461,11 +461,25 @@ for (const [name, type] of [
   ['kp_enabled', 'INTEGER NOT NULL DEFAULT 0'],
   // Same independent-trigger pattern, for the tropospheric ducting alert.
   ['tropo_enabled', 'INTEGER NOT NULL DEFAULT 0'],
+  // Same independent-trigger pattern, for the satellite-pass alert.
+  ['sat_pass_enabled', 'INTEGER NOT NULL DEFAULT 0'],
 ] as const) {
   if (!alertConfigColumns.has(name)) {
     db.exec(`ALTER TABLE alert_email_config ADD COLUMN ${name} ${type}`);
   }
 }
+
+// One row per satellite pass already alerted on, so the every-5-minutes
+// checker (which sees the same upcoming pass across many runs before it
+// actually happens) doesn't re-notify for it every time it runs.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS alerted_satellite_passes (
+    norad_id INTEGER NOT NULL,
+    aos_time TEXT NOT NULL,
+    alerted_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (norad_id, aos_time)
+  );
+`);
 
 // LoTW login, added alongside the original QRZ/eQSL columns -- same
 // incremental-column pattern, since service_credentials already exists on
