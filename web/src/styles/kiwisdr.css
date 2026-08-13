@@ -1,0 +1,94 @@
+.kiwi-freq-display {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  font-weight: 700;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+}
+.kiwi-freq-display .unit { color: var(--muted); font-size: 0.9rem; font-weight: 400; }
+.kiwi-mode-badge {
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  margin-left: 0.3rem;
+}
+
+.kiwi-tuning-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+/* Both groups read largest-to-smallest, left to right (see kiwisdr.astro's
+   comment) -- not mirrored -- so wrapping onto separate lines on a narrow
+   screen still lines each step size up in the same column, minus row on
+   top and plus row below. */
+.kiwi-step-group { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.kiwi-step-group .btn { padding: 0.35rem 0.55rem; font-size: 0.78rem; }
+.kiwi-step.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+/* A relative "jog" control, not an absolute frequency slider -- it always
+   recenters to 0 after a drag, then nudges from wherever the receiver
+   currently is by (value * whichever step size is active) on release. See
+   this page's script comment above the slider's `input`/`change` handlers. */
+.kiwi-slider-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.75rem; }
+.kiwi-slider-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+/* Bigger than the browser default thumb -- this is meant to be dragged
+   with a thumb on a phone screen, not just clicked with a mouse. */
+.kiwi-slider-row input[type="range"]::-webkit-slider-thumb { width: 2rem; height: 2rem; }
+.kiwi-slider-row input[type="range"]::-moz-range-thumb { width: 2rem; height: 2rem; border: none; }
+.kiwi-slider-hint { color: var(--muted); font-size: 0.78rem; white-space: nowrap; min-width: 5.5rem; text-align: right; }
+
+.kiwi-section-header { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-top: 1.5rem; margin-bottom: 0.75rem; }
+.kiwi-section-header h2 { margin: 0; }
+
+.kiwi-smeter { display: flex; align-items: center; gap: 0.6rem; margin: 0.75rem 0 0; }
+.kiwi-smeter .bar-track {
+  flex: 1;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.kiwi-smeter .bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--status-good), var(--status-warning) 70%, var(--status-critical));
+  width: 0%;
+  transition: width 0.3s ease;
+}
+.kiwi-smeter .reading { font-family: var(--font-mono); font-size: 0.85rem; white-space: nowrap; min-width: 5.5rem; text-align: right; }
+
+.kiwi-audio-controls { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+.kiwi-audio-controls input[type="range"] { width: 100px; }
+#kiwi-startstop-btn.listening { background: var(--status-good); border-color: var(--status-good); color: #fff; }
+
+.kiwi-waterfall-wrap {
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #000;
+}
+.kiwi-waterfall-wrap canvas {
+  display: block;
+  width: 100%;
+  height: 260px;
+  image-rendering: pixelated;
+}
+
+.kiwi-unconfigured { color: var(--muted); font-size: 0.9rem; }
+

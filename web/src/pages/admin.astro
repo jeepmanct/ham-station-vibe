@@ -132,6 +132,34 @@ import Base from '../layouts/Base.astro';
 
     <section>
       <div class="card">
+        <h2>KiwiSDR Visibility</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Whether the /kiwisdr page shows its waterfall/audio/tuning at all &mdash; on by default. Turning this off stops any in-progress listeners too.</p>
+        <form id="kiwi-visibility-form" class="form-grid">
+          <label class="form-grid-checkbox"><input type="checkbox" id="kv-visible" /> Show KiwiSDR page content</label>
+          <p id="kiwi-visibility-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
+        <h2>KiwiSDR Configuration</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">The LAN address the /kiwisdr page's waterfall and audio connect to &mdash; leave blank if you don't have a KiwiSDR. Port defaults to 8073 if omitted.</p>
+        <form id="kiwi-config-form" class="form-grid">
+          <label style="grid-column:1 / -1;">KiwiSDR Host<input type="text" id="cr-kiwi-host" placeholder="e.g. 192.168.2.104:8073" style="max-width:220px;" /></label>
+          <p id="kiwi-config-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
         <h2>DMR Talkgroups (BrandMeister)</h2>
         <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Which talkgroup(s) to show recent activity for on /radio's DMR Last Heard panel &mdash; no API key needed. Leave blank to hide that panel's activity feed.</p>
         <form id="dmr-config-form" class="form-grid">
@@ -431,6 +459,7 @@ import Base from '../layouts/Base.astro';
       loadStationLocation();
       loadTileLayout(tlPageSelect.value);
       loadBackupStatus();
+      loadKiwiVisibility();
     }
 
     if (sessionStorage.getItem(TOKEN_KEY)) {
@@ -627,6 +656,7 @@ import Base from '../layouts/Base.astro';
         { id: 'conditions', label: 'Conditions' },
         { id: 'radio', label: 'Radio' },
         { id: 'satellites', label: 'Satellites' },
+        { id: 'kiwisdr', label: 'KiwiSDR' },
         { id: 'tools', label: 'Tools' },
         { id: 'electronics', label: 'Electronics' },
         { id: 'reference', label: 'Reference' },
@@ -808,6 +838,7 @@ import Base from '../layouts/Base.astro';
       hamqthUsername: string;
       hamqthPasswordConfigured: boolean;
       brandmeisterTalkgroups: string;
+      kiwisdrHost: string;
     };
 
     const crQrzKey = document.getElementById('cr-qrz-key') as HTMLInputElement;
@@ -823,10 +854,12 @@ import Base from '../layouts/Base.astro';
     const crOrLng = document.getElementById('cr-or-lng') as HTMLInputElement;
     const crOrRadius = document.getElementById('cr-or-radius') as HTMLInputElement;
     const crDmrTgs = document.getElementById('cr-dmr-tgs') as HTMLInputElement;
+    const crKiwiHost = document.getElementById('cr-kiwi-host') as HTMLInputElement;
     const credsStatus = document.getElementById('creds-status')!;
     const flexConfigStatus = document.getElementById('flex-config-status')!;
     const orConfigStatus = document.getElementById('or-config-status')!;
     const dmrConfigStatus = document.getElementById('dmr-config-status')!;
+    const kiwiConfigStatus = document.getElementById('kiwi-config-status')!;
 
     async function loadServiceCredentials() {
       const res = await fetch('/api/service-credentials', {
@@ -847,6 +880,7 @@ import Base from '../layouts/Base.astro';
       crHamqthUser.value = cfg.hamqthUsername;
       crHamqthPass.placeholder = cfg.hamqthPasswordConfigured ? 'leave blank to keep existing' : 'not yet set';
       crDmrTgs.value = cfg.brandmeisterTalkgroups;
+      crKiwiHost.value = cfg.kiwisdrHost;
     }
 
     async function saveServiceCredentials(body: Record<string, unknown>, statusEl: HTMLElement) {
@@ -869,6 +903,7 @@ import Base from '../layouts/Base.astro';
         crHamqthUser.value = cfg.hamqthUsername;
         crHamqthPass.placeholder = cfg.hamqthPasswordConfigured ? 'leave blank to keep existing' : 'not yet set';
         crDmrTgs.value = cfg.brandmeisterTalkgroups;
+        crKiwiHost.value = cfg.kiwisdrHost;
         statusEl.textContent = 'Saved.';
       } else {
         const errBody = await res.json().catch(() => ({}));
@@ -904,6 +939,36 @@ import Base from '../layouts/Base.astro';
     document.getElementById('dmr-config-form')!.addEventListener('submit', async (e) => {
       e.preventDefault();
       await saveServiceCredentials({ brandmeisterTalkgroups: crDmrTgs.value || undefined }, dmrConfigStatus);
+    });
+
+    document.getElementById('kiwi-config-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await saveServiceCredentials({ kiwisdrHost: crKiwiHost.value || undefined }, kiwiConfigStatus);
+    });
+
+    // --- KiwiSDR page visibility (site-wide, not per-session) ---
+    const kvVisible = document.getElementById('kv-visible') as HTMLInputElement;
+    const kiwiVisibilityStatus = document.getElementById('kiwi-visibility-status')!;
+
+    async function loadKiwiVisibility() {
+      const s: { enabled: boolean } = await fetch('/api/kiwisdr/status').then((r) => r.json());
+      kvVisible.checked = s.enabled;
+    }
+
+    document.getElementById('kiwi-visibility-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      kiwiVisibilityStatus.textContent = 'Saving…';
+      const res = await fetch('/api/kiwisdr/enabled', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ enabled: kvVisible.checked }),
+      });
+      if (res.ok) {
+        kiwiVisibilityStatus.textContent = 'Saved.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        kiwiVisibilityStatus.textContent = body.error ?? 'Save failed.';
+      }
     });
 
     document.getElementById('or-config-form')!.addEventListener('submit', async (e) => {

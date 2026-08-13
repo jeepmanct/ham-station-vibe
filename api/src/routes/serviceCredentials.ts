@@ -25,6 +25,7 @@ serviceCredentialsRoutes.post('/', requireAuth, async (c) => {
     hamqthUsername: body.hamqthUsername !== undefined ? String(body.hamqthUsername).trim() : undefined,
     hamqthPassword: body.hamqthPassword ? String(body.hamqthPassword) : undefined,
     brandmeisterTalkgroups: body.brandmeisterTalkgroups !== undefined ? String(body.brandmeisterTalkgroups).trim() : undefined,
+    kiwisdrHost: body.kiwisdrHost !== undefined ? String(body.kiwisdrHost).trim() : undefined,
   });
   return c.json(getServiceCredentialsPublic());
 });

@@ -1,0 +1,527 @@
+---
+import Base from '../layouts/Base.astro';
+import '../styles/kiwisdr.css';
+---
+<Base title="KiwiSDR" active="kiwisdr">
+  <h1>KiwiSDR</h1>
+  <p class="lede">Live waterfall and audio from this station's KiwiSDR receiver &mdash; one shared receiver, so retuning changes what everyone currently listening hears.</p>
+
+  <div id="kiwi-unconfigured" class="card kiwi-unconfigured" hidden>
+    KiwiSDR isn't configured yet &mdash; an admin needs to set its address under Admin &rarr; KiwiSDR Configuration.
+  </div>
+
+  <div id="kiwi-disabled" class="card kiwi-unconfigured" hidden>
+    KiwiSDR is currently turned off.
+  </div>
+
+  <div id="kiwi-content" hidden>
+    <div class="card">
+      <div class="kiwi-tuning-bar">
+        <div class="kiwi-step-group">
+          <button type="button" class="btn secondary kiwi-step" data-step-khz="-1000">&minus;1MHz</button>
+          <button type="button" class="btn secondary kiwi-step" data-step-khz="-100">&minus;100kHz</button>
+          <button type="button" class="btn secondary kiwi-step" data-step-khz="-10">&minus;10kHz</button>
+          <button type="button" class="btn secondary kiwi-step" data-step-khz="-1">&minus;1kHz</button>
+        </div>
+        <div class="kiwi-freq-display">
+          <span id="kiwi-freq">7.255</span><span class="unit">MHz</span>
+          <span class="kiwi-mode-badge" id="kiwi-mode">LSB</span>
+        </div>
+        <!-- Same largest-to-smallest, left-to-right order as the minus
+             group above (not mirrored) -- so when this wraps onto its own
+             line on a narrow screen (minus row on top, plus row below),
+             each column still lines up by step size instead of the two
+             rows reading in opposite directions. -->
+        <div class="kiwi-step-group">
+          <button type="button" class="btn secondary kiwi-step" data-step-khz="1000">+1MHz</button>
+          <button type="button" class="btn secondary kiwi-step" data-step-khz="100">+100kHz</button>
+          <button type="button" class="btn secondary kiwi-step" data-step-khz="10">+10kHz</button>
+          <button type="button" class="btn secondary kiwi-step" data-step-khz="1">+1kHz</button>
+        </div>
+      </div>
+
+      <div class="kiwi-slider-row">
+        <input type="range" id="kiwi-freq-slider" min="-25" max="25" step="1" value="0" aria-label="Fine tune -- drag left or right" />
+        <span class="kiwi-slider-hint" id="kiwi-slider-step-label">10kHz/step</span>
+      </div>
+
+      <div class="kiwi-smeter">
+        <span class="label" style="color:var(--muted);font-size:0.78rem;">Signal</span>
+        <div class="bar-track"><div class="bar-fill" id="kiwi-smeter-fill"></div></div>
+        <span class="reading" id="kiwi-smeter-reading">&mdash;</span>
+      </div>
+
+      <div class="kiwi-audio-controls">
+        <button type="button" class="btn" id="kiwi-startstop-btn">Start</button>
+        <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.82rem;color:var(--muted);">
+          Volume
+          <input type="range" id="kiwi-volume" min="0" max="1" step="0.05" value="0.8" />
+        </label>
+        <span class="status-line" id="kiwi-audio-status" style="margin:0;"></span>
+      </div>
+    </div>
+
+    <div class="kiwi-section-header">
+      <h2>Tune</h2>
+      <button type="button" class="btn secondary" id="kiwi-tune-toggle">Hide</button>
+    </div>
+    <div class="card" id="kiwi-tune-section">
+      <form id="kiwi-tune-form" class="form-grid">
+        <label>Ham Band
+          <select id="kiwi-band-select">
+            <option value="">Choose a band&hellip;</option>
+            <option data-freq="1.900" data-mode="lsb">160m</option>
+            <option data-freq="3.750" data-mode="lsb">80m</option>
+            <option data-freq="5.357" data-mode="usb">60m</option>
+            <option data-freq="7.255" data-mode="lsb">40m</option>
+            <option data-freq="10.130" data-mode="cw">30m</option>
+            <option data-freq="14.230" data-mode="usb">20m</option>
+            <option data-freq="18.130" data-mode="usb">17m</option>
+            <option data-freq="21.300" data-mode="usb">15m</option>
+            <option data-freq="24.950" data-mode="usb">12m</option>
+            <option data-freq="28.400" data-mode="usb">10m</option>
+          </select>
+        </label>
+        <label>Time Signal
+          <select id="kiwi-time-select">
+            <option value="">Choose&hellip;</option>
+            <option data-freq="2.500" data-mode="am">WWV 2.5 MHz</option>
+            <option data-freq="5.000" data-mode="am">WWV 5 MHz</option>
+            <option data-freq="10.000" data-mode="am">WWV 10 MHz</option>
+            <option data-freq="15.000" data-mode="am">WWV 15 MHz</option>
+            <option data-freq="20.000" data-mode="am">WWV 20 MHz</option>
+            <option data-freq="3.330" data-mode="am">CHU 3.33 MHz</option>
+          </select>
+        </label>
+        <label>Shortwave
+          <select id="kiwi-sw-select">
+            <option value="">Choose&hellip;</option>
+            <option data-freq="1.000" data-mode="am">Mediumwave AM</option>
+            <option data-freq="6.070" data-mode="am">49m Broadcast</option>
+            <option data-freq="7.200" data-mode="am">41m Broadcast</option>
+            <option data-freq="9.500" data-mode="am">31m Broadcast</option>
+            <option data-freq="11.700" data-mode="am">25m Broadcast</option>
+            <option data-freq="15.100" data-mode="am">19m Broadcast</option>
+          </select>
+        </label>
+        <label>Mode
+          <select id="kiwi-tune-mode">
+            <option value="lsb">LSB</option>
+            <option value="usb">USB</option>
+            <option value="am">AM</option>
+            <option value="cw">CW</option>
+            <option value="nbfm">NBFM</option>
+          </select>
+        </label>
+        <label>Frequency (MHz)
+          <span style="display:flex;gap:0.4rem;">
+            <input type="text" id="kiwi-tune-freq" placeholder="e.g. 7.255" inputmode="decimal" style="flex:1;" />
+            <button type="submit" class="btn secondary">Go</button>
+          </span>
+        </label>
+        <p id="kiwi-tune-status" class="status-line"></p>
+      </form>
+    </div>
+
+    <div class="kiwi-section-header">
+      <h2>Waterfall</h2>
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;color:var(--muted);">
+        <input type="checkbox" id="kiwi-wf-enabled" checked /> Show waterfall
+      </label>
+    </div>
+    <div id="kiwi-waterfall-section">
+      <div class="kiwi-waterfall-wrap">
+        <canvas id="kiwi-waterfall" width="1024" height="260"></canvas>
+      </div>
+      <p class="status-line" id="kiwi-wf-status" style="margin-top:0.4rem;"></p>
+    </div>
+  </div>
+
+  <script>
+    type KiwiSdrStatus = {
+      configured: boolean;
+      enabled: boolean;
+      sndConnected: boolean;
+      wfConnected: boolean;
+      freqKhz: number;
+      mode: string;
+      sampleRate: number | null;
+      smeterDbm: number | null;
+    };
+
+    const unconfiguredEl = document.getElementById('kiwi-unconfigured')!;
+    const disabledEl = document.getElementById('kiwi-disabled')!;
+    const contentEl = document.getElementById('kiwi-content')!;
+    const freqEl = document.getElementById('kiwi-freq')!;
+    const modeEl = document.getElementById('kiwi-mode')!;
+    const smeterFill = document.getElementById('kiwi-smeter-fill')!;
+    const smeterReading = document.getElementById('kiwi-smeter-reading')!;
+    const startStopBtn = document.getElementById('kiwi-startstop-btn') as HTMLButtonElement;
+    const volumeSlider = document.getElementById('kiwi-volume') as HTMLInputElement;
+    const audioStatus = document.getElementById('kiwi-audio-status')!;
+    const wfStatus = document.getElementById('kiwi-wf-status')!;
+    const wfWrap = document.querySelector('.kiwi-waterfall-wrap') as HTMLElement;
+    const wfEnabledCheckbox = document.getElementById('kiwi-wf-enabled') as HTMLInputElement;
+    const canvas = document.getElementById('kiwi-waterfall') as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    const tuneToggle = document.getElementById('kiwi-tune-toggle') as HTMLButtonElement;
+    const tuneSection = document.getElementById('kiwi-tune-section')!;
+    const tuneForm = document.getElementById('kiwi-tune-form') as HTMLFormElement;
+    const tuneFreq = document.getElementById('kiwi-tune-freq') as HTMLInputElement;
+    const tuneMode = document.getElementById('kiwi-tune-mode') as HTMLSelectElement;
+    const bandSelect = document.getElementById('kiwi-band-select') as HTMLSelectElement;
+    const timeSelect = document.getElementById('kiwi-time-select') as HTMLSelectElement;
+    const swSelect = document.getElementById('kiwi-sw-select') as HTMLSelectElement;
+    const tuneStatus = document.getElementById('kiwi-tune-status')!;
+    const freqSlider = document.getElementById('kiwi-freq-slider') as HTMLInputElement;
+    const sliderStepLabel = document.getElementById('kiwi-slider-step-label')!;
+
+    let lastStatus: KiwiSdrStatus | null = null;
+
+    function dbmToSUnit(dbm: number): string {
+      const sUnits = 9 + (dbm + 73) / 6;
+      if (sUnits >= 9) {
+        const over = Math.round((sUnits - 9) * 6);
+        return over > 0 ? `S9+${over}dB` : 'S9';
+      }
+      return `S${Math.max(1, Math.round(sUnits))}`;
+    }
+
+    async function loadStatus() {
+      const res = await fetch('/api/kiwisdr/status');
+      if (!res.ok) return;
+      const s: KiwiSdrStatus = await res.json();
+      lastStatus = s;
+      unconfiguredEl.hidden = s.configured;
+      disabledEl.hidden = !s.configured || s.enabled;
+      contentEl.hidden = !s.configured || !s.enabled;
+      if (!s.configured || !s.enabled) return;
+
+      // Don't stomp on what the visitor is mid-typing/selecting/dragging in
+      // the tune controls -- other listeners' retunes (or this device's own
+      // last tune) still update everything else whenever it isn't actively
+      // in use. The slider is a relative jog, not bound to freqKhz at all,
+      // so it's excluded here rather than checked against activeElement.
+      if (document.activeElement !== freqSlider) freqEl.textContent = (s.freqKhz / 1000).toFixed(3);
+      modeEl.textContent = s.mode.toUpperCase();
+      if (document.activeElement !== tuneFreq) tuneFreq.value = (s.freqKhz / 1000).toFixed(3);
+      if (document.activeElement !== tuneMode) tuneMode.value = s.mode;
+
+      if (s.smeterDbm == null) {
+        smeterFill.style.width = '0%';
+        smeterReading.textContent = '—';
+      } else {
+        const pct = Math.max(0, Math.min(100, ((s.smeterDbm + 127) / 100) * 100));
+        smeterFill.style.width = `${pct}%`;
+        smeterReading.textContent = `${dbmToSUnit(s.smeterDbm)} (${s.smeterDbm.toFixed(0)}dBm)`;
+      }
+    }
+    loadStatus();
+    setInterval(loadStatus, 3000);
+
+    // Retuning always goes straight to the server, whether or not this
+    // visitor has clicked Start -- this is one shared receiver, so a band
+    // pick or step press here immediately moves what everyone currently
+    // listening hears (see this page's lede). Starting only opens/closes
+    // THIS visitor's own audio+waterfall connections; it doesn't gate
+    // tuning.
+    async function tune(freqMhz: number, mode: string) {
+      tuneStatus.textContent = 'Tuning…';
+      const res = await fetch('/api/kiwisdr/tune', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ freqKhz: freqMhz * 1000, mode }),
+      });
+      if (res.ok) {
+        tuneStatus.textContent = '';
+        loadStatus();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        tuneStatus.textContent = body.error ?? 'Tune failed.';
+      }
+    }
+
+    tuneForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const freqMhz = Number(tuneFreq.value);
+      if (!Number.isFinite(freqMhz) || freqMhz <= 0) {
+        tuneStatus.textContent = 'Enter a valid frequency in MHz.';
+        return;
+      }
+      tune(freqMhz, tuneMode.value);
+    });
+
+    // Shared by the Ham Band / Time Signal / Shortwave dropdowns -- each is
+    // just a different curated list feeding the same tune() call, reset
+    // back to its placeholder after firing so re-picking the same entry
+    // twice in a row still fires a change event.
+    function wireQuickTuneSelect(select: HTMLSelectElement) {
+      select.addEventListener('change', () => {
+        const opt = select.selectedOptions[0];
+        if (!opt?.dataset.freq) return;
+        const freqMhz = Number(opt.dataset.freq);
+        const mode = opt.dataset.mode!;
+        tuneFreq.value = freqMhz.toFixed(3);
+        tuneMode.value = mode;
+        tune(freqMhz, mode);
+        select.value = '';
+      });
+    }
+    wireQuickTuneSelect(bandSelect);
+    wireQuickTuneSelect(timeSelect);
+    wireQuickTuneSelect(swSelect);
+
+    // The step buttons double as the slider's step-size picker -- whichever
+    // one was clicked most recently (by magnitude, sign doesn't matter)
+    // becomes what the slider below nudges by. Defaults to 10kHz.
+    let activeStepKhz = 10;
+
+    function updateSliderStepLabel() {
+      sliderStepLabel.textContent = `${activeStepKhz >= 1000 ? `${activeStepKhz / 1000}MHz` : `${activeStepKhz}kHz`}/step`;
+    }
+    function highlightActiveStep() {
+      document.querySelectorAll<HTMLButtonElement>('.kiwi-step').forEach((btn) => {
+        btn.classList.toggle('active', Math.abs(Number(btn.dataset.stepKhz)) === activeStepKhz);
+      });
+    }
+    highlightActiveStep();
+    updateSliderStepLabel();
+
+    // Step buttons only pick which step size the slider below uses -- they
+    // don't retune anything themselves. Actual frequency movement happens
+    // exclusively by dragging the slider.
+    document.querySelectorAll<HTMLButtonElement>('.kiwi-step').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activeStepKhz = Math.abs(Number(btn.dataset.stepKhz));
+        highlightActiveStep();
+        updateSliderStepLabel();
+      });
+    });
+
+    // The slider is a relative jog, not an absolute frequency control: it
+    // always sits at 0, and dragging it to N nudges (value * activeStepKhz)
+    // away from wherever the receiver was tuned WHEN THE DRAG STARTED --
+    // captured once into dragBaseKhz rather than read fresh on every
+    // `input` event, so a concurrent retune by another visitor on this
+    // shared receiver (see this page's lede) can't yank the base out from
+    // under an in-progress drag. `input` fires continuously while dragging
+    // (preview only, no network call); `change` fires once on release,
+    // which is when this actually retunes and the slider snaps back to 0,
+    // ready for the next nudge.
+    let dragBaseKhz: number | null = null;
+
+    freqSlider.addEventListener('input', () => {
+      if (dragBaseKhz === null) dragBaseKhz = lastStatus?.freqKhz ?? 7255;
+      const previewKhz = Math.max(0, dragBaseKhz + Number(freqSlider.value) * activeStepKhz);
+      freqEl.textContent = (previewKhz / 1000).toFixed(3);
+    });
+    freqSlider.addEventListener('change', () => {
+      const baseKhz = dragBaseKhz ?? lastStatus?.freqKhz ?? 7255;
+      const nextKhz = Math.max(0, baseKhz + Number(freqSlider.value) * activeStepKhz);
+      const mode = lastStatus?.mode ?? tuneMode.value;
+      tuneFreq.value = (nextKhz / 1000).toFixed(3);
+      tune(nextKhz / 1000, mode);
+      freqSlider.value = '0';
+      dragBaseKhz = null;
+    });
+
+    tuneToggle.addEventListener('click', () => {
+      const nowHidden = !tuneSection.hidden;
+      tuneSection.hidden = nowHidden;
+      tuneToggle.textContent = nowHidden ? 'Show' : 'Hide';
+    });
+
+    // --- Waterfall -- scrolls a new row of colorized bins in at the top,
+    // shifting everything else down by one pixel via a self-drawImage copy
+    // (cheaper than redrawing the whole thing every frame). ---
+    function heatColor(v: number): [number, number, number] {
+      const stops: [number, number, number, number][] = [
+        [0, 0, 0, 0],
+        [0.35, 0, 0, 180],
+        [0.55, 0, 180, 180],
+        [0.7, 0, 220, 0],
+        [0.85, 230, 230, 0],
+        [1, 255, 0, 0],
+      ];
+      const t = v / 255;
+      for (let i = 1; i < stops.length; i++) {
+        const [t0, r0, g0, b0] = stops[i - 1];
+        const [t1, r1, g1, b1] = stops[i];
+        if (t <= t1) {
+          const f = t1 === t0 ? 0 : (t - t0) / (t1 - t0);
+          return [r0 + (r1 - r0) * f, g0 + (g1 - g0) * f, b0 + (b1 - b0) * f];
+        }
+      }
+      return [255, 255, 255];
+    }
+    const palette = new Uint8Array(256 * 3);
+    for (let i = 0; i < 256; i++) {
+      const [r, g, b] = heatColor(i);
+      palette[i * 3] = r;
+      palette[i * 3 + 1] = g;
+      palette[i * 3 + 2] = b;
+    }
+
+    function drawWaterfallRow(bins: Uint8Array) {
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.drawImage(canvas, 0, 0, w, h - 1, 0, 1, w, h - 1);
+      const row = ctx.createImageData(w, 1);
+      const n = Math.min(w, bins.length);
+      for (let x = 0; x < n; x++) {
+        const v = bins[x];
+        const i = x * 4;
+        row.data[i] = palette[v * 3];
+        row.data[i + 1] = palette[v * 3 + 1];
+        row.data[i + 2] = palette[v * 3 + 2];
+        row.data[i + 3] = 255;
+      }
+      ctx.putImageData(row, 0, 0);
+    }
+    function clearWaterfall() {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    clearWaterfall();
+
+    // --- Audio + waterfall connections. Start opens audio always, and the
+    // waterfall too if its checkbox is checked; Stop tears both all the way
+    // down -- closing the WebSocket to this API, which in turn closes this
+    // server's upstream connection to the Kiwi once no listener is left
+    // (see kiwiSdr.ts's registerAudioListener/registerWaterfallListener),
+    // actually freeing the channel rather than just muting playback.
+    //
+    // The waterfall's own on/off checkbox is independent of Start/Stop --
+    // it can be flipped off mid-session to free that one channel (and skip
+    // the render cost) while audio keeps playing, or back on without
+    // restarting audio. syncWaterfallConnection() is the single place that
+    // reconciles "should the waterfall be connected right now" against
+    // both `running` and the checkbox, called after either changes. ---
+    let running = false;
+    let wfEnabled = wfEnabledCheckbox.checked;
+    let audioSocket: WebSocket | null = null;
+    let wfSocket: WebSocket | null = null;
+    let audioCtx: AudioContext | null = null;
+    let gainNode: GainNode | null = null;
+    let nextPlayTime = 0;
+
+    function startWaterfall() {
+      wfStatus.textContent = 'Connecting…';
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wws = new WebSocket(`${proto}//${location.host}/ws/kiwisdr-waterfall`);
+      wws.binaryType = 'arraybuffer';
+      wfSocket = wws;
+      wws.addEventListener('open', () => {
+        wfStatus.textContent = '';
+      });
+      wws.addEventListener('message', (ev) => {
+        if (typeof ev.data === 'string') {
+          const parsed = JSON.parse(ev.data);
+          wfStatus.textContent = parsed.error ?? 'Waterfall stream stopped.';
+          wfSocket = null;
+          return;
+        }
+        drawWaterfallRow(new Uint8Array(ev.data as ArrayBuffer));
+      });
+      wws.addEventListener('close', () => {
+        if (wfSocket !== wws) return;
+        wfSocket = null;
+        // A drop here doesn't take audio down with it -- the waterfall is
+        // independently toggleable now, so treat this the same as the user
+        // having flipped its checkbox off, not a fatal error for the whole
+        // session.
+        if (running && wfEnabled) wfStatus.textContent = 'Waterfall disconnected.';
+      });
+      wws.addEventListener('error', () => wws.close());
+    }
+
+    function stopWaterfall() {
+      wfSocket?.close();
+      wfSocket = null;
+      wfStatus.textContent = '';
+      clearWaterfall();
+    }
+
+    function syncWaterfallConnection() {
+      wfWrap.hidden = !wfEnabled;
+      const shouldBeConnected = running && wfEnabled;
+      if (shouldBeConnected && !wfSocket) startWaterfall();
+      else if (!shouldBeConnected && wfSocket) stopWaterfall();
+      else if (!shouldBeConnected) wfStatus.textContent = '';
+    }
+
+    wfEnabledCheckbox.addEventListener('change', () => {
+      wfEnabled = wfEnabledCheckbox.checked;
+      syncWaterfallConnection();
+    });
+    syncWaterfallConnection();
+
+    function stopAll(message: string) {
+      running = false;
+      audioSocket?.close();
+      audioSocket = null;
+      audioCtx?.close();
+      audioCtx = null;
+      gainNode = null;
+      startStopBtn.textContent = 'Start';
+      startStopBtn.classList.remove('listening');
+      audioStatus.textContent = message;
+      syncWaterfallConnection();
+    }
+
+    function startAll() {
+      running = true;
+      startStopBtn.textContent = 'Stop';
+      startStopBtn.classList.add('listening');
+      audioStatus.textContent = 'Connecting…';
+      syncWaterfallConnection();
+
+      const sampleRate = Math.round(lastStatus?.sampleRate ?? 12000);
+      audioCtx = new AudioContext();
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = Number(volumeSlider.value);
+      gainNode.connect(audioCtx.destination);
+      nextPlayTime = 0;
+
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const aws = new WebSocket(`${proto}//${location.host}/ws/kiwisdr-audio`);
+      aws.binaryType = 'arraybuffer';
+      audioSocket = aws;
+      aws.addEventListener('open', () => {
+        audioStatus.textContent = '';
+      });
+      aws.addEventListener('message', (ev) => {
+        if (typeof ev.data === 'string') {
+          const parsed = JSON.parse(ev.data);
+          stopAll(parsed.error ?? 'Audio stream stopped.');
+          return;
+        }
+        if (!audioCtx || !gainNode) return;
+        const pcm = new Int16Array(ev.data as ArrayBuffer);
+        const buffer = audioCtx.createBuffer(1, pcm.length, sampleRate);
+        const channel = buffer.getChannelData(0);
+        for (let i = 0; i < pcm.length; i++) channel[i] = pcm[i] / 0x8000;
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(gainNode);
+        const startAt = Math.max(nextPlayTime, audioCtx.currentTime + 0.05);
+        source.start(startAt);
+        nextPlayTime = startAt + buffer.duration;
+      });
+      aws.addEventListener('close', () => {
+        if (audioSocket === aws && running) stopAll('');
+      });
+      aws.addEventListener('error', () => {
+        if (audioSocket === aws) stopAll('Audio connection error.');
+      });
+    }
+
+    startStopBtn.addEventListener('click', () => {
+      if (running) stopAll('');
+      else startAll();
+    });
+    volumeSlider.addEventListener('input', () => {
+      if (gainNode) gainNode.gain.value = Number(volumeSlider.value);
+    });
+  </script>
+</Base>

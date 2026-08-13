@@ -14,12 +14,13 @@ type Row = {
   hamqth_username: string | null;
   hamqth_password: string | null;
   brandmeister_talkgroups: string | null;
+  kiwisdr_host: string | null;
 };
 
 function getRow(): Row | null {
   return db
     .query(
-      'SELECT qrz_api_key, eqsl_username, eqsl_password, lotw_username, lotw_password, flex_radio_ip, open_repeater_api_key, open_repeater_lat, open_repeater_lng, open_repeater_radius_km, hamqth_username, hamqth_password, brandmeister_talkgroups FROM service_credentials WHERE id = 1',
+      'SELECT qrz_api_key, eqsl_username, eqsl_password, lotw_username, lotw_password, flex_radio_ip, open_repeater_api_key, open_repeater_lat, open_repeater_lng, open_repeater_radius_km, hamqth_username, hamqth_password, brandmeister_talkgroups, kiwisdr_host FROM service_credentials WHERE id = 1',
     )
     .get() as Row | null;
 }
@@ -72,6 +73,11 @@ export function getHamQthCredentials(): { username: string; password: string } |
     : null;
 }
 
+// No .env-based predecessor -- this is a new integration, DB-only.
+export function getKiwiSdrHost(): string | null {
+  return getRow()?.kiwisdr_host || null;
+}
+
 // No API key involved at all -- just which talkgroup(s) to filter
 // BrandMeister's public live-activity feed down to.
 export function getBrandmeisterTalkgroups(): number[] {
@@ -102,6 +108,7 @@ export function getServiceCredentialsPublic() {
     hamqthUsername: row?.hamqth_username || '',
     hamqthPasswordConfigured: !!row?.hamqth_password,
     brandmeisterTalkgroups: row?.brandmeister_talkgroups || '',
+    kiwisdrHost: row?.kiwisdr_host || '',
   };
 }
 
@@ -120,6 +127,7 @@ export function setServiceCredentials(cfg: {
   hamqthUsername?: string;
   hamqthPassword?: string;
   brandmeisterTalkgroups?: string;
+  kiwisdrHost?: string;
 }) {
   const existing = getRow();
   const qrzApiKey = cfg.qrzApiKey ? cfg.qrzApiKey : (existing?.qrz_api_key ?? null);
@@ -137,9 +145,10 @@ export function setServiceCredentials(cfg: {
   const hamqthPassword = cfg.hamqthPassword ? cfg.hamqthPassword : (existing?.hamqth_password ?? null);
   const brandmeisterTalkgroups =
     cfg.brandmeisterTalkgroups !== undefined ? cfg.brandmeisterTalkgroups || null : (existing?.brandmeister_talkgroups ?? null);
+  const kiwisdrHost = cfg.kiwisdrHost !== undefined ? cfg.kiwisdrHost || null : (existing?.kiwisdr_host ?? null);
 
   db.query(
-    `INSERT INTO service_credentials (id, qrz_api_key, eqsl_username, eqsl_password, lotw_username, lotw_password, flex_radio_ip, open_repeater_api_key, open_repeater_lat, open_repeater_lng, open_repeater_radius_km, hamqth_username, hamqth_password, brandmeister_talkgroups) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO service_credentials (id, qrz_api_key, eqsl_username, eqsl_password, lotw_username, lotw_password, flex_radio_ip, open_repeater_api_key, open_repeater_lat, open_repeater_lng, open_repeater_radius_km, hamqth_username, hamqth_password, brandmeister_talkgroups, kiwisdr_host) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        qrz_api_key = excluded.qrz_api_key,
        eqsl_username = excluded.eqsl_username,
@@ -153,7 +162,8 @@ export function setServiceCredentials(cfg: {
        open_repeater_radius_km = excluded.open_repeater_radius_km,
        hamqth_username = excluded.hamqth_username,
        hamqth_password = excluded.hamqth_password,
-       brandmeister_talkgroups = excluded.brandmeister_talkgroups`,
+       brandmeister_talkgroups = excluded.brandmeister_talkgroups,
+       kiwisdr_host = excluded.kiwisdr_host`,
   ).run(
     qrzApiKey,
     eqslUsername,
@@ -168,5 +178,6 @@ export function setServiceCredentials(cfg: {
     hamqthUsername,
     hamqthPassword,
     brandmeisterTalkgroups,
+    kiwisdrHost,
   );
 }

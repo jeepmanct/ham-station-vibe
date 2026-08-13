@@ -23,7 +23,14 @@ import { bearingRoutes } from './routes/bearing';
 import { dstarRoutes } from './routes/dstar';
 import { systemStatsRoutes } from './routes/systemStats';
 import { backupRoutes } from './routes/backup';
+import { kiwiSdrRoutes } from './routes/kiwiSdr';
 import { startFlexRadioClient, registerAudioListener, unregisterAudioListener } from './flexRadio';
+import {
+  registerAudioListener as registerKiwiAudioListener,
+  unregisterAudioListener as unregisterKiwiAudioListener,
+  registerWaterfallListener as registerKiwiWaterfallListener,
+  unregisterWaterfallListener as unregisterKiwiWaterfallListener,
+} from './kiwiSdr';
 import { startBrandmeisterListener } from './brandmeister';
 import { consumeWsTicket } from './auth';
 import { PHOTOS_DIR, EQSL_CARDS_DIR } from './db';
@@ -54,6 +61,7 @@ app.route('/api/bearing', bearingRoutes);
 app.route('/api/dstar', dstarRoutes);
 app.route('/api/system', systemStatsRoutes);
 app.route('/api/backup', backupRoutes);
+app.route('/api/kiwisdr', kiwiSdrRoutes);
 // Registered before the general /media/* handler below -- Hono matches
 // middleware in registration order, and eqsl-card images live in their own
 // directory, not under PHOTOS_DIR.
@@ -87,14 +95,23 @@ console.log(`API listening on :${port}`);
 // Radio audio (see flexRadio.ts's registerAudioListener) is the one thing
 // on this site that's a genuine live stream, not a request/response --
 // needs a WebSocket, which Hono's own routing doesn't handle, so it's
-// intercepted here before falling through to the Hono app. Auth-gated like
-// the tune control it's paired with, but via a short-lived single-use
-// `ticket` query param (POST /api/auth/ws-ticket) rather than an
+// intercepted here before falling through to the Hono app. FlexRadio audio
+// is auth-gated like the tune control it's paired with, via a short-lived
+// single-use `ticket` query param (POST /api/auth/ws-ticket) rather than an
 // Authorization header (the browser's native WebSocket API can't set custom
 // headers on the upgrade request) or the raw long-lived session token
 // (previously used directly here -- see auth.ts's createWsTicket() comment
 // for why that was a logging-exposure risk worth closing).
-type AudioSocketData = { listener?: (pcm: Int16Array) => void };
+//
+// KiwiSDR audio/waterfall are NOT ticket-gated -- unlike the FlexRadio
+// stream, the underlying receiver is already fully public (this station's
+// Kiwi is listed on the public proxy at n1ah.proxy.kiwisdr.com, reachable
+// by anyone), so gating this site's own listen page behind login would just
+// be friction with no actual access-control benefit.
+type SocketData =
+  | { kind: 'radio-audio'; listener?: (pcm: Int16Array) => void }
+  | { kind: 'kiwi-audio'; listener?: (pcm: Int16Array) => void }
+  | { kind: 'kiwi-waterfall'; listener?: (bins: Uint8Array) => void };
 
 export default {
   port,
@@ -107,33 +124,64 @@ export default {
   // after 10 seconds." 120s matches fetchLotwAdif()'s own client-side
   // upstream timeout.
   idleTimeout: 120,
-  fetch(req: Request, server: { upgrade: (req: Request, opts?: { data: AudioSocketData }) => boolean }) {
+  fetch(req: Request, server: { upgrade: (req: Request, opts?: { data: SocketData }) => boolean }) {
     const url = new URL(req.url);
     if (url.pathname === '/ws/radio-audio') {
       if (!consumeWsTicket(url.searchParams.get('ticket') ?? undefined)) {
         return new Response('Unauthorized', { status: 401 });
       }
-      if (server.upgrade(req, { data: {} })) return;
+      if (server.upgrade(req, { data: { kind: 'radio-audio' } })) return;
+      return new Response('Upgrade failed', { status: 500 });
+    }
+    if (url.pathname === '/ws/kiwisdr-audio') {
+      if (server.upgrade(req, { data: { kind: 'kiwi-audio' } })) return;
+      return new Response('Upgrade failed', { status: 500 });
+    }
+    if (url.pathname === '/ws/kiwisdr-waterfall') {
+      if (server.upgrade(req, { data: { kind: 'kiwi-waterfall' } })) return;
       return new Response('Upgrade failed', { status: 500 });
     }
     return app.fetch(req);
   },
   websocket: {
-    open(ws: { data: AudioSocketData; send: (data: ArrayBuffer | string) => void; close: () => void }) {
-      const listener = (pcm: Int16Array) => ws.send(pcm.buffer as ArrayBuffer);
-      ws.data.listener = listener;
-      registerAudioListener(listener).then((result) => {
-        if (!result.ok) {
-          ws.send(JSON.stringify({ error: result.error }));
-          ws.close();
-        }
-      });
+    open(ws: { data: SocketData; send: (data: ArrayBuffer | string) => void; close: () => void }) {
+      if (ws.data.kind === 'radio-audio') {
+        const listener = (pcm: Int16Array) => ws.send(pcm.buffer as ArrayBuffer);
+        ws.data.listener = listener;
+        registerAudioListener(listener).then((result) => {
+          if (!result.ok) {
+            ws.send(JSON.stringify({ error: result.error }));
+            ws.close();
+          }
+        });
+      } else if (ws.data.kind === 'kiwi-audio') {
+        const listener = (pcm: Int16Array) => ws.send(pcm.buffer as ArrayBuffer);
+        ws.data.listener = listener;
+        registerKiwiAudioListener(listener).then((result) => {
+          if (!result.ok) {
+            ws.send(JSON.stringify({ error: result.error }));
+            ws.close();
+          }
+        });
+      } else if (ws.data.kind === 'kiwi-waterfall') {
+        const listener = (bins: Uint8Array) => ws.send(bins.buffer as ArrayBuffer);
+        ws.data.listener = listener;
+        registerKiwiWaterfallListener(listener).then((result) => {
+          if (!result.ok) {
+            ws.send(JSON.stringify({ error: result.error }));
+            ws.close();
+          }
+        });
+      }
     },
-    close(ws: { data: AudioSocketData }) {
-      if (ws.data.listener) unregisterAudioListener(ws.data.listener);
+    close(ws: { data: SocketData }) {
+      if (!ws.data.listener) return;
+      if (ws.data.kind === 'radio-audio') unregisterAudioListener(ws.data.listener);
+      else if (ws.data.kind === 'kiwi-audio') unregisterKiwiAudioListener(ws.data.listener);
+      else if (ws.data.kind === 'kiwi-waterfall') unregisterKiwiWaterfallListener(ws.data.listener);
     },
     message() {
-      // No messages expected from the client -- audio only flows one way.
+      // No messages expected from the client -- audio/waterfall only flow one way.
     },
   },
 };

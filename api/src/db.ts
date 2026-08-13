@@ -481,6 +481,17 @@ db.exec(`
   );
 `);
 
+// Whether the /kiwisdr page shows its content at all -- defaults ON (unlike
+// radio_monitoring's control_visible, which defaults off for an
+// unfinished feature): this one's already live and working by the time
+// this toggle was added, so the default shouldn't silently take it away.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS kiwisdr_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    enabled INTEGER NOT NULL DEFAULT 1
+  );
+`);
+
 // LoTW login, added alongside the original QRZ/eQSL columns -- same
 // incremental-column pattern, since service_credentials already exists on
 // the live Pi.
@@ -518,6 +529,13 @@ for (const [name, type] of [
   // public, unauthenticated Socket.IO stream, see brandmeister.ts), just
   // which talkgroup(s) to filter it down to.
   ['brandmeister_talkgroups', 'TEXT'],
+  // KiwiSDR's LAN address ("host:port", port defaults to 8073 if omitted) --
+  // same "editable from /admin instead of shell access" reasoning as
+  // flex_radio_ip. No credentials needed alongside it: unlike every other
+  // row in this table, the KiwiSDR protocol itself carries its own
+  // (optional) connect password inline in the SET auth command, and this
+  // station's Kiwi has none set, so there's nothing else to store here.
+  ['kiwisdr_host', 'TEXT'],
 ] as const) {
   if (!serviceCredColumns.has(name)) {
     db.exec(`ALTER TABLE service_credentials ADD COLUMN ${name} ${type}`);
