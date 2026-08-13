@@ -21,7 +21,14 @@ import '../styles/stats.css';
       <div class="stat-tile"><div class="label">Longest Streak</div><div class="value" id="stat-longest-streak">&mdash;</div><div class="sub" id="stat-longest-streak-sub"></div></div>
       <div class="stat-tile"><div class="label">Current Streak</div><div class="value" id="stat-current-streak">&mdash;</div><div class="sub" id="stat-current-streak-sub"></div></div>
     </div>
-    <div class="activity-heatmap" id="activity-heatmap"></div>
+    <div class="activity-heatmap-wrap">
+      <div class="activity-heatmap-months" id="activity-heatmap-months"></div>
+      <div class="activity-heatmap-body">
+        <div class="activity-heatmap-daylabels"><span></span><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span></div>
+        <div class="activity-heatmap" id="activity-heatmap"></div>
+      </div>
+    </div>
+    <p class="heatmap-info" id="heatmap-info">Hover for a day's date and count &mdash; tap a day with QSOs to view them in the log.</p>
     <div class="heatmap-legend">
       <span>Less</span>
       <span class="heatmap-cell" data-level="0"></span>
@@ -180,18 +187,59 @@ import '../styles/stats.css';
         const countByDate = new Map(d.daily.map((r) => [r.date, r.count]));
         const maxCount = Math.max(1, ...d.daily.map((r) => r.count));
         const heatmap = document.getElementById('activity-heatmap')!;
+        const monthsRow = document.getElementById('activity-heatmap-months')!;
+        const heatmapInfo = document.getElementById('heatmap-info')!;
         heatmap.innerHTML = '';
+        monthsRow.innerHTML = '';
+
+        // Padded to start on a Sunday so the grid's 7 rows are consistent
+        // calendar weekdays (row 1 = Monday, row 3 = Wednesday, ... matching
+        // the Mon/Wed/Fri row labels) -- the un-padded version had no fixed
+        // row-to-weekday mapping at all, since "370 days before today" lands
+        // on a different weekday depending on what day "today" is.
         const today = new Date();
-        for (let i = 370; i >= 0; i--) {
-          const date = new Date(today);
-          date.setDate(date.getDate() - i);
-          const key = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+        const start = new Date(today);
+        start.setDate(start.getDate() - 370);
+        start.setDate(start.getDate() - start.getDay());
+
+        const monthAbbrevs = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        let lastMonth = -1;
+        for (let date = new Date(start); date <= today; date.setDate(date.getDate() + 1)) {
+          const dow = date.getDay();
+          if (dow === 0) {
+            const label = document.createElement('span');
+            if (date.getMonth() !== lastMonth) {
+              label.textContent = monthAbbrevs[date.getMonth()];
+              lastMonth = date.getMonth();
+            }
+            monthsRow.appendChild(label);
+          }
+
+          const isoDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+          const key = isoDate.replaceAll('-', '');
           const count = countByDate.get(key) ?? 0;
           const level = count === 0 ? 0 : Math.min(4, Math.ceil((count / maxCount) * 4));
           const cell = document.createElement('div');
           cell.className = 'heatmap-cell';
           cell.dataset.level = String(level);
-          cell.title = `${formatDate(key)}: ${count} QSO${count === 1 ? '' : 's'}`;
+          const label = `${formatDate(key)}: ${count} QSO${count === 1 ? '' : 's'}${count ? ' — tap to view' : ''}`;
+          cell.title = label;
+          // The native title tooltip above never shows on a touch device
+          // (no hover state exists there) -- this visible info line is what
+          // actually makes per-day detail reachable on mobile, via a plain
+          // tap. Kept simple (updates one shared line) rather than a
+          // per-cell floating tooltip, which would need real positioning
+          // logic for comparatively little benefit here. A day with QSOs
+          // is also a real link to that day's filtered log (empty days
+          // aren't, since there's nothing there to jump to).
+          cell.addEventListener('pointerenter', () => { heatmapInfo.textContent = label; });
+          if (count > 0) {
+            cell.addEventListener('click', () => {
+              window.location.href = `/log?from=${isoDate}&to=${isoDate}`;
+            });
+          } else {
+            cell.addEventListener('click', () => { heatmapInfo.textContent = label; });
+          }
           heatmap.appendChild(cell);
         }
       });

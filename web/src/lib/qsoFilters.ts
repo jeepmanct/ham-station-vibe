@@ -244,6 +244,20 @@ export async function initQsoFilters(
   dateFrom.addEventListener('change', notify);
   dateTo.addEventListener('change', notify);
 
+  // Deep-link support: ?from=YYYY-MM-DD&to=YYYY-MM-DD pre-fills a custom
+  // date range on load (used by the Stats page's Activity heatmap, whose
+  // day cells link to /log?from=X&to=X for that day's QSOs). Every other
+  // filter (band/mode/country/state) starts at its normal default
+  // regardless of the URL -- only date range is deep-linkable here.
+  const urlParams = new URLSearchParams(location.search);
+  const urlFrom = urlParams.get('from');
+  if (urlFrom) {
+    dateFrom.value = urlFrom;
+    dateTo.value = urlParams.get('to') ?? urlFrom;
+    setActiveDateChip(customBtn);
+    customDateRow.hidden = false;
+  }
+
   document.getElementById('reset-filters')!.addEventListener('click', () => {
     bandChips.querySelectorAll<HTMLElement>('.chip').forEach((chip) => setChipState(chip, activeBands, !startUnselected));
     modeChips.querySelectorAll<HTMLElement>('.chip').forEach((chip) => setChipState(chip, activeModes, !startUnselected));
