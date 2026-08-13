@@ -73,3 +73,25 @@ export function resolveLatLon(lat?: string, lon?: string, grid?: string): LatLon
   }
   return grid ? gridToLatLon(grid) : null;
 }
+
+const EARTH_RADIUS_KM = 6371;
+const toRad = (deg: number) => (deg * Math.PI) / 180;
+const toDeg = (rad: number) => (rad * 180) / Math.PI;
+
+/** Great-circle distance in km -- port of web/src/lib/maidenhead.ts's client-side version, for server-side use (routes/bearing.ts). */
+export function distanceKm(a: LatLon, b: LatLon): number {
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lon - a.lon);
+  const sinLat = Math.sin(dLat / 2);
+  const sinLon = Math.sin(dLon / 2);
+  const h = sinLat * sinLat + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * sinLon * sinLon;
+  return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+/** Initial great-circle bearing in degrees (0-360, 0 = north) from a to b. */
+export function bearingDeg(a: LatLon, b: LatLon): number {
+  const dLon = toRad(b.lon - a.lon);
+  const y = Math.sin(dLon) * Math.cos(toRad(b.lat));
+  const x = Math.cos(toRad(a.lat)) * Math.sin(toRad(b.lat)) - Math.sin(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.cos(dLon);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}

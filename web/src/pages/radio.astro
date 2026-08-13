@@ -178,6 +178,12 @@ import '../styles/radio.css';
     <div class="psk-table" id="dmr-table"></div>
   </div>
 
+  <div class="card" style="margin-top:1.5rem;">
+    <h2>D-STAR Last Heard (REF069)</h2>
+    <p style="margin:0;color:var(--muted);font-size:0.85rem;">Recent activity on the Connecticut D-STAR Group's REF069 reflector network, via <a href="https://ctdstar.org/reflector.html" target="_blank" rel="noopener">ctdstar.org</a> &mdash; refreshes every 2 min. Not specific to this station's own reception. Times shown are the reflector's own clock, as published.</p>
+    <div class="psk-table" id="dstar-table"></div>
+  </div>
+
   <script>
     import 'leaflet/dist/leaflet.css';
     import L from 'leaflet';
@@ -925,6 +931,37 @@ import '../styles/radio.css';
     }
     loadDmrLastHeard();
     setInterval(loadDmrLastHeard, 15000);
+
+    type DstarEntry = { call: string; message: string; module: string; moduleLabel: string; time: string };
+    function loadDstarLastHeard() {
+      fetch('/api/dstar/lastheard')
+        .then((r) => r.json())
+        .then((body: { entries: DstarEntry[] }) => {
+          const table = document.getElementById('dstar-table')!;
+          if (!body.entries.length) {
+            table.innerHTML = '<p class="status-line">No recent D-STAR activity on REF069 &mdash; or the reflector\'s dashboard is unreachable right now.</p>';
+            return;
+          }
+          table.innerHTML = '';
+          for (const e of body.entries) {
+            const row = document.createElement('div');
+            row.className = 'psk-row';
+            row.innerHTML = `
+              <span class="call">${escapeHtml(e.call)}</span>
+              <span class="place">${escapeHtml(e.message)}</span>
+              <span class="freq" title="${escapeHtml(e.moduleLabel)}">Mod ${escapeHtml(e.module)}</span>
+              <span class="snr"></span>
+              <span class="ago">${escapeHtml(e.time)}</span>
+            `;
+            table.appendChild(row);
+          }
+        })
+        .catch(() => {
+          document.getElementById('dstar-table')!.innerHTML = '<p class="status-line">Could not load D-STAR last-heard data.</p>';
+        });
+    }
+    loadDstarLastHeard();
+    setInterval(loadDstarLastHeard, 120000);
 
     function loadPskReports() {
       fetch('/api/conditions/pskreporter')

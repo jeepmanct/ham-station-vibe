@@ -56,6 +56,23 @@ import '../styles/tools.css';
       </div>
     </div>
 
+    <div class="tool-card" data-tile-id="bearing-callsign">
+      <h2><span>Bearing to Callsign</span><button type="button" class="tool-reset-btn" id="bearing-reset-btn">Reset</button></h2>
+      <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Great-circle heading from your station to a callsign's DXCC entity &mdash; an approximate reference point, not that station's exact QTH.</p>
+      <div class="tool-field">
+        <label for="bearing-call">Callsign</label>
+        <div style="display:flex;gap:0.5rem;">
+          <input type="text" id="bearing-call" placeholder="e.g. VK2ABC" style="flex:1;" autocapitalize="characters" />
+          <button type="button" class="btn secondary" id="bearing-lookup-btn" style="white-space:nowrap;">Look Up</button>
+        </div>
+      </div>
+      <p id="bearing-status" class="status-line"></p>
+      <div class="tool-result" id="bearing-result" hidden>
+        <div class="big" id="bearing-result-value">&mdash;</div>
+        <div class="sub" id="bearing-result-sub"></div>
+      </div>
+    </div>
+
     <div class="tool-card" data-tile-id="antenna-length">
       <h2><span>Antenna Length</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <div class="tool-field">
@@ -239,6 +256,33 @@ import '../styles/tools.css';
       </div>
     </div>
 
+    <div class="tool-card" data-tile-id="repeater-offset">
+      <h2><span>Repeater Offset</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.8rem;">Typical U.S. band-plan convention &mdash; offsets vary by region and coordinating body, always confirm against the actual repeater listing.</p>
+      <div style="display:flex;gap:0.5rem;">
+        <div class="tool-field" style="flex:1;">
+          <label for="rpt-band">Band</label>
+          <select id="rpt-band">
+            <option value="10">10m</option>
+            <option value="6">6m</option>
+            <option value="2" selected>2m</option>
+            <option value="1.25">1.25m</option>
+            <option value="0.7">70cm</option>
+          </select>
+        </div>
+        <div class="tool-field" style="flex:1;">
+          <label for="rpt-output">Output (RX) freq (MHz)</label>
+          <input type="text" id="rpt-output" placeholder="e.g. 146.94" />
+        </div>
+      </div>
+      <div class="tool-result" id="rpt-result" hidden>
+        <div class="big" id="rpt-result-value">&mdash;</div>
+        <div class="sub" id="rpt-result-sub"></div>
+      </div>
+      <p style="margin:1rem 0 0.4rem;color:var(--muted);font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;">Standard CTCSS Tones (Hz)</p>
+      <p class="ctcss-tones">67.0, 69.3, 71.9, 74.4, 77.0, 79.7, 82.5, 85.4, 88.5, 91.5, 94.8, 97.4, 100.0, 103.5, 107.2, 110.9, 114.8, 118.8, 123.0, 127.3, 131.8, 136.5, 141.3, 146.2, 151.4, 156.7, 159.8, 162.2, 165.5, 167.9, 171.3, 173.8, 177.3, 179.9, 183.5, 186.2, 189.9, 192.8, 196.6, 199.5, 203.5, 206.5, 210.7, 218.1, 225.7, 229.1, 233.6, 241.8, 250.3, 254.1</p>
+    </div>
+
     <div class="tool-card" data-tile-id="rf-exposure">
       <h2><span>RF Exposure (MPE) Estimate</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.8rem;">Simplified far-field estimate per FCC OET Bulletin 65 formulas &mdash; not a substitute for a full station evaluation. See <a href="https://www.arrl.org/rf-exposure" target="_blank" rel="noopener">arrl.org/rf-exposure</a>.</p>
@@ -276,6 +320,27 @@ import '../styles/tools.css';
       <div class="tool-result" id="mpe-result" hidden>
         <div class="big" id="mpe-result-value">&mdash;</div>
         <div class="sub" id="mpe-result-sub"></div>
+      </div>
+    </div>
+
+    <div class="tool-card" data-tile-id="smeter-db">
+      <h2><span>S-Meter / dB Converter</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+      <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.8rem;">Enter any one value to convert &mdash; uses the common HF convention (S9 = &minus;73 dBm, 6 dB per S-unit); exact S-meter calibration varies by radio and band.</p>
+      <div class="tool-field">
+        <label for="smeter-s">S-units (e.g. 7, or 9+20 for over S9)</label>
+        <input type="text" id="smeter-s" placeholder="e.g. 9 or 9+20" />
+      </div>
+      <div class="tool-field">
+        <label for="smeter-dbm">Power (dBm)</label>
+        <input type="text" id="smeter-dbm" placeholder="e.g. -73" />
+      </div>
+      <div class="tool-field">
+        <label for="smeter-uv">Voltage (&micro;V, 50&Omega;)</label>
+        <input type="text" id="smeter-uv" placeholder="e.g. 223.6" />
+      </div>
+      <div class="tool-result" id="smeter-result" hidden>
+        <div class="big" id="smeter-result-value">&mdash;</div>
+        <div class="sub" id="smeter-result-sub"></div>
       </div>
     </div>
 
@@ -473,6 +538,41 @@ import '../styles/tools.css';
     }
     distFrom.addEventListener('input', computeDistance);
     distTo.addEventListener('input', computeDistance);
+
+    // --- Bearing to callsign ---
+    const bearingCall = document.getElementById('bearing-call') as HTMLInputElement;
+    const bearingStatus = document.getElementById('bearing-status')!;
+    const bearingResult = document.getElementById('bearing-result')!;
+    const bearingResultValue = document.getElementById('bearing-result-value')!;
+    const bearingResultSub = document.getElementById('bearing-result-sub')!;
+
+    type BearingResp = { call: string; entity: string; continent: string; distanceKm: number; bearingDeg: number; longPathBearingDeg: number };
+
+    async function lookupBearing() {
+      const call = bearingCall.value.trim();
+      if (!call) return;
+      bearingStatus.textContent = 'Looking up…';
+      bearingResult.hidden = true;
+      const res = await fetch(`/api/bearing?call=${encodeURIComponent(call)}`);
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !body) {
+        bearingStatus.textContent = body?.error ?? 'Lookup failed.';
+        return;
+      }
+      const data = body as BearingResp;
+      bearingStatus.textContent = '';
+      bearingResult.hidden = false;
+      bearingResultValue.textContent = `${Math.round(data.bearingDeg)}° (${compassPoint(data.bearingDeg)})`;
+      const miles = Math.round(data.distanceKm * 0.621371);
+      bearingResultSub.textContent = `${data.entity} · ${miles.toLocaleString()} mi (${Math.round(data.distanceKm).toLocaleString()} km) · long path ${Math.round(data.longPathBearingDeg)}°`;
+    }
+    document.getElementById('bearing-lookup-btn')!.addEventListener('click', lookupBearing);
+    bearingCall.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); lookupBearing(); }
+    });
+    document.getElementById('bearing-reset-btn')!.addEventListener('click', () => {
+      bearingStatus.textContent = '';
+    });
 
     // --- Antenna length ---
     const antType = document.getElementById('ant-type') as HTMLSelectElement;
@@ -776,6 +876,35 @@ import '../styles/tools.css';
     losTx.addEventListener('input', computeLos);
     losRx.addEventListener('input', computeLos);
 
+    // --- Repeater offset -- typical U.S. band-plan convention. 2m is a
+    // sub-band rule (output below 147.0 MHz splits down, at/above splits
+    // up) rather than a fixed direction, since that's how it's actually
+    // published; every other band here just always splits one way. ---
+    const rptBand = document.getElementById('rpt-band') as HTMLSelectElement;
+    const rptOutput = document.getElementById('rpt-output') as HTMLInputElement;
+    const rptResult = document.getElementById('rpt-result')!;
+    const rptResultValue = document.getElementById('rpt-result-value')!;
+    const rptResultSub = document.getElementById('rpt-result-sub')!;
+
+    function computeRepeaterOffset() {
+      const output = Number(rptOutput.value);
+      if (!rptOutput.value || Number.isNaN(output)) { rptResult.hidden = true; return; }
+      let offsetMhz: number;
+      switch (rptBand.value) {
+        case '10': offsetMhz = -0.1; break;
+        case '6': offsetMhz = -0.5; break;
+        case '2': offsetMhz = output >= 147.0 ? 0.6 : -0.6; break;
+        case '1.25': offsetMhz = -1.6; break;
+        default: offsetMhz = -5; break; // 70cm
+      }
+      const input = output + offsetMhz;
+      rptResult.hidden = false;
+      rptResultValue.textContent = `${input.toFixed(4)} MHz`;
+      rptResultSub.textContent = `Transmit (input) frequency · ${offsetMhz > 0 ? '+' : ''}${offsetMhz.toFixed(1)} MHz offset from ${output.toFixed(4)} MHz output`;
+    }
+    rptBand.addEventListener('change', computeRepeaterOffset);
+    rptOutput.addEventListener('input', computeRepeaterOffset);
+
     // --- RF Exposure (MPE) estimate, per FCC OET Bulletin 65 formulas ---
     const mpePower = document.getElementById('mpe-power') as HTMLInputElement;
     const mpeGain = document.getElementById('mpe-gain') as HTMLInputElement;
@@ -830,6 +959,65 @@ import '../styles/tools.css';
     }
     [mpePower, mpeGain, mpeFreq, mpeDuty, mpeDistance].forEach((el) => el.addEventListener('input', computeMpe));
     mpeCategory.addEventListener('change', computeMpe);
+
+    // --- S-meter / dB converter -- common HF convention (S9 = -73 dBm, 6
+    // dB/S-unit below S9, 1 dB per dB-over-S9 above it); dBm<->dB(uV) in a
+    // 50-ohm system is a fixed +107 dB offset. Any one field recomputes the
+    // other two, same "enter any one" pattern as dBm/Watts/Volts on
+    // /electronics. ---
+    const smeterS = document.getElementById('smeter-s') as HTMLInputElement;
+    const smeterDbm = document.getElementById('smeter-dbm') as HTMLInputElement;
+    const smeterUv = document.getElementById('smeter-uv') as HTMLInputElement;
+    const smeterResult = document.getElementById('smeter-result')!;
+    const smeterResultValue = document.getElementById('smeter-result-value')!;
+    const smeterResultSub = document.getElementById('smeter-result-sub')!;
+
+    function sToDbm(input: string): number | null {
+      const overS9 = input.trim().match(/^9\s*\+\s*(\d+(?:\.\d+)?)$/);
+      if (overS9) return -73 + Number(overS9[1]);
+      const s = Number(input);
+      return Number.isNaN(s) ? null : -73 - (9 - s) * 6;
+    }
+    function dbmToSLabel(dbm: number): string {
+      if (dbm >= -73) return `S9+${Math.round(dbm + 73)}`;
+      return `S${(9 - (-73 - dbm) / 6).toFixed(1)}`;
+    }
+    function updateSmeterResult(dbm: number) {
+      smeterResult.hidden = false;
+      smeterResultValue.textContent = dbmToSLabel(dbm);
+      smeterResultSub.textContent = `${dbm.toFixed(1)} dBm · ${dbmToUv(dbm).toFixed(dbmToUv(dbm) < 10 ? 3 : 1)} µV`;
+    }
+    function dbmToUv(dbm: number): number {
+      return Math.pow(10, (dbm + 107) / 20);
+    }
+    function uvToDbm(uv: number): number {
+      return 20 * Math.log10(uv) - 107;
+    }
+    function computeFromS() {
+      const dbm = sToDbm(smeterS.value);
+      if (!smeterS.value || dbm === null) { smeterResult.hidden = true; return; }
+      smeterDbm.value = dbm.toFixed(1);
+      smeterUv.value = dbmToUv(dbm).toFixed(3);
+      updateSmeterResult(dbm);
+    }
+    function computeFromDbm() {
+      const dbm = Number(smeterDbm.value);
+      if (!smeterDbm.value || Number.isNaN(dbm)) { smeterResult.hidden = true; return; }
+      smeterS.value = dbmToSLabel(dbm).replace('S', '');
+      smeterUv.value = dbmToUv(dbm).toFixed(3);
+      updateSmeterResult(dbm);
+    }
+    function computeFromUv() {
+      const uv = Number(smeterUv.value);
+      if (!smeterUv.value || Number.isNaN(uv) || uv <= 0) { smeterResult.hidden = true; return; }
+      const dbm = uvToDbm(uv);
+      smeterDbm.value = dbm.toFixed(1);
+      smeterS.value = dbmToSLabel(dbm).replace('S', '');
+      updateSmeterResult(dbm);
+    }
+    smeterS.addEventListener('input', computeFromS);
+    smeterDbm.addEventListener('input', computeFromDbm);
+    smeterUv.addEventListener('input', computeFromUv);
 
     // --- UTC / Local time ---
     const utcClockValue = document.getElementById('utc-clock-value')!;
