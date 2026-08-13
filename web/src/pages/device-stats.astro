@@ -1,0 +1,188 @@
+---
+import Base from '../layouts/Base.astro';
+import '../styles/deviceStats.css';
+---
+<Base title="Device Stats" active="device-stats">
+  <h1>Device Stats</h1>
+  <p class="lede">Live health of the machine this site runs on &mdash; not specific to any one radio or QSO.</p>
+
+  <div class="stats-grid">
+    <div class="stat-tile"><div class="label">Hostname</div><div class="value" id="ds-hostname" style="font-size:1.1rem;">&mdash;</div></div>
+    <div class="stat-tile"><div class="label">Uptime</div><div class="value" id="ds-uptime" style="font-size:1.3rem;">&mdash;</div></div>
+    <div class="stat-tile"><div class="label">CPU Temp</div><div class="value" id="ds-temp">&mdash;</div></div>
+    <div class="stat-tile"><div class="label">Load Avg (1 / 5 / 15m)</div><div class="value" id="ds-load" style="font-size:1.2rem;">&mdash;</div></div>
+  </div>
+
+  <h2 style="margin-top:2.5rem;">Memory</h2>
+  <div class="card">
+    <div class="ds-progress-bar"><div class="ds-progress-fill" id="ds-mem-bar" style="width:0%;"></div></div>
+    <p class="ds-substat" id="ds-mem-sub">&mdash;</p>
+  </div>
+
+  <h2 style="margin-top:2.5rem;">Disk</h2>
+  <div class="card" id="ds-disks">
+    <p class="ds-substat">&mdash;</p>
+  </div>
+
+  <h2 style="margin-top:2.5rem;">CPU</h2>
+  <div class="card">
+    <p class="ds-substat" id="ds-cpu-info">&mdash;</p>
+  </div>
+
+  <section style="margin-top:2.5rem;">
+    <div class="card">
+      <h2>Admin</h2>
+      <div id="reboot-login">
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Log in to reboot the device.</p>
+        <form id="login-form">
+          <input type="password" id="password" placeholder="Admin password" autocomplete="current-password" required />
+          <p id="login-status" class="status-line"></p>
+          <button type="submit" class="btn">Log in</button>
+        </form>
+      </div>
+      <div id="reboot-controls" hidden>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Reboots the physical machine this site runs on &mdash; every service, including this site, will be briefly unreachable while it restarts.</p>
+        <button type="button" class="btn" id="reboot-btn" style="background:var(--status-critical);">Reboot Device</button>
+        <p id="reboot-status" class="status-line"></p>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const TOKEN_KEY = 'hamstation_admin_token';
+
+    type SystemStats = {
+      hostname: string;
+      platform: string;
+      arch: string;
+      uptimeSec: number;
+      loadAvg: [number, number, number];
+      cpu: { model: string; cores: number };
+      cpuTempC: number | null;
+      memory: { totalBytes: number; availableBytes: number; usedBytes: number; usedPercent: number };
+      disks: { path: string; totalBytes: number; usedBytes: number; availableBytes: number; usedPercent: number }[];
+    };
+
+    function formatBytes(bytes: number): string {
+      const gb = bytes / 1024 ** 3;
+      if (gb >= 1) return `${gb.toFixed(1)} GB`;
+      return `${(bytes / 1024 ** 2).toFixed(0)} MB`;
+    }
+
+    function formatUptime(sec: number): string {
+      const days = Math.floor(sec / 86400);
+      const hours = Math.floor((sec % 86400) / 3600);
+      const mins = Math.floor((sec % 3600) / 60);
+      if (days > 0) return `${days}d ${hours}h`;
+      if (hours > 0) return `${hours}h ${mins}m`;
+      return `${mins}m`;
+    }
+
+    function fillClass(pct: number): string {
+      if (pct >= 90) return 'ds-progress-fill critical';
+      if (pct >= 75) return 'ds-progress-fill warning';
+      return 'ds-progress-fill';
+    }
+
+    function loadSystemStats() {
+      fetch('/api/system/stats')
+        .then((r) => r.json())
+        .then((s: SystemStats) => {
+          document.getElementById('ds-hostname')!.textContent = s.hostname;
+          document.getElementById('ds-uptime')!.textContent = formatUptime(s.uptimeSec);
+          document.getElementById('ds-load')!.textContent = s.loadAvg.map((n) => n.toFixed(2)).join(' / ');
+
+          const tempEl = document.getElementById('ds-temp')!;
+          if (s.cpuTempC != null) {
+            tempEl.textContent = `${s.cpuTempC.toFixed(1)}°C`;
+            tempEl.style.color = s.cpuTempC >= 80 ? 'var(--status-critical)' : s.cpuTempC >= 70 ? 'var(--status-warning)' : '';
+          } else {
+            tempEl.textContent = 'N/A';
+          }
+
+          const memBar = document.getElementById('ds-mem-bar') as HTMLDivElement;
+          memBar.style.width = `${Math.min(100, s.memory.usedPercent).toFixed(1)}%`;
+          memBar.className = fillClass(s.memory.usedPercent);
+          document.getElementById('ds-mem-sub')!.textContent =
+            `${formatBytes(s.memory.usedBytes)} used of ${formatBytes(s.memory.totalBytes)} (${s.memory.usedPercent.toFixed(0)}%) &mdash; ${formatBytes(s.memory.availableBytes)} available`
+              .replace('&mdash;', '—');
+
+          const disksEl = document.getElementById('ds-disks')!;
+          if (!s.disks.length) {
+            disksEl.innerHTML = '<p class="ds-substat">Could not read disk usage.</p>';
+          } else {
+            disksEl.innerHTML = '';
+            for (const d of s.disks) {
+              const div = document.createElement('div');
+              div.className = 'ds-disk-card';
+              div.innerHTML = `
+                <p class="ds-substat" style="margin-bottom:0.35rem;font-family:var(--font-mono);">${d.path}</p>
+                <div class="ds-progress-bar"><div class="${fillClass(d.usedPercent)}" style="width:${Math.min(100, d.usedPercent).toFixed(1)}%;"></div></div>
+                <p class="ds-substat">${formatBytes(d.usedBytes)} used of ${formatBytes(d.totalBytes)} (${d.usedPercent.toFixed(0)}%) — ${formatBytes(d.availableBytes)} available</p>
+              `;
+              disksEl.appendChild(div);
+            }
+          }
+
+          document.getElementById('ds-cpu-info')!.textContent =
+            `${s.cpu.model} · ${s.cpu.cores} core${s.cpu.cores === 1 ? '' : 's'} · ${s.platform}/${s.arch}`;
+        })
+        .catch(() => {
+          document.getElementById('ds-hostname')!.textContent = 'Could not load';
+        });
+    }
+    loadSystemStats();
+    setInterval(loadSystemStats, 10000);
+
+    // --- Admin: reboot ---
+    const rebootLogin = document.getElementById('reboot-login')!;
+    const rebootControls = document.getElementById('reboot-controls')!;
+    const loginStatus = document.getElementById('login-status')!;
+    const rebootStatus = document.getElementById('reboot-status')!;
+
+    function showRebootControls() {
+      rebootLogin.setAttribute('hidden', '');
+      rebootControls.removeAttribute('hidden');
+    }
+    if (sessionStorage.getItem(TOKEN_KEY)) showRebootControls();
+
+    document.getElementById('login-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = (document.getElementById('password') as HTMLInputElement).value;
+      loginStatus.textContent = 'Checking…';
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (res.ok) {
+        const { token } = await res.json();
+        sessionStorage.setItem(TOKEN_KEY, token);
+        loginStatus.textContent = '';
+        showRebootControls();
+      } else {
+        loginStatus.textContent = 'Wrong password.';
+      }
+    });
+
+    document.getElementById('reboot-btn')!.addEventListener('click', async () => {
+      if (!confirm('Reboot the device now? This site and every other service on it will be unreachable for a minute or two while it restarts.')) return;
+      rebootStatus.textContent = 'Rebooting…';
+      const res = await fetch('/api/system/reboot', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (res.ok) {
+        rebootStatus.textContent = 'Reboot triggered — the site will be back shortly.';
+      } else if (res.status === 401) {
+        sessionStorage.removeItem(TOKEN_KEY);
+        rebootControls.setAttribute('hidden', '');
+        rebootLogin.removeAttribute('hidden');
+        loginStatus.textContent = 'Session expired, please log in again.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        rebootStatus.textContent = body.error ?? 'Reboot failed.';
+      }
+    });
+  </script>
+</Base>

@@ -3,7 +3,7 @@ import '../styles/base.css';
 
 interface Props {
   title: string;
-  active?: 'home' | 'photos' | 'log' | 'map' | 'awards' | 'stats' | 'activations' | 'tools' | 'electronics' | 'reference' | 'conditions' | 'radio' | 'satellites' | 'about' | 'admin';
+  active?: 'home' | 'photos' | 'log' | 'map' | 'awards' | 'stats' | 'activations' | 'tools' | 'electronics' | 'reference' | 'conditions' | 'radio' | 'satellites' | 'about' | 'admin' | 'device-stats';
 }
 const { title, active } = Astro.props;
 ---
@@ -54,6 +54,7 @@ const { title, active } = Astro.props;
         <a data-tile-id="tools" href="/tools" aria-current={active === 'tools' ? 'page' : undefined}>Tools</a>
         <a data-tile-id="electronics" href="/electronics" aria-current={active === 'electronics' ? 'page' : undefined}>Electronics</a>
         <a data-tile-id="reference" href="/reference" aria-current={active === 'reference' ? 'page' : undefined}>Reference</a>
+        <a data-tile-id="device-stats" href="/device-stats" aria-current={active === 'device-stats' ? 'page' : undefined}>Device Stats</a>
         <a data-tile-id="admin" href="/admin" aria-current={active === 'admin' ? 'page' : undefined}>Admin</a>
       </nav>
       <div class="theme-picker">

@@ -21,6 +21,7 @@ import { syncStatusRoutes } from './routes/syncStatus';
 import { tileLayoutRoutes } from './routes/tileLayout';
 import { bearingRoutes } from './routes/bearing';
 import { dstarRoutes } from './routes/dstar';
+import { systemStatsRoutes } from './routes/systemStats';
 import { startFlexRadioClient, registerAudioListener, unregisterAudioListener } from './flexRadio';
 import { startBrandmeisterListener } from './brandmeister';
 import { consumeWsTicket } from './auth';
@@ -50,6 +51,7 @@ app.route('/api/station-location', stationLocationRoutes);
 app.route('/api/tile-layout', tileLayoutRoutes);
 app.route('/api/bearing', bearingRoutes);
 app.route('/api/dstar', dstarRoutes);
+app.route('/api/system', systemStatsRoutes);
 // Registered before the general /media/* handler below -- Hono matches
 // middleware in registration order, and eqsl-card images live in their own
 // directory, not under PHOTOS_DIR.
