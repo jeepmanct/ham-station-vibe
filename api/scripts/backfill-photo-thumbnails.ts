@@ -21,6 +21,7 @@ let failed = 0;
 for (const row of rows) {
   try {
     await sharp(path.join(PHOTOS_DIR, row.filename))
+      .rotate() // apply EXIF orientation before resizing -- see routes/photos.ts's comment
       .resize({ width: THUMB_WIDTH, withoutEnlargement: true })
       .jpeg({ quality: 80 })
       .toFile(path.join(PHOTOS_THUMBS_DIR, thumbFilename(row.filename)));

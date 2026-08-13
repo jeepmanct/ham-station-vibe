@@ -74,6 +74,14 @@ photoRoutes.post('/', requireAuth, async (c) => {
   let hasThumbnail = false;
   try {
     await sharp(await file.arrayBuffer())
+      // Reads the EXIF orientation tag and physically rotates the pixel
+      // data to match, then drops the now-redundant tag -- without this, a
+      // phone photo shot in portrait (sensor data is stored sideways, with
+      // an EXIF flag saying "rotate to display correctly") comes out
+      // sideways here, since resize()/jpeg() alone don't apply it. The
+      // full-size original next to it looks fine regardless, since
+      // browsers apply EXIF orientation themselves when rendering an <img>.
+      .rotate()
       .resize({ width: THUMB_WIDTH, withoutEnlargement: true })
       .jpeg({ quality: 80 })
       .toFile(path.join(PHOTOS_THUMBS_DIR, thumbFilename(filename)));
