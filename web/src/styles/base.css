@@ -438,7 +438,8 @@ section + section { margin-top: 2.5rem; }
 }
 
 input[type="text"],
-input[type="password"] {
+input[type="password"],
+input[type="datetime-local"] {
   width: 100%;
   padding: 0.7rem 0.85rem;
   border-radius: 10px;
@@ -448,11 +449,24 @@ input[type="password"] {
   font-size: 1rem;
 }
 input[type="text"]:focus,
-input[type="password"]:focus {
+input[type="password"]:focus,
+input[type="datetime-local"]:focus {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 input[type="file"] { color: var(--muted); font-size: 0.9rem; }
+/* A datetime-local input's native segmented control (day/month/year/hour/
+   min/AM-PM + calendar icon) has a wider natural minimum width than a
+   plain text input -- left at the default 1rem font-size, two side by
+   side in a narrow tile forced their combined intrinsic width past the
+   tile's edge (flex items don't shrink below their content's minimum
+   width unless told to). Shrunk down, plus min-width: 0 so it's actually
+   allowed to shrink inside a flex/grid layout instead of overflowing it. */
+input[type="datetime-local"] {
+  font-size: 0.85rem;
+  padding: 0.55rem 0.6rem;
+  min-width: 0;
+}
 
 .status-line {
   color: var(--muted);
