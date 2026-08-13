@@ -75,3 +75,11 @@
   text-align: center;
 }
 .photo-modal-caption[hidden] { display: none; }
+.photo-modal-caption-form {
+  display: flex;
+  gap: 0.5rem;
+}
+.photo-modal-caption-form[hidden] { display: none; }
+.photo-modal-caption-form input {
+  flex: 1;
+}

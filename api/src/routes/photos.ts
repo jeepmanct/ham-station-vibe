@@ -98,6 +98,16 @@ photoRoutes.post('/', requireAuth, async (c) => {
   return c.json({ ok: true, url: `/media/${filename}` }, 201);
 });
 
+photoRoutes.patch('/:id', requireAuth, async (c) => {
+  const id = Number(c.req.param('id'));
+  const body = await c.req.json().catch(() => null);
+  if (typeof body?.caption !== 'string') return c.json({ error: 'caption is required' }, 400);
+  const caption = body.caption.trim();
+  const result = db.query('UPDATE photos SET caption = ? WHERE id = ?').run(caption || null, id);
+  if (result.changes === 0) return c.json({ error: 'Photo not found' }, 404);
+  return c.json({ ok: true, caption: caption || null });
+});
+
 photoRoutes.delete('/:id', requireAuth, async (c) => {
   const id = Number(c.req.param('id'));
   const row = db.query('SELECT filename, has_thumbnail FROM photos WHERE id = ?').get(id) as

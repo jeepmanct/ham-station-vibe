@@ -14,6 +14,10 @@ import '../styles/gallery.css';
       <button type="button" id="photo-modal-close" class="btn secondary eqsl-modal-close">&times;</button>
       <img id="photo-modal-img" src="" alt="" />
       <p id="photo-modal-caption" class="photo-modal-caption"></p>
+      <form id="photo-modal-caption-form" class="photo-modal-caption-form" hidden>
+        <input type="text" id="photo-modal-caption-input" placeholder="Add a caption…" />
+        <button type="submit" class="btn secondary">Save</button>
+      </form>
     </div>
   </div>
 
@@ -59,17 +63,30 @@ import '../styles/gallery.css';
     const photoModalBackdrop = document.getElementById('photo-modal-backdrop')!;
     const photoModalImg = document.getElementById('photo-modal-img') as HTMLImageElement;
     const photoModalCaption = document.getElementById('photo-modal-caption')!;
+    const photoModalCaptionForm = document.getElementById('photo-modal-caption-form') as HTMLFormElement;
+    const photoModalCaptionInput = document.getElementById('photo-modal-caption-input') as HTMLInputElement;
+    let openPhoto: Photo | null = null;
 
     function openPhotoModal(photo: Photo) {
+      openPhoto = photo;
+      const isAdmin = !!sessionStorage.getItem(TOKEN_KEY);
       photoModalImg.src = photo.url;
       photoModalImg.alt = photo.caption ?? '';
-      photoModalCaption.textContent = photo.caption ?? '';
-      photoModalCaption.hidden = !photo.caption;
+      if (isAdmin) {
+        photoModalCaption.hidden = true;
+        photoModalCaptionForm.hidden = false;
+        photoModalCaptionInput.value = photo.caption ?? '';
+      } else {
+        photoModalCaptionForm.hidden = true;
+        photoModalCaption.textContent = photo.caption ?? '';
+        photoModalCaption.hidden = !photo.caption;
+      }
       photoModalBackdrop.removeAttribute('hidden');
     }
     function closePhotoModal() {
       photoModalBackdrop.setAttribute('hidden', '');
       photoModalImg.src = '';
+      openPhoto = null;
     }
     document.getElementById('photo-modal-close')!.addEventListener('click', closePhotoModal);
     photoModalBackdrop.addEventListener('click', (e) => {
@@ -77,6 +94,27 @@ import '../styles/gallery.css';
     });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !photoModalBackdrop.hidden) closePhotoModal();
+    });
+
+    photoModalCaptionForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!openPhoto) return;
+      const caption = photoModalCaptionInput.value.trim();
+      const res = await fetch(`/api/photos/${openPhoto.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ caption }),
+      });
+      if (res.ok) {
+        openPhoto.caption = caption || undefined;
+        loadPhotos();
+      } else if (res.status === 401) {
+        sessionStorage.removeItem(TOKEN_KEY);
+        closePhotoModal();
+        loadPhotos();
+      } else {
+        alert('Could not save caption.');
+      }
     });
 
     async function deletePhoto(id: number) {
