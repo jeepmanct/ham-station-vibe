@@ -26,12 +26,13 @@ alertConfigRoutes.post('/', requireAuth, async (c) => {
     body?.tropoEnabled === undefined &&
     body?.satPassEnabled === undefined &&
     body?.lightningEnabled === undefined &&
-    body?.dxccConfirmedEnabled === undefined
+    body?.dxccConfirmedEnabled === undefined &&
+    body?.dxDigestEnabled === undefined
   ) {
     return c.json(
       {
         error:
-          'email, ntfy, vhfEnabled, flareEnabled, windEnabled, kpEnabled, tropoEnabled, satPassEnabled, lightningEnabled, dxccConfirmedEnabled, dxUsSpottersOnly, or vhfUsSpottersOnly is required',
+          'email, ntfy, vhfEnabled, flareEnabled, windEnabled, kpEnabled, tropoEnabled, satPassEnabled, lightningEnabled, dxccConfirmedEnabled, dxDigestEnabled, dxUsSpottersOnly, or vhfUsSpottersOnly is required',
       },
       400,
     );
@@ -73,6 +74,7 @@ alertConfigRoutes.post('/', requireAuth, async (c) => {
     satPassEnabled: body.satPassEnabled !== undefined ? !!body.satPassEnabled : undefined,
     lightningEnabled: body.lightningEnabled !== undefined ? !!body.lightningEnabled : undefined,
     dxccConfirmedEnabled: body.dxccConfirmedEnabled !== undefined ? !!body.dxccConfirmedEnabled : undefined,
+    dxDigestEnabled: body.dxDigestEnabled !== undefined ? !!body.dxDigestEnabled : undefined,
   });
 
   if (body.dxccConfirmedEnabled === true && !wasDxccConfirmedEnabled) {

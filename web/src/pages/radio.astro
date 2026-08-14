@@ -194,6 +194,7 @@ import '../styles/radio.css';
     import { greatCircleArc } from '../lib/geo';
     import { gridToLatLon } from '../lib/maidenhead';
     import { escapeHtml } from '../lib/escapeHtml';
+    import { fetchDistanceUnit, formatDistance, type DistanceUnit } from '../lib/units';
 
     type SliceStatus = { index: number; frequencyMhz: number | null; mode: string | null; txActive: boolean; active: boolean; clientHandle: string | null; signalDbm: number | null };
     type RadioStatus = {
@@ -763,6 +764,12 @@ import '../styles/radio.css';
     let lastPskReports: PskReport[] = [];
     let lastWsprReports: WsprReport[] = [];
     let lastRbnReports: RbnReport[] = [];
+    // Reports refresh every 60s regardless, so a late-resolving fetch here just
+    // means the very first render (if any) uses the 'mi' default until the next cycle.
+    let distanceUnit: DistanceUnit = 'mi';
+    fetchDistanceUnit().then((u) => {
+      distanceUnit = u;
+    });
     fetch('/api/conditions/home')
       .then((r) => r.json())
       .then((home: { lat: number; lon: number } | null) => {
@@ -807,7 +814,7 @@ import '../styles/radio.css';
       for (const r of reports) {
         if (r.lat == null || r.lon == null) continue;
         const arc = greatCircleArc(pskHome.lat, pskHome.lon, r.lat, r.lon, 16);
-        const tooltipText = `${escapeHtml(r.receiver)} · ${r.snr != null ? `${r.snr > 0 ? '+' : ''}${r.snr}dB` : '—'} · ${r.distanceKm != null ? `${r.distanceKm}km` : ''} · ${formatTimeAgo(r.time)}`;
+        const tooltipText = `${escapeHtml(r.receiver)} · ${r.snr != null ? `${r.snr > 0 ? '+' : ''}${r.snr}dB` : '—'} · ${r.distanceKm != null ? formatDistance(r.distanceKm, distanceUnit) : ''} · ${formatTimeAgo(r.time)}`;
         const line = L.polyline(arc, { color: wsprAccent, weight: 1.5, opacity: 0.6, renderer: wsprRenderer });
         line.bindTooltip(tooltipText, { sticky: true });
         wsprLayer.addLayer(line);
@@ -837,7 +844,7 @@ import '../styles/radio.css';
             const snrClass = r.snr == null ? '' : r.snr >= -15 ? 'strong' : r.snr <= -25 ? 'weak' : '';
             row.innerHTML = `
               <span class="call">${escapeHtml(r.receiver)}</span>
-              <span class="place">${escapeHtml(r.receiverGrid ?? '')}${r.distanceKm != null ? ` · ${r.distanceKm}km` : ''}</span>
+              <span class="place">${escapeHtml(r.receiverGrid ?? '')}${r.distanceKm != null ? ` · ${formatDistance(r.distanceKm, distanceUnit)}` : ''}</span>
               <span class="freq">${freqMhz}</span>
               <span class="snr ${snrClass}">${r.snr != null ? `${r.snr > 0 ? '+' : ''}${r.snr}dB` : '—'}</span>
               <span class="ago">${formatTimeAgo(r.time)}</span>

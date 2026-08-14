@@ -113,6 +113,7 @@ import '../styles/stats.css';
 
   <script>
     import { renderBarChart, renderLineChart } from '../lib/charts';
+    import { fetchDistanceUnit, formatDistance } from '../lib/units';
 
     const style = getComputedStyle(document.documentElement);
     const ACCENT = style.getPropertyValue('--accent').trim();
@@ -154,12 +155,16 @@ import '../styles/stats.css';
       topTen: { call: string; qsoDate: string; band: string | null; km: number }[];
       buckets: { min: number; max: number; count: number }[];
     };
-    fetch('/api/stats/distance')
-      .then((r) => r.json())
-      .then((d: DistanceResp) => {
+    // The distance histogram itself is excluded from the unit toggle --
+    // its buckets are computed server-side in fixed mile-wide ranges (see
+    // /api/stats/distance), so re-labeling them in km after the fact would
+    // either mislabel the actual bucket boundaries or require the backend
+    // to bin twice. The "Longest DX" stat and Top 10 list below aren't
+    // binned, so they follow the site-wide preference normally.
+    Promise.all([fetch('/api/stats/distance').then((r) => r.json()), fetchDistanceUnit()])
+      .then(([d, unit]: [DistanceResp, 'km' | 'mi']) => {
         if (d.longest) {
-          const miles = Math.round(d.longest.km * 0.621371);
-          document.getElementById('stat-dx')!.textContent = `${miles.toLocaleString()} mi (${d.longest.km.toLocaleString()} km)`;
+          document.getElementById('stat-dx')!.textContent = formatDistance(d.longest.km, unit);
           document.getElementById('stat-dx-sub')!.textContent = `${d.longest.call} · ${formatDate(d.longest.qsoDate)}`;
         }
         const chart = document.getElementById('chart-distance')!;
@@ -175,11 +180,10 @@ import '../styles/stats.css';
         d.topTen.forEach((r, i) => {
           const row = document.createElement('div');
           row.className = 'leaderboard-row';
-          const miles = Math.round(r.km * 0.621371);
           row.innerHTML = `
             <span class="rank">${i + 1}</span>
             <span><a class="call" href="https://www.qrz.com/db/${encodeURIComponent(r.call)}" target="_blank" rel="noopener">${r.call}</a><span class="band"> &middot; ${r.band ?? '—'} &middot; ${formatDate(r.qsoDate)}</span></span>
-            <span class="km">${miles.toLocaleString()} mi</span>
+            <span class="km">${formatDistance(r.km, unit)}</span>
           `;
           leaderboard.appendChild(row);
         });

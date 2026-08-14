@@ -7,6 +7,16 @@ import '../styles/reference.css';
   <p class="lede">Morse code practice, the US band plan, Q-codes, and prosigns.</p>
 
   <div class="card">
+    <h2>License Exam Question of the Day</h2>
+    <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
+      From the real, current FCC Technician (Element 2) question pool, effective July 2026&ndash;2030, via <a href="https://github.com/russolsen/ham_radio_question_pool" target="_blank" rel="noopener">russolsen/ham_radio_question_pool</a> (mirrors NCVEC's official release). Same question for everyone each UTC day.
+    </p>
+    <div id="exam-qotd">
+      <p class="status-line">Loading…</p>
+    </div>
+  </div>
+
+  <div class="card">
     <h2>Morse Code Trainer</h2>
     <p style="margin:0;color:var(--muted);font-size:0.85rem;">Type text and play it as Morse code, or test yourself in quiz mode.</p>
 
@@ -130,6 +140,58 @@ import '../styles/reference.css';
   </div>
 
   <script>
+    // --- License exam question of the day -- loaded once (it's the same
+    // question all UTC day, see examQuestion.ts), answer choices revealed
+    // as correct/incorrect on click rather than shown up front. ---
+    type QuestionOfTheDay = {
+      id: string;
+      question: string;
+      answers: string[];
+      correctIndex: number;
+      refs: string;
+      figureUrl: string | null;
+      poolSize: number;
+    };
+
+    fetch('/api/exam/question-of-the-day')
+      .then((r) => r.json())
+      .then((q: QuestionOfTheDay) => {
+        const container = document.getElementById('exam-qotd')!;
+        const letters = ['A', 'B', 'C', 'D'];
+        container.innerHTML = `
+          <p style="margin:0 0 0.5rem;font-weight:600;">${q.id}: ${q.question}</p>
+          ${q.figureUrl ? `<img src="${q.figureUrl}" alt="Reference diagram for ${q.id}" style="max-width:100%;border-radius:8px;margin-bottom:0.75rem;" />` : ''}
+          <div class="exam-answers" id="exam-answers"></div>
+          <p class="status-line" id="exam-feedback"></p>
+          <p style="margin:0.5rem 0 0;color:var(--muted);font-size:0.78rem;">FCC rule reference: ${q.refs || '—'} &middot; question ${q.id} of ${q.poolSize} in the pool</p>
+        `;
+        const answersEl = document.getElementById('exam-answers')!;
+        const feedback = document.getElementById('exam-feedback')!;
+        q.answers.forEach((answer, i) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn secondary exam-answer-btn';
+          btn.textContent = `${letters[i]}. ${answer}`;
+          btn.addEventListener('click', () => {
+            const buttons = answersEl.querySelectorAll<HTMLButtonElement>('.exam-answer-btn');
+            buttons.forEach((b) => (b.disabled = true));
+            buttons[q.correctIndex].classList.add('correct');
+            if (i === q.correctIndex) {
+              feedback.textContent = 'Correct!';
+              feedback.style.color = 'var(--status-good)';
+            } else {
+              btn.classList.add('incorrect');
+              feedback.textContent = `Not quite — the correct answer is ${letters[q.correctIndex]}.`;
+              feedback.style.color = 'var(--status-critical)';
+            }
+          });
+          answersEl.appendChild(btn);
+        });
+      })
+      .catch(() => {
+        document.getElementById('exam-qotd')!.innerHTML = '<p class="status-line">Could not load today\'s question.</p>';
+      });
+
     const MORSE: Record<string, string> = {
       A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.', H: '....', I: '..', J: '.---',
       K: '-.-', L: '.-..', M: '--', N: '-.', O: '---', P: '.--.', Q: '--.-', R: '.-.', S: '...', T: '-',

@@ -39,12 +39,13 @@ type Row = {
   sat_pass_enabled: number;
   lightning_enabled: number;
   dxcc_confirmed_enabled: number;
+  dx_digest_enabled: number;
 };
 
 function getRow(): Row | null {
   return db
     .query(
-      'SELECT smtp_host, smtp_port, smtp_user, smtp_pass, alert_to, enabled, ntfy_topic, ntfy_enabled, vhf_enabled, flare_enabled, wind_enabled, dx_us_spotters_only, vhf_us_spotters_only, kp_enabled, tropo_enabled, sat_pass_enabled, lightning_enabled, dxcc_confirmed_enabled FROM alert_email_config WHERE id = 1',
+      'SELECT smtp_host, smtp_port, smtp_user, smtp_pass, alert_to, enabled, ntfy_topic, ntfy_enabled, vhf_enabled, flare_enabled, wind_enabled, dx_us_spotters_only, vhf_us_spotters_only, kp_enabled, tropo_enabled, sat_pass_enabled, lightning_enabled, dxcc_confirmed_enabled, dx_digest_enabled FROM alert_email_config WHERE id = 1',
     )
     .get() as Row | null;
 }
@@ -63,6 +64,7 @@ export function getAlertConfig(): {
   satPassEnabled: boolean;
   lightningEnabled: boolean;
   dxccConfirmedEnabled: boolean;
+  dxDigestEnabled: boolean;
 } {
   const row = getRow();
   const email =
@@ -88,6 +90,7 @@ export function getAlertConfig(): {
     satPassEnabled: row?.sat_pass_enabled === 1,
     lightningEnabled: row?.lightning_enabled === 1,
     dxccConfirmedEnabled: row?.dxcc_confirmed_enabled === 1,
+    dxDigestEnabled: row?.dx_digest_enabled === 1,
     // Both default true when no config row exists yet at all, unlike the
     // other flags above -- these are meant to be on out of the box, not
     // opted into (see db.ts's migration comment for why).
@@ -120,6 +123,7 @@ export function getAlertConfigPublic() {
     satPassEnabled: row?.sat_pass_enabled === 1,
     lightningEnabled: row?.lightning_enabled === 1,
     dxccConfirmedEnabled: row?.dxcc_confirmed_enabled === 1,
+    dxDigestEnabled: row?.dx_digest_enabled === 1,
     dxUsSpottersOnly: row ? row.dx_us_spotters_only === 1 : true,
     vhfUsSpottersOnly: row ? row.vhf_us_spotters_only === 1 : true,
   };
@@ -146,6 +150,7 @@ export function setAlertConfig(cfg: {
   satPassEnabled?: boolean;
   lightningEnabled?: boolean;
   dxccConfirmedEnabled?: boolean;
+  dxDigestEnabled?: boolean;
 }) {
   const existing = getRow();
   const email = cfg.email;
@@ -170,10 +175,11 @@ export function setAlertConfig(cfg: {
   const lightningEnabled = cfg.lightningEnabled !== undefined ? (cfg.lightningEnabled ? 1 : 0) : (existing?.lightning_enabled ?? 0);
   const dxccConfirmedEnabled =
     cfg.dxccConfirmedEnabled !== undefined ? (cfg.dxccConfirmedEnabled ? 1 : 0) : (existing?.dxcc_confirmed_enabled ?? 0);
+  const dxDigestEnabled = cfg.dxDigestEnabled !== undefined ? (cfg.dxDigestEnabled ? 1 : 0) : (existing?.dx_digest_enabled ?? 0);
 
   db.query(
-    `INSERT INTO alert_email_config (id, smtp_host, smtp_port, smtp_user, smtp_pass, alert_to, enabled, ntfy_topic, ntfy_enabled, vhf_enabled, flare_enabled, wind_enabled, dx_us_spotters_only, vhf_us_spotters_only, kp_enabled, tropo_enabled, sat_pass_enabled, lightning_enabled, dxcc_confirmed_enabled)
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO alert_email_config (id, smtp_host, smtp_port, smtp_user, smtp_pass, alert_to, enabled, ntfy_topic, ntfy_enabled, vhf_enabled, flare_enabled, wind_enabled, dx_us_spotters_only, vhf_us_spotters_only, kp_enabled, tropo_enabled, sat_pass_enabled, lightning_enabled, dxcc_confirmed_enabled, dx_digest_enabled)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        smtp_host = excluded.smtp_host,
        smtp_port = excluded.smtp_port,
@@ -192,7 +198,8 @@ export function setAlertConfig(cfg: {
        tropo_enabled = excluded.tropo_enabled,
        sat_pass_enabled = excluded.sat_pass_enabled,
        lightning_enabled = excluded.lightning_enabled,
-       dxcc_confirmed_enabled = excluded.dxcc_confirmed_enabled`,
+       dxcc_confirmed_enabled = excluded.dxcc_confirmed_enabled,
+       dx_digest_enabled = excluded.dx_digest_enabled`,
   ).run(
     smtpHost,
     smtpPort,
@@ -212,5 +219,6 @@ export function setAlertConfig(cfg: {
     satPassEnabled,
     lightningEnabled,
     dxccConfirmedEnabled,
+    dxDigestEnabled,
   );
 }

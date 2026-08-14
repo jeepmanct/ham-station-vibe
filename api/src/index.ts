@@ -26,6 +26,8 @@ import { backupRoutes } from './routes/backup';
 import { kiwiSdrRoutes } from './routes/kiwiSdr';
 import { guestbookRoutes } from './routes/guestbook';
 import { lightningRoutes } from './routes/lightning';
+import { examQuestionRoutes } from './routes/examQuestion';
+import { siteSettingsRoutes } from './routes/siteSettings';
 import { startLightningMonitoring } from './lightning';
 import { startFlexRadioClient, registerAudioListener, unregisterAudioListener } from './flexRadio';
 import {
@@ -67,6 +69,8 @@ app.route('/api/backup', backupRoutes);
 app.route('/api/kiwisdr', kiwiSdrRoutes);
 app.route('/api/guestbook', guestbookRoutes);
 app.route('/api/lightning', lightningRoutes);
+app.route('/api/exam', examQuestionRoutes);
+app.route('/api/settings', siteSettingsRoutes);
 // Registered before the general /media/* handler below -- Hono matches
 // middleware in registration order, and eqsl-card images live in their own
 // directory, not under PHOTOS_DIR.

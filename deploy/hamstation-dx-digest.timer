@@ -1,0 +1,12 @@
+[Unit]
+Description=Weekly DX Digest email/push
+
+[Timer]
+# Sunday morning, after the daily QRZ/eQSL/LoTW syncs and Club Log's own
+# weekly Sunday sync would all have completed.
+OnCalendar=Sun *-*-* 08:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

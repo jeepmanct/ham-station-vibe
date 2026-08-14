@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly DX Digest email/push
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+WorkingDirectory=__APP_DIR__/api
+ExecStart=__BUN_BIN__ run scripts/send-dx-digest.ts

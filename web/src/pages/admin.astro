@@ -85,6 +85,27 @@ import Base from '../layouts/Base.astro';
 
     <section>
       <div class="card">
+        <h2>Distance Units</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">
+          Units used for distance displays across the site (Longest DX, reception reports, lightning strikes, etc). Doesn't affect /tools' calculators, which always show both, or the /stats distance-distribution chart, which is bucketed in fixed mile widths.
+        </p>
+        <form id="distance-unit-form" class="form-grid">
+          <label style="max-width:220px;">Unit
+            <select id="du-unit">
+              <option value="mi">Miles</option>
+              <option value="km">Kilometers</option>
+            </select>
+          </label>
+          <p id="distance-unit-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
         <h2>FlexRadio Hardware Status</h2>
         <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">
           Whether the Monitor toggle, On the Air, meters, and Recent Sessions show up on /radio at all &mdash; if you don't own a FlexRadio, turn this off instead of leaving a non-functional dashboard visible. Turning it off also turns monitoring off. PSK Reporter/WSPR/RBN reception reports stay up regardless &mdash; they're independent of this station's own radio.
@@ -480,6 +501,18 @@ import Base from '../layouts/Base.astro';
             <button type="submit" class="btn">Save</button>
           </div>
         </form>
+
+        <h3 style="margin:1.75rem 0 0.5rem;font-size:0.95rem;">Weekly DX Digest</h3>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
+          A weekly summary (new QSOs, new confirmations, newly-worked entities, best DX) &mdash; sent every Sunday regardless of activity level, unlike the threshold-triggered alerts above.
+        </p>
+        <form id="alert-dx-digest-form" class="form-grid">
+          <label class="form-grid-checkbox"><input type="checkbox" id="add-enabled" /> Weekly DX Digest enabled</label>
+          <p id="alert-dx-digest-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
       </div>
     </section>
   </section>
@@ -504,6 +537,7 @@ import Base from '../layouts/Base.astro';
       loadBackupStatus();
       loadKiwiVisibility();
       loadLightningMonitoring();
+      loadDistanceUnit();
     }
 
     if (sessionStorage.getItem(TOKEN_KEY)) {
@@ -1003,6 +1037,31 @@ import Base from '../layouts/Base.astro';
       await saveServiceCredentials({ kiwisdrHost: crKiwiHost.value || undefined }, kiwiConfigStatus);
     });
 
+    // --- Distance unit preference (site-wide, not per-visitor) ---
+    const duUnit = document.getElementById('du-unit') as HTMLSelectElement;
+    const distanceUnitStatus = document.getElementById('distance-unit-status')!;
+
+    async function loadDistanceUnit() {
+      const s: { distanceUnit: string } = await fetch('/api/settings').then((r) => r.json());
+      duUnit.value = s.distanceUnit;
+    }
+
+    document.getElementById('distance-unit-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      distanceUnitStatus.textContent = 'Saving…';
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ distanceUnit: duUnit.value }),
+      });
+      if (res.ok) {
+        distanceUnitStatus.textContent = 'Saved.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        distanceUnitStatus.textContent = body.error ?? 'Save failed.';
+      }
+    });
+
     // --- KiwiSDR page visibility (site-wide, not per-session) ---
     const kvVisible = document.getElementById('kv-visible') as HTMLInputElement;
     const kiwiVisibilityStatus = document.getElementById('kiwi-visibility-status')!;
@@ -1459,6 +1518,7 @@ import Base from '../layouts/Base.astro';
       satPassEnabled: boolean;
       lightningEnabled: boolean;
       dxccConfirmedEnabled: boolean;
+      dxDigestEnabled: boolean;
     };
 
     const aeHost = document.getElementById('ae-host') as HTMLInputElement;
@@ -1498,6 +1558,9 @@ import Base from '../layouts/Base.astro';
     const adcEnabled = document.getElementById('adc-enabled') as HTMLInputElement;
     const alertDxccConfirmedStatus = document.getElementById('alert-dxcc-confirmed-status')!;
 
+    const addEnabled = document.getElementById('add-enabled') as HTMLInputElement;
+    const alertDxDigestStatus = document.getElementById('alert-dx-digest-status')!;
+
     const adxUsOnly = document.getElementById('adx-us-only') as HTMLInputElement;
     const alertDxFilterStatus = document.getElementById('alert-dx-filter-status')!;
 
@@ -1524,6 +1587,7 @@ import Base from '../layouts/Base.astro';
       aspEnabled.checked = cfg.satPassEnabled;
       alEnabled.checked = cfg.lightningEnabled;
       adcEnabled.checked = cfg.dxccConfirmedEnabled;
+      addEnabled.checked = cfg.dxDigestEnabled;
       adxUsOnly.checked = cfg.dxUsSpottersOnly;
     }
 
@@ -1729,6 +1793,22 @@ import Base from '../layouts/Base.astro';
       } else {
         const body = await res.json().catch(() => ({}));
         alertDxccConfirmedStatus.textContent = body.error ?? 'Save failed.';
+      }
+    });
+
+    document.getElementById('alert-dx-digest-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertDxDigestStatus.textContent = 'Saving…';
+      const res = await fetch('/api/alert-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ dxDigestEnabled: addEnabled.checked }),
+      });
+      if (res.ok) {
+        alertDxDigestStatus.textContent = 'Saved.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alertDxDigestStatus.textContent = body.error ?? 'Save failed.';
       }
     });
 

@@ -76,7 +76,7 @@ import '../styles/conditions.css';
   <div class="card" style="margin-top:1.5rem;">
     <h2>Lightning</h2>
     <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
-      Strikes within 100km of the station QTH over the last 2 hours, via <a href="https://www.blitzortung.org/" target="_blank" rel="noopener">Blitzortung.org</a>'s community lightning detection network. Solid circle is the 20km "seriously consider disconnecting antennas" radius.
+      Strikes within <span id="lightning-display-radius">100km</span> of the station QTH over the last 2 hours, via <a href="https://www.blitzortung.org/" target="_blank" rel="noopener">Blitzortung.org</a>'s community lightning detection network. Solid circle is the <span id="lightning-alert-radius">20km</span> "seriously consider disconnecting antennas" radius.
     </p>
     <div id="lightning-unavailable" class="status-line" hidden></div>
     <div id="lightning-content" hidden>
@@ -134,6 +134,7 @@ import '../styles/conditions.css';
     import { escapeHtml } from '../lib/escapeHtml';
     import 'leaflet/dist/leaflet.css';
     import L from 'leaflet';
+    import { fetchDistanceUnit, formatDistance, type DistanceUnit } from '../lib/units';
 
     // --- Propagation trend (last 90 days) — distinct from /stats' yearly
     // solar-cycle-context chart; this answers "how has it been lately,"
@@ -466,6 +467,15 @@ import '../styles/conditions.css';
     const lightningStatusEl = document.getElementById('lightning-status')!;
     let lightningMap: L.Map | null = null;
     let lightningMarkers: L.CircleMarker[] = [];
+    let lightningStrikes: Strike[] = [];
+    // Loaded once; the description spans and any already-fetched strikes are
+    // re-rendered once this resolves, since loadLightning() may have already
+    // run once with the 'mi' default before the fetch completes.
+    let distanceUnit: DistanceUnit = 'mi';
+    fetchDistanceUnit().then((u) => {
+      distanceUnit = u;
+      renderStrikes(lightningStrikes);
+    });
 
     function clearLightningMarkers() {
       for (const m of lightningMarkers) m.remove();
@@ -483,6 +493,7 @@ import '../styles/conditions.css';
     }
 
     function renderStrikes(strikes: Strike[]) {
+      lightningStrikes = strikes;
       if (!lightningMap) return;
       clearLightningMarkers();
       const now = Date.now();
@@ -496,7 +507,7 @@ import '../styles/conditions.css';
           fillOpacity: 0.7,
           weight: 1,
         })
-          .bindTooltip(`${s.distanceKm.toFixed(0)}km away, ${ageMinutes < 1 ? 'just now' : `${Math.round(ageMinutes)}m ago`}`, { sticky: true })
+          .bindTooltip(`${formatDistance(s.distanceKm, distanceUnit)} away, ${ageMinutes < 1 ? 'just now' : `${Math.round(ageMinutes)}m ago`}`, { sticky: true })
           .addTo(lightningMap);
         lightningMarkers.push(marker);
       }
@@ -536,13 +547,15 @@ import '../styles/conditions.css';
           lightningUnavailable.hidden = true;
           lightningContent.hidden = false;
           if (s.homeLat != null && s.homeLon != null) initLightningMap(s.homeLat, s.homeLon, s.displayRadiusKm, s.alertRadiusKm);
+          document.getElementById('lightning-display-radius')!.textContent = formatDistance(s.displayRadiusKm, distanceUnit);
+          document.getElementById('lightning-alert-radius')!.textContent = formatDistance(s.alertRadiusKm, distanceUnit);
 
           if (!s.connected) {
             lightningStatusEl.textContent = 'Connecting…';
             return;
           }
           const closest =
-            s.closestDistanceKm != null ? `, closest ${s.closestDistanceKm.toFixed(0)}km` : '';
+            s.closestDistanceKm != null ? `, closest ${formatDistance(s.closestDistanceKm, distanceUnit)}` : '';
           lightningStatusEl.textContent =
             `${s.strikeCount} strike${s.strikeCount === 1 ? '' : 's'} in the last 2 hours${closest} — as of ${new Date().toLocaleTimeString()}`;
 

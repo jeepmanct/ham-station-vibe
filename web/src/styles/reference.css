@@ -92,3 +92,8 @@
   gap: 1.5rem;
   margin-top: 1.5rem;
 }
+
+.exam-answers { display: flex; flex-direction: column; gap: 0.5rem; }
+.exam-answer-btn { text-align: left; }
+.exam-answer-btn.correct { background: var(--status-good); border-color: var(--status-good); color: #fff; }
+.exam-answer-btn.incorrect { background: var(--status-critical); border-color: var(--status-critical); color: #fff; }

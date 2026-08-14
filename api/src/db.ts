@@ -471,6 +471,11 @@ for (const [name, type] of [
   // got confirmed" alert -- see alerted_dxcc_confirmations' own comment
   // for the baseline-seeding this relies on.
   ['dxcc_confirmed_enabled', 'INTEGER NOT NULL DEFAULT 0'],
+  // Unlike every other flag in this list, this one gates a scheduled
+  // digest, not a threshold-triggered alert -- it always sends on its
+  // weekly schedule once turned on, even in a quiet week with nothing new
+  // to report. See scripts/send-dx-digest.ts.
+  ['dx_digest_enabled', 'INTEGER NOT NULL DEFAULT 0'],
 ] as const) {
   if (!alertConfigColumns.has(name)) {
     db.exec(`ALTER TABLE alert_email_config ADD COLUMN ${name} ${type}`);
@@ -533,6 +538,16 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS alerted_dxcc_confirmations (
     entity TEXT PRIMARY KEY,
     alerted_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Site-wide display preferences -- currently just the one, but a
+  -- dedicated table (not folded into service_credentials, which is
+  -- specifically external-service config) leaves room for more later
+  -- without another migration-shaped decision. distance_unit defaults
+  -- 'mi' -- this station's own preference, not a neutral default.
+  CREATE TABLE IF NOT EXISTS site_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    distance_unit TEXT NOT NULL DEFAULT 'mi'
   );
 `);
 
