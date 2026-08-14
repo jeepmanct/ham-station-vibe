@@ -16,32 +16,24 @@ import '../styles/kiwisdr.css';
 
   <div id="kiwi-content" hidden>
     <div class="card">
-      <div class="kiwi-tuning-bar">
-        <div class="kiwi-step-group">
-          <button type="button" class="btn secondary kiwi-step" data-step-khz="-1000">&minus;1MHz</button>
-          <button type="button" class="btn secondary kiwi-step" data-step-khz="-100">&minus;100kHz</button>
-          <button type="button" class="btn secondary kiwi-step" data-step-khz="-10">&minus;10kHz</button>
-          <button type="button" class="btn secondary kiwi-step" data-step-khz="-1">&minus;1kHz</button>
-        </div>
-        <div class="kiwi-freq-display">
-          <span id="kiwi-freq">7.255</span><span class="unit">MHz</span>
-          <span class="kiwi-mode-badge" id="kiwi-mode">LSB</span>
-        </div>
-        <!-- Same largest-to-smallest, left-to-right order as the minus
-             group above (not mirrored) -- so when this wraps onto its own
-             line on a narrow screen (minus row on top, plus row below),
-             each column still lines up by step size instead of the two
-             rows reading in opposite directions. -->
-        <div class="kiwi-step-group">
-          <button type="button" class="btn secondary kiwi-step" data-step-khz="1000">+1MHz</button>
-          <button type="button" class="btn secondary kiwi-step" data-step-khz="100">+100kHz</button>
-          <button type="button" class="btn secondary kiwi-step" data-step-khz="10">+10kHz</button>
-          <button type="button" class="btn secondary kiwi-step" data-step-khz="1">+1kHz</button>
-        </div>
+      <div class="kiwi-freq-display">
+        <span id="kiwi-freq">7.255</span><span class="unit">MHz</span>
+        <span class="kiwi-mode-badge" id="kiwi-mode">LSB</span>
+      </div>
+
+      <!-- Only picks which step size the slider below nudges by -- the
+           slider itself already covers both directions (drag left/right),
+           so a separate plus/minus button for each size would just be a
+           second control doing the same thing twice. -->
+      <div class="kiwi-step-group">
+        <button type="button" class="btn secondary kiwi-step" data-step-khz="1000">1MHz</button>
+        <button type="button" class="btn secondary kiwi-step" data-step-khz="100">100kHz</button>
+        <button type="button" class="btn secondary kiwi-step" data-step-khz="10">10kHz</button>
+        <button type="button" class="btn secondary kiwi-step" data-step-khz="1">1kHz</button>
       </div>
 
       <div class="kiwi-slider-row">
-        <input type="range" id="kiwi-freq-slider" min="-25" max="25" step="1" value="0" aria-label="Fine tune -- drag left or right" />
+        <input type="range" id="kiwi-freq-slider" min="-10" max="10" step="1" value="0" aria-label="Fine tune -- drag left or right" />
         <span class="kiwi-slider-hint" id="kiwi-slider-step-label">10kHz/step</span>
       </div>
 

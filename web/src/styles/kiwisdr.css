@@ -21,18 +21,7 @@
   margin-left: 0.3rem;
 }
 
-.kiwi-tuning-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-}
-/* Both groups read largest-to-smallest, left to right (see kiwisdr.astro's
-   comment) -- not mirrored -- so wrapping onto separate lines on a narrow
-   screen still lines each step size up in the same column, minus row on
-   top and plus row below. */
-.kiwi-step-group { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.kiwi-step-group { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.6rem; }
 .kiwi-step-group .btn { padding: 0.35rem 0.55rem; font-size: 0.78rem; }
 .kiwi-step.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 
