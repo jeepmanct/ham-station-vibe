@@ -31,18 +31,22 @@ import { getKiwiSdrHost } from './serviceCredentials';
 const DEFAULT_PORT = 8073;
 const DEFAULT_FREQ_KHZ = 7255;
 const DEFAULT_MODE = 'lsb';
-const WF_ZOOM = 10; // ~29.3kHz span (30000kHz / 2^10) centered on the tuned frequency
+const DEFAULT_WF_ZOOM = 10; // ~29.3kHz span (30000kHz / 2^10) centered on the tuned frequency
+const MAX_WF_ZOOM = 14; // KiwiSDR's own zoom range is 0 (full 30MHz span) to 14 (~1.8kHz span)
 const RECONNECT_DELAY_MS = 10_000;
 const KEEPALIVE_INTERVAL_MS = 1000;
 const CONNECT_TIMEOUT_MS = 8000;
 
-// Current tuning -- starts at the fixed default above, but is just regular
-// mutable state now that setFrequency() below can change it. Deliberately
-// NOT persisted to the database: resets to the default on every API
-// restart, same as flexRadio.ts's control slice always resetting to
-// DEFAULT_CONTROL_FREQ_MHZ rather than remembering its last frequency.
+// Current tuning -- starts at the fixed defaults above, but is just regular
+// mutable state now that setFrequency() and friends below can change it.
+// Deliberately NOT persisted to the database: resets to the defaults on
+// every API restart, same as flexRadio.ts's control slice always resetting
+// to DEFAULT_CONTROL_FREQ_MHZ rather than remembering its last frequency.
 let currentFreqKhz = DEFAULT_FREQ_KHZ;
 let currentMode = DEFAULT_MODE;
+let currentBandwidth: BandwidthPreset = 'normal';
+let currentAgcEnabled = true;
+let currentWfZoom = DEFAULT_WF_ZOOM;
 
 function getEnabledRow(): { enabled: number } | null {
   return db.query('SELECT enabled FROM kiwisdr_settings WHERE id = 1').get() as { enabled: number } | null;
@@ -61,18 +65,22 @@ export function setKiwiSdrEnabled(enabled: boolean) {
   ).run(enabled ? 1 : 0);
 }
 
-// Default passbands, ported verbatim from kiwiclient's own table -- only
-// the entries reachable via DEFAULT_MODE actually matter today, but kept
-// as a small table (not a single hardcoded pair) so changing DEFAULT_MODE
-// later doesn't also require hand-deriving new cut values.
-const MODE_PASSBANDS: Record<string, [number, number]> = {
-  am: [-4900, 4900],
-  amn: [-2500, 2500],
-  sam: [-4900, 4900],
-  lsb: [-2700, -300],
-  usb: [300, 2700],
-  cw: [300, 700],
-  nbfm: [-6000, 6000],
+// Passband (low_cut/high_cut in Hz relative to the tuned carrier) per mode,
+// at three width presets. "normal" is ported verbatim from kiwiclient's own
+// table (the same values this file used before the Bandwidth control
+// existed); narrow/wide are hand-picked tighter/looser variants of the same
+// shape -- symmetric around 0 for AM-family/NBFM, one-sided for SSB (LSB
+// stays anchored at -300Hz from carrier, USB at +300Hz, only the far edge
+// moves), and CW's already-narrow default just gets narrower/wider still.
+type BandwidthPreset = 'narrow' | 'normal' | 'wide';
+const MODE_PASSBAND_PRESETS: Record<string, Record<BandwidthPreset, [number, number]>> = {
+  am: { narrow: [-2500, 2500], normal: [-4900, 4900], wide: [-8000, 8000] },
+  amn: { narrow: [-1500, 1500], normal: [-2500, 2500], wide: [-4000, 4000] },
+  sam: { narrow: [-2500, 2500], normal: [-4900, 4900], wide: [-8000, 8000] },
+  lsb: { narrow: [-2100, -300], normal: [-2700, -300], wide: [-3300, -300] },
+  usb: { narrow: [300, 2100], normal: [300, 2700], wide: [300, 3300] },
+  cw: { narrow: [400, 600], normal: [300, 700], wide: [200, 800] },
+  nbfm: { narrow: [-4000, 4000], normal: [-6000, 6000], wide: [-8000, 8000] },
 };
 
 function parseHost(): { hostname: string; port: number } | null {
@@ -129,9 +137,19 @@ export type KiwiSdrStatus = {
   mode: string;
   sampleRate: number | null;
   smeterDbm: number | null;
+  bandwidth: BandwidthPreset;
+  lowCutHz: number;
+  highCutHz: number;
+  agcEnabled: boolean;
+  wfZoom: number;
+  maxWfZoom: number;
+  listenerCount: number | null;
+  listenerMax: number | null;
 };
 
-export function getKiwiSdrStatus(): KiwiSdrStatus {
+export async function getKiwiSdrStatus(): Promise<KiwiSdrStatus> {
+  const [lowCutHz, highCutHz] = MODE_PASSBAND_PRESETS[currentMode]?.[currentBandwidth] ?? [0, 0];
+  const listeners = await fetchListenerCount();
   return {
     configured: !!parseHost(),
     enabled: getKiwiSdrEnabled(),
@@ -141,27 +159,119 @@ export function getKiwiSdrStatus(): KiwiSdrStatus {
     mode: currentMode,
     sampleRate: status.sampleRate,
     smeterDbm: status.smeterDbm,
+    bandwidth: currentBandwidth,
+    lowCutHz,
+    highCutHz,
+    agcEnabled: currentAgcEnabled,
+    wfZoom: currentWfZoom,
+    maxWfZoom: MAX_WF_ZOOM,
+    listenerCount: listeners?.users ?? null,
+    listenerMax: listeners?.usersMax ?? null,
   };
 }
 
-/** Retunes the shared receiver -- affects every current listener/viewer at once (see this file's header comment). Sends live SET commands to any already-open upstream connections; if nothing's connected right now, just updates what the next connection will tune to. */
+/** Retunes the shared receiver -- affects every current listener/viewer at once (see this file's header comment). Sends live SET commands to any already-open upstream connections; if nothing's connected right now, just updates what the next connection will tune to. A mode change resets the bandwidth preset back to "normal" (a fresh mode's own default filter shape), same as a real radio; a frequency-only retune within the same mode keeps whatever preset was already selected. */
 export function setFrequency(freqKhz: number, mode: string): ConnectResult {
   if (!getKiwiSdrEnabled()) return { ok: false, error: 'KiwiSDR is currently disabled' };
-  const passband = MODE_PASSBANDS[mode];
-  if (!passband) return { ok: false, error: `Unknown mode: ${mode}` };
+  const presets = MODE_PASSBAND_PRESETS[mode];
+  if (!presets) return { ok: false, error: `Unknown mode: ${mode}` };
   if (!Number.isFinite(freqKhz) || freqKhz < 0 || freqKhz > 30_000) {
     return { ok: false, error: 'Frequency must be between 0 and 30000 kHz' };
   }
+  if (mode !== currentMode) currentBandwidth = 'normal';
   currentFreqKhz = freqKhz;
   currentMode = mode;
-  const [lowCut, highCut] = passband;
+  const [lowCut, highCut] = presets[currentBandwidth];
   if (sndSocket && status.sndConnected) {
     sndSocket.send(`SET mod=${mode} low_cut=${lowCut} high_cut=${highCut} freq=${freqKhz.toFixed(3)}`);
   }
   if (wfSocket && status.wfConnected) {
-    wfSocket.send(`SET zoom=${WF_ZOOM} cf=${freqKhz.toFixed(3)}`);
+    wfSocket.send(`SET zoom=${currentWfZoom} cf=${freqKhz.toFixed(3)}`);
   }
   return { ok: true };
+}
+
+/** Adjusts the receive filter width for the current mode without changing frequency or mode. */
+export function setBandwidth(preset: BandwidthPreset): ConnectResult {
+  if (!getKiwiSdrEnabled()) return { ok: false, error: 'KiwiSDR is currently disabled' };
+  const presets = MODE_PASSBAND_PRESETS[currentMode];
+  if (!presets?.[preset]) return { ok: false, error: `Unknown bandwidth preset: ${preset}` };
+  currentBandwidth = preset;
+  const [lowCut, highCut] = presets[preset];
+  if (sndSocket && status.sndConnected) {
+    sndSocket.send(`SET mod=${currentMode} low_cut=${lowCut} high_cut=${highCut} freq=${currentFreqKhz.toFixed(3)}`);
+  }
+  return { ok: true };
+}
+
+function agcCommand(): string {
+  // manGain only takes effect when agc=0 -- it's the fixed gain used in
+  // place of AGC's automatic adjustment, not a separate control (there's no
+  // manual gain slider here, just this off/on toggle). 50 (of 0-100) was
+  // the first value tried and turned out to be far too quiet -- confirmed
+  // live by measuring real PCM RMS amplitude on a known-strong WWV carrier:
+  // manGain=50 measured RMS~310 vs AGC-on's own RMS~2746 on the same
+  // signal, roughly a ninth as loud, which reads as "no sound" at normal
+  // listening volume. 70 was the highest value that still measured 0
+  // clipped samples in that same test (manGain=80 already clips), and
+  // lands close to AGC-on's own peak level.
+  return currentAgcEnabled
+    ? 'SET agc=1 hang=0 thresh=-100 slope=6 decay=1000 manGain=50'
+    : 'SET agc=0 hang=0 thresh=-100 slope=6 decay=1000 manGain=70';
+}
+
+/** Toggles the Kiwi's own automatic gain control for the shared audio stream. */
+export function setAgc(enabled: boolean): ConnectResult {
+  if (!getKiwiSdrEnabled()) return { ok: false, error: 'KiwiSDR is currently disabled' };
+  currentAgcEnabled = enabled;
+  if (sndSocket && status.sndConnected) {
+    sndSocket.send(agcCommand());
+  }
+  return { ok: true };
+}
+
+/** Adjusts how much spectrum the waterfall/spectrum display spans around the tuned frequency -- 0 is the Kiwi's full 30MHz, MAX_WF_ZOOM is its narrowest ~1.8kHz span. */
+export function setWfZoom(zoom: number): ConnectResult {
+  if (!getKiwiSdrEnabled()) return { ok: false, error: 'KiwiSDR is currently disabled' };
+  if (!Number.isInteger(zoom) || zoom < 0 || zoom > MAX_WF_ZOOM) {
+    return { ok: false, error: `Zoom must be an integer between 0 and ${MAX_WF_ZOOM}` };
+  }
+  currentWfZoom = zoom;
+  if (wfSocket && status.wfConnected) {
+    wfSocket.send(`SET zoom=${currentWfZoom} cf=${currentFreqKhz.toFixed(3)}`);
+  }
+  return { ok: true };
+}
+
+// Polled from the Kiwi's own plain-HTTP /status page (confirmed live: a GET
+// to http://host:port/status returns key=value lines including "users=N"
+// and "users_max=M" -- current/total receive channels), not a WebSocket
+// channel, so checking it never competes with the scarce SND/W-F channels
+// this file otherwise guards so carefully. That same page also exposes
+// operator PII (an email address, GPS coordinates) -- only users/users_max
+// are ever extracted here, nothing else from that response is kept or
+// exposed through this app's own API.
+let listenerCountCache: { users: number; usersMax: number; fetchedAt: number } | null = null;
+const LISTENER_COUNT_TTL_MS = 4000;
+
+async function fetchListenerCount(): Promise<{ users: number; usersMax: number } | null> {
+  const host = parseHost();
+  if (!host) return null;
+  if (listenerCountCache && Date.now() - listenerCountCache.fetchedAt < LISTENER_COUNT_TTL_MS) {
+    return listenerCountCache;
+  }
+  try {
+    const res = await fetch(`http://${host.hostname}:${host.port}/status`, { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return listenerCountCache;
+    const kv = parseKeyValues(await res.text());
+    const users = Number(kv.users);
+    const usersMax = Number(kv.users_max);
+    if (!Number.isFinite(users) || !Number.isFinite(usersMax)) return listenerCountCache;
+    listenerCountCache = { users, usersMax, fetchedAt: Date.now() };
+    return listenerCountCache;
+  } catch {
+    return listenerCountCache;
+  }
 }
 
 // SND frame layout (confirmed live): 3-byte tag, then flags(1) seq(4 LE)
@@ -298,7 +408,8 @@ function connectSnd(): Promise<ConnectResult> {
         }
         if (kv.sample_rate) {
           status.sampleRate = Number(kv.sample_rate);
-          const [lowCut, highCut] = MODE_PASSBANDS[currentMode] ?? MODE_PASSBANDS.lsb;
+          const presets = MODE_PASSBAND_PRESETS[currentMode] ?? MODE_PASSBAND_PRESETS.lsb;
+          const [lowCut, highCut] = presets[currentBandwidth];
           // This exact order -- squelch/gen before mod/agc/compression --
           // is required to get audio flowing at all; confirmed live that
           // sending mod/agc/compression immediately on open (before this
@@ -309,7 +420,7 @@ function connectSnd(): Promise<ConnectResult> {
           ws.send('SET genattn=0');
           ws.send('SET gen=0 mix=-1');
           ws.send(`SET mod=${currentMode} low_cut=${lowCut} high_cut=${highCut} freq=${currentFreqKhz.toFixed(3)}`);
-          ws.send('SET agc=1 hang=0 thresh=-100 slope=6 decay=1000 manGain=50');
+          ws.send(agcCommand());
           ws.send('SET compression=0');
           ws.send('SET keepalive');
           status.sndConnected = true;
@@ -371,7 +482,7 @@ function connectWf(): Promise<ConnectResult> {
       // (confirmed live) -- no need to wait for a sample_rate-style ack
       // first.
       ws.send('SET auth t=kiwi p=');
-      ws.send(`SET zoom=${WF_ZOOM} cf=${currentFreqKhz.toFixed(3)}`);
+      ws.send(`SET zoom=${currentWfZoom} cf=${currentFreqKhz.toFixed(3)}`);
       ws.send('SET maxdb=-10 mindb=-110');
       ws.send('SET wf_speed=4');
       ws.send('SET wf_comp=0');

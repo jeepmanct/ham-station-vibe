@@ -4,7 +4,7 @@ import '../styles/kiwisdr.css';
 ---
 <Base title="KiwiSDR" active="kiwisdr">
   <h1>KiwiSDR</h1>
-  <p class="lede">Live waterfall and audio from this station's KiwiSDR receiver &mdash; one shared receiver, so retuning changes what everyone currently listening hears.</p>
+  <p class="lede">Live audio from KiwiSDR at <span id="kiwi-lede-callsign">this station</span>.</p>
 
   <div id="kiwi-unconfigured" class="card kiwi-unconfigured" hidden>
     KiwiSDR isn't configured yet &mdash; an admin needs to set its address under Admin &rarr; KiwiSDR Configuration.
@@ -15,10 +15,85 @@ import '../styles/kiwisdr.css';
   </div>
 
   <div id="kiwi-content" hidden>
+    <div class="kiwi-viz-controls">
+      <label>
+        Color
+        <select id="kiwi-colormap">
+          <option value="inferno">Inferno</option>
+          <option value="viridis">Viridis</option>
+          <option value="classic">Classic SDR</option>
+          <option value="turbo">Turbo</option>
+          <option value="phosphor">Green Phosphor</option>
+          <option value="ice">Ice</option>
+          <option value="grayscale">Grayscale</option>
+        </select>
+      </label>
+      <label>
+        Style
+        <select id="kiwi-spectrum-style">
+          <option value="line">Line</option>
+          <option value="bars">Bars</option>
+          <option value="peak-hold">Peak Hold</option>
+          <option value="filled">Filled Area</option>
+          <option value="gradient-bars">Gradient Bars</option>
+        </select>
+      </label>
+      <label>
+        <input type="checkbox" id="kiwi-wf-enabled" checked /> Waterfall
+      </label>
+      <label>
+        <input type="checkbox" id="kiwi-spectrum-enabled" checked /> Spectrum
+      </label>
+      <label>
+        Zoom
+        <select id="kiwi-wf-zoom">
+          <option value="0">Full Band</option>
+          <option value="6">Wide</option>
+          <option value="10">Normal</option>
+          <option value="12">Narrow</option>
+          <option value="14">Max</option>
+        </select>
+      </label>
+    </div>
+
+    <div id="kiwi-waterfall-section">
+      <div class="kiwi-waterfall-wrap">
+        <canvas id="kiwi-spectrum" width="1024" height="90"></canvas>
+        <canvas id="kiwi-waterfall" width="1024" height="88"></canvas>
+        <div class="kiwi-freq-axis">
+          <span id="kiwi-axis-low">&mdash;</span>
+          <span id="kiwi-axis-center">&mdash;</span>
+          <span id="kiwi-axis-high">&mdash;</span>
+        </div>
+      </div>
+      <p class="status-line" id="kiwi-wf-status" style="margin-top:0.4rem;"></p>
+    </div>
+
     <div class="card">
       <div class="kiwi-freq-display">
         <span id="kiwi-freq">7.255</span><span class="unit">MHz</span>
-        <span class="kiwi-mode-badge" id="kiwi-mode">LSB</span>
+        <select id="kiwi-tune-mode" class="kiwi-mode-select">
+          <option value="lsb">LSB</option>
+          <option value="usb">USB</option>
+          <option value="am">AM</option>
+          <option value="cw">CW</option>
+          <option value="nbfm">NBFM</option>
+        </select>
+      </div>
+
+      <div class="kiwi-radio-controls">
+        <label>
+          Bandwidth
+          <select id="kiwi-bandwidth">
+            <option value="narrow">Narrow</option>
+            <option value="normal">Normal</option>
+            <option value="wide">Wide</option>
+          </select>
+        </label>
+        <label class="kiwi-agc-toggle">
+          <input type="checkbox" id="kiwi-agc-enabled" checked /> AGC
+        </label>
+        <span class="status-line" id="kiwi-listener-count" style="margin:0;"></span>
       </div>
 
       <!-- Only picks which step size the slider below nudges by -- the
@@ -51,14 +126,8 @@ import '../styles/kiwisdr.css';
         </label>
         <span class="status-line" id="kiwi-audio-status" style="margin:0;"></span>
       </div>
-    </div>
 
-    <div class="kiwi-section-header">
-      <h2>Tune</h2>
-      <button type="button" class="btn secondary" id="kiwi-tune-toggle">Hide</button>
-    </div>
-    <div class="card" id="kiwi-tune-section">
-      <form id="kiwi-tune-form" class="form-grid">
+      <div class="form-grid kiwi-quick-tune">
         <label>Ham Band
           <select id="kiwi-band-select">
             <option value="">Choose a band&hellip;</option>
@@ -74,7 +143,7 @@ import '../styles/kiwisdr.css';
             <option data-freq="28.400" data-mode="usb">10m</option>
           </select>
         </label>
-        <label>Time Signal
+        <label>WWV
           <select id="kiwi-time-select">
             <option value="">Choose&hellip;</option>
             <option data-freq="2.500" data-mode="am">WWV 2.5 MHz</option>
@@ -96,42 +165,8 @@ import '../styles/kiwisdr.css';
             <option data-freq="15.100" data-mode="am">19m Broadcast</option>
           </select>
         </label>
-        <label>Mode
-          <select id="kiwi-tune-mode">
-            <option value="lsb">LSB</option>
-            <option value="usb">USB</option>
-            <option value="am">AM</option>
-            <option value="cw">CW</option>
-            <option value="nbfm">NBFM</option>
-          </select>
-        </label>
-        <label>Frequency (MHz)
-          <span style="display:flex;gap:0.4rem;">
-            <input type="text" id="kiwi-tune-freq" placeholder="e.g. 7.255" inputmode="decimal" style="flex:1;" />
-            <button type="submit" class="btn secondary">Go</button>
-          </span>
-        </label>
         <p id="kiwi-tune-status" class="status-line"></p>
-      </form>
-    </div>
-
-    <div class="kiwi-section-header">
-      <h2>Waterfall</h2>
-      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;color:var(--muted);">
-        <input type="checkbox" id="kiwi-wf-enabled" checked /> Show waterfall
-      </label>
-    </div>
-    <div id="kiwi-waterfall-section">
-      <div class="kiwi-waterfall-wrap">
-        <canvas id="kiwi-spectrum" width="1024" height="90"></canvas>
-        <canvas id="kiwi-waterfall" width="1024" height="220"></canvas>
-        <div class="kiwi-freq-axis">
-          <span id="kiwi-axis-low">&mdash;</span>
-          <span id="kiwi-axis-center">&mdash;</span>
-          <span id="kiwi-axis-high">&mdash;</span>
-        </div>
       </div>
-      <p class="status-line" id="kiwi-wf-status" style="margin-top:0.4rem;"></p>
     </div>
   </div>
 
@@ -145,13 +180,27 @@ import '../styles/kiwisdr.css';
       mode: string;
       sampleRate: number | null;
       smeterDbm: number | null;
+      bandwidth: 'narrow' | 'normal' | 'wide';
+      lowCutHz: number;
+      highCutHz: number;
+      agcEnabled: boolean;
+      wfZoom: number;
+      maxWfZoom: number;
+      listenerCount: number | null;
+      listenerMax: number | null;
     };
+
+    fetch('/api/station-location')
+      .then((r) => r.json())
+      .then((d: { callsign: string | null }) => {
+        if (d.callsign) document.getElementById('kiwi-lede-callsign')!.textContent = d.callsign;
+      })
+      .catch(() => {});
 
     const unconfiguredEl = document.getElementById('kiwi-unconfigured')!;
     const disabledEl = document.getElementById('kiwi-disabled')!;
     const contentEl = document.getElementById('kiwi-content')!;
     const freqEl = document.getElementById('kiwi-freq')!;
-    const modeEl = document.getElementById('kiwi-mode')!;
     const smeterFill = document.getElementById('kiwi-smeter-fill')!;
     const smeterReading = document.getElementById('kiwi-smeter-reading')!;
     const startStopBtn = document.getElementById('kiwi-startstop-btn') as HTMLButtonElement;
@@ -160,6 +209,7 @@ import '../styles/kiwisdr.css';
     const wfStatus = document.getElementById('kiwi-wf-status')!;
     const wfWrap = document.querySelector('.kiwi-waterfall-wrap') as HTMLElement;
     const wfEnabledCheckbox = document.getElementById('kiwi-wf-enabled') as HTMLInputElement;
+    const spectrumEnabledCheckbox = document.getElementById('kiwi-spectrum-enabled') as HTMLInputElement;
     const canvas = document.getElementById('kiwi-waterfall') as HTMLCanvasElement;
     const ctx = canvas.getContext('2d')!;
     const spectrumCanvas = document.getElementById('kiwi-spectrum') as HTMLCanvasElement;
@@ -167,11 +217,11 @@ import '../styles/kiwisdr.css';
     const axisLow = document.getElementById('kiwi-axis-low')!;
     const axisCenter = document.getElementById('kiwi-axis-center')!;
     const axisHigh = document.getElementById('kiwi-axis-high')!;
-    const tuneToggle = document.getElementById('kiwi-tune-toggle') as HTMLButtonElement;
-    const tuneSection = document.getElementById('kiwi-tune-section')!;
-    const tuneForm = document.getElementById('kiwi-tune-form') as HTMLFormElement;
-    const tuneFreq = document.getElementById('kiwi-tune-freq') as HTMLInputElement;
     const tuneMode = document.getElementById('kiwi-tune-mode') as HTMLSelectElement;
+    const bandwidthSelect = document.getElementById('kiwi-bandwidth') as HTMLSelectElement;
+    const agcCheckbox = document.getElementById('kiwi-agc-enabled') as HTMLInputElement;
+    const listenerCountEl = document.getElementById('kiwi-listener-count')!;
+    const wfZoomSelect = document.getElementById('kiwi-wf-zoom') as HTMLSelectElement;
     const bandSelect = document.getElementById('kiwi-band-select') as HTMLSelectElement;
     const timeSelect = document.getElementById('kiwi-time-select') as HTMLSelectElement;
     const swSelect = document.getElementById('kiwi-sw-select') as HTMLSelectElement;
@@ -180,6 +230,10 @@ import '../styles/kiwisdr.css';
     const sliderStepLabel = document.getElementById('kiwi-slider-step-label')!;
 
     let lastStatus: KiwiSdrStatus | null = null;
+    // Tracks the current frequency in MHz for the controls that need to read
+    // it back (mode-only retune, step buttons, click-to-tune) now that there's
+    // no visible frequency text field to read from directly.
+    let currentFreqMhz = 7.255;
 
     function dbmToSUnit(dbm: number): string {
       const sUnits = 9 + (dbm + 73) / 6;
@@ -200,16 +254,23 @@ import '../styles/kiwisdr.css';
       contentEl.hidden = !s.configured || !s.enabled;
       if (!s.configured || !s.enabled) return;
 
-      // Don't stomp on what the visitor is mid-typing/selecting/dragging in
-      // the tune controls -- other listeners' retunes (or this device's own
+      // Don't stomp on what the visitor is mid-selecting/dragging in the
+      // tune controls -- other listeners' retunes (or this device's own
       // last tune) still update everything else whenever it isn't actively
       // in use. The slider is a relative jog, not bound to freqKhz at all,
       // so it's excluded here rather than checked against activeElement.
       if (document.activeElement !== freqSlider) freqEl.textContent = (s.freqKhz / 1000).toFixed(3);
-      modeEl.textContent = s.mode.toUpperCase();
-      updateFreqAxis(s.freqKhz);
-      if (document.activeElement !== tuneFreq) tuneFreq.value = (s.freqKhz / 1000).toFixed(3);
+      currentFreqMhz = s.freqKhz / 1000;
       if (document.activeElement !== tuneMode) tuneMode.value = s.mode;
+      if (document.activeElement !== bandwidthSelect) bandwidthSelect.value = s.bandwidth;
+      if (document.activeElement !== agcCheckbox) agcCheckbox.checked = s.agcEnabled;
+      if (document.activeElement !== wfZoomSelect) wfZoomSelect.value = String(s.wfZoom);
+      WF_SPAN_KHZ = 30000 / 2 ** s.wfZoom;
+      updateFreqAxis(s.freqKhz);
+      listenerCountEl.textContent =
+        s.listenerCount != null && s.listenerMax != null
+          ? `${s.listenerCount} of ${s.listenerMax} receive channel${s.listenerMax === 1 ? '' : 's'} in use`
+          : '';
 
       if (s.smeterDbm == null) {
         smeterFill.style.width = '0%';
@@ -245,27 +306,51 @@ import '../styles/kiwisdr.css';
       }
     }
 
-    tuneForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const freqMhz = Number(tuneFreq.value);
-      if (!Number.isFinite(freqMhz) || freqMhz <= 0) {
-        tuneStatus.textContent = 'Enter a valid frequency in MHz.';
-        return;
-      }
-      tune(freqMhz, tuneMode.value);
+    // Picking a mode on its own (not paired with a Band/WWV/Shortwave pick)
+    // previously just sat there until something else triggered a retune --
+    // apply it immediately, at whatever frequency is currently showing.
+    tuneMode.addEventListener('change', () => {
+      tune(currentFreqMhz, tuneMode.value);
     });
 
-    // Shared by the Ham Band / Time Signal / Shortwave dropdowns -- each is
-    // just a different curated list feeding the same tune() call, reset
-    // back to its placeholder after firing so re-picking the same entry
-    // twice in a row still fires a change event.
+    bandwidthSelect.addEventListener('change', async () => {
+      const res = await fetch('/api/kiwisdr/bandwidth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bandwidth: bandwidthSelect.value }),
+      });
+      if (res.ok) loadStatus();
+    });
+
+    agcCheckbox.addEventListener('change', async () => {
+      const res = await fetch('/api/kiwisdr/agc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: agcCheckbox.checked }),
+      });
+      if (res.ok) loadStatus();
+    });
+
+    wfZoomSelect.addEventListener('change', async () => {
+      const res = await fetch('/api/kiwisdr/zoom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zoom: Number(wfZoomSelect.value) }),
+      });
+      if (res.ok) loadStatus();
+    });
+
+    // Shared by the Ham Band / WWV / Shortwave dropdowns -- each is just a
+    // different curated list feeding the same tune() call, reset back to
+    // its placeholder after firing so re-picking the same entry twice in a
+    // row still fires a change event.
     function wireQuickTuneSelect(select: HTMLSelectElement) {
       select.addEventListener('change', () => {
         const opt = select.selectedOptions[0];
         if (!opt?.dataset.freq) return;
         const freqMhz = Number(opt.dataset.freq);
         const mode = opt.dataset.mode!;
-        tuneFreq.value = freqMhz.toFixed(3);
+        currentFreqMhz = freqMhz;
         tuneMode.value = mode;
         tune(freqMhz, mode);
         select.value = '';
@@ -323,27 +408,31 @@ import '../styles/kiwisdr.css';
       const baseKhz = dragBaseKhz ?? lastStatus?.freqKhz ?? 7255;
       const nextKhz = Math.max(0, baseKhz + Number(freqSlider.value) * activeStepKhz);
       const mode = lastStatus?.mode ?? tuneMode.value;
-      tuneFreq.value = (nextKhz / 1000).toFixed(3);
-      tune(nextKhz / 1000, mode);
+      currentFreqMhz = nextKhz / 1000;
+      tune(currentFreqMhz, mode);
       freqSlider.value = '0';
       dragBaseKhz = null;
     });
 
-    tuneToggle.addEventListener('click', () => {
-      const nowHidden = !tuneSection.hidden;
-      tuneSection.hidden = nowHidden;
-      tuneToggle.textContent = nowHidden ? 'Show' : 'Hide';
-    });
-
     // --- Waterfall -- scrolls a new row of colorized bins in at the top,
     // shifting everything else down by one pixel via a self-drawImage copy
-    // (cheaper than redrawing the whole thing every frame). Palette is
-    // "inferno" (matplotlib's perceptually-uniform black->purple->orange->
-    // pale-yellow scale) -- the recognizable modern-scientific-viz look
-    // most current SDR software (SDR++, GQRX, etc.) defaults to or offers,
-    // instead of the flatter blue/green/red heat scale this started with. ---
-    function infernoColor(v: number): [number, number, number] {
-      const stops: [number, number, number, number][] = [
+    // (cheaper than redrawing the whole thing every frame). A handful of
+    // palettes are offered via the Color picker -- Inferno (matplotlib's
+    // perceptually-uniform black->purple->orange->pale-yellow scale, the
+    // recognizable modern-scientific-viz look most current SDR software
+    // like SDR++/GQRX defaults to or offers), Viridis (another
+    // perceptually-uniform matplotlib scale, blue->green->yellow),
+    // Classic SDR (the blue/green/yellow/red heat scale this waterfall
+    // itself started with, closer to stock KiwiSDR/SDR#), Turbo (Google's
+    // improved rainbow scale -- more contrast than the old "jet" colormap
+    // some WebSDR frontends use), Green Phosphor (the black/green look of
+    // classic CRT radar and oscilloscope displays), Ice (a cool blue/cyan
+    // scale -- the one non-warm-toned, non-rainbow option), and a plain
+    // Grayscale for a minimal look. Choice is a personal viewing
+    // preference, not a site-wide setting -- saved per-browser. ---
+    type ColormapKey = 'inferno' | 'viridis' | 'classic' | 'turbo' | 'phosphor' | 'ice' | 'grayscale';
+    const COLORMAP_STOPS: Record<ColormapKey, [number, number, number, number][]> = {
+      inferno: [
         [0, 0, 0, 4],
         [0.2, 40, 11, 84],
         [0.4, 101, 21, 110],
@@ -351,7 +440,53 @@ import '../styles/kiwisdr.css';
         [0.75, 212, 72, 66],
         [0.9, 245, 125, 21],
         [1, 252, 255, 164],
-      ];
+      ],
+      viridis: [
+        [0, 68, 1, 84],
+        [0.25, 59, 82, 139],
+        [0.5, 33, 145, 140],
+        [0.75, 94, 201, 98],
+        [1, 253, 231, 37],
+      ],
+      classic: [
+        [0, 0, 0, 0],
+        [0.15, 0, 0, 140],
+        [0.35, 0, 120, 200],
+        [0.55, 0, 200, 80],
+        [0.75, 230, 220, 0],
+        [1, 230, 20, 20],
+      ],
+      turbo: [
+        [0, 48, 18, 59],
+        [0.125, 63, 85, 191],
+        [0.25, 39, 168, 224],
+        [0.375, 62, 210, 154],
+        [0.5, 158, 231, 63],
+        [0.625, 245, 205, 47],
+        [0.75, 244, 130, 37],
+        [0.875, 204, 66, 33],
+        [1, 122, 4, 3],
+      ],
+      phosphor: [
+        [0, 0, 0, 0],
+        [0.5, 0, 140, 40],
+        [0.85, 60, 255, 90],
+        [1, 220, 255, 220],
+      ],
+      ice: [
+        [0, 0, 0, 8],
+        [0.3, 8, 40, 90],
+        [0.6, 20, 110, 190],
+        [0.85, 110, 210, 240],
+        [1, 220, 250, 255],
+      ],
+      grayscale: [
+        [0, 0, 0, 0],
+        [1, 255, 255, 255],
+      ],
+    };
+
+    function colorFromStops(v: number, stops: [number, number, number, number][]): [number, number, number] {
       const t = v / 255;
       for (let i = 1; i < stops.length; i++) {
         const [t0, r0, g0, b0] = stops[i - 1];
@@ -361,15 +496,32 @@ import '../styles/kiwisdr.css';
           return [r0 + (r1 - r0) * f, g0 + (g1 - g0) * f, b0 + (b1 - b0) * f];
         }
       }
-      return [252, 255, 164];
+      const [, r, g, b] = stops[stops.length - 1];
+      return [r, g, b];
     }
+
     const palette = new Uint8Array(256 * 3);
-    for (let i = 0; i < 256; i++) {
-      const [r, g, b] = infernoColor(i);
-      palette[i * 3] = r;
-      palette[i * 3 + 1] = g;
-      palette[i * 3 + 2] = b;
+    function buildPalette(key: ColormapKey) {
+      const stops = COLORMAP_STOPS[key];
+      for (let i = 0; i < 256; i++) {
+        const [r, g, b] = colorFromStops(i, stops);
+        palette[i * 3] = r;
+        palette[i * 3 + 1] = g;
+        palette[i * 3 + 2] = b;
+      }
     }
+
+    const COLORMAP_STORAGE_KEY = 'kiwi_colormap';
+    const colormapSelect = document.getElementById('kiwi-colormap') as HTMLSelectElement;
+    const savedColormap = localStorage.getItem(COLORMAP_STORAGE_KEY);
+    const initialColormap: ColormapKey = savedColormap && savedColormap in COLORMAP_STOPS ? (savedColormap as ColormapKey) : 'inferno';
+    colormapSelect.value = initialColormap;
+    buildPalette(initialColormap);
+    colormapSelect.addEventListener('change', () => {
+      const key = colormapSelect.value as ColormapKey;
+      localStorage.setItem(COLORMAP_STORAGE_KEY, key);
+      buildPalette(key);
+    });
 
     function drawWaterfallRow(bins: Uint8Array) {
       const w = canvas.width;
@@ -392,17 +544,42 @@ import '../styles/kiwisdr.css';
     // layout every modern SDR app uses, redrawn from scratch each frame
     // (cheap: it's one 1024-point line, not a scrolling image). Glowing
     // accent-colored line + fading fill beneath it, matching the site's own
-    // teal accent rather than an unrelated color. ---
+    // teal accent rather than an unrelated color. Style (Line/Bars/Peak
+    // Hold) is a personal viewing preference like the waterfall colormap --
+    // saved per-browser, not site-wide. ---
     const spectrumAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#5eead4';
-    function drawSpectrum(bins: Uint8Array) {
-      const w = spectrumCanvas.width;
-      const h = spectrumCanvas.height;
-      spectrumCtx.clearRect(0, 0, w, h);
-      const n = Math.min(w, bins.length);
+    const peakAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent-2').trim() || '#f5a962';
 
+    type SpectrumStyle = 'line' | 'bars' | 'peak-hold' | 'filled' | 'gradient-bars';
+    const SPECTRUM_STYLES: SpectrumStyle[] = ['line', 'bars', 'peak-hold', 'filled', 'gradient-bars'];
+    const SPECTRUM_STYLE_STORAGE_KEY = 'kiwi_spectrum_style';
+    const spectrumStyleSelect = document.getElementById('kiwi-spectrum-style') as HTMLSelectElement;
+    const savedSpectrumStyle = localStorage.getItem(SPECTRUM_STYLE_STORAGE_KEY);
+    let spectrumStyle: SpectrumStyle =
+      savedSpectrumStyle && (SPECTRUM_STYLES as string[]).includes(savedSpectrumStyle) ? (savedSpectrumStyle as SpectrumStyle) : 'line';
+    spectrumStyleSelect.value = spectrumStyle;
+    // Slowly-decaying per-bin peak track, only used in 'peak-hold' -- reset
+    // whenever the style changes so an old session's peaks don't linger.
+    let peakLevels: Float32Array | null = null;
+    spectrumStyleSelect.addEventListener('change', () => {
+      spectrumStyle = spectrumStyleSelect.value as SpectrumStyle;
+      localStorage.setItem(SPECTRUM_STYLE_STORAGE_KEY, spectrumStyle);
+      peakLevels = null;
+    });
+
+    // Raw bin values routinely peak near 255, which -- mapped straight to
+    // canvas height -- left bars/lines pinned at the very top with no
+    // headroom to see peaks against. Scaling to 60% of height leaves a
+    // visible margin above even a maxed-out reading.
+    const SPECTRUM_HEADROOM = 0.6;
+    function binHeight(v: number, h: number): number {
+      return (v / 255) * h * SPECTRUM_HEADROOM;
+    }
+
+    function drawSpectrumLine(bins: Uint8Array, n: number, w: number, h: number) {
       spectrumCtx.beginPath();
       spectrumCtx.moveTo(0, h);
-      for (let x = 0; x < n; x++) spectrumCtx.lineTo(x, h - (bins[x] / 255) * h);
+      for (let x = 0; x < n; x++) spectrumCtx.lineTo(x, h - binHeight(bins[x], h));
       spectrumCtx.lineTo(n, h);
       spectrumCtx.closePath();
       const gradient = spectrumCtx.createLinearGradient(0, 0, 0, h);
@@ -415,7 +592,7 @@ import '../styles/kiwisdr.css';
 
       spectrumCtx.beginPath();
       for (let x = 0; x < n; x++) {
-        const y = h - (bins[x] / 255) * h;
+        const y = h - binHeight(bins[x], h);
         if (x === 0) spectrumCtx.moveTo(x, y);
         else spectrumCtx.lineTo(x, y);
       }
@@ -426,13 +603,113 @@ import '../styles/kiwisdr.css';
       spectrumCtx.stroke();
       spectrumCtx.shadowBlur = 0;
     }
-    function clearSpectrum() {
-      spectrumCtx.clearRect(0, 0, spectrumCanvas.width, spectrumCanvas.height);
+
+    // Coarser grouped bars (an equalizer look) rather than one bar per
+    // pixel-wide bin -- one bar per bin would just look like a spikier line.
+    const SPECTRUM_BAR_COUNT = 96;
+    function drawSpectrumBars(bins: Uint8Array, n: number, w: number, h: number) {
+      const binsPerBar = Math.max(1, Math.floor(n / SPECTRUM_BAR_COUNT));
+      const barWidth = w / SPECTRUM_BAR_COUNT;
+      const gap = barWidth * 0.15;
+      spectrumCtx.fillStyle = spectrumAccent;
+      spectrumCtx.shadowColor = spectrumAccent;
+      spectrumCtx.shadowBlur = 4;
+      for (let i = 0; i < SPECTRUM_BAR_COUNT; i++) {
+        const start = i * binsPerBar;
+        const end = Math.min(n, start + binsPerBar);
+        let peak = 0;
+        for (let x = start; x < end; x++) peak = Math.max(peak, bins[x]);
+        const barH = binHeight(peak, h);
+        spectrumCtx.fillRect(i * barWidth + gap / 2, h - barH, barWidth - gap, barH);
+      }
+      spectrumCtx.shadowBlur = 0;
     }
 
-    // Matches the server's fixed WF_ZOOM=10 (kiwiSdr.ts) -- 30000kHz / 2^10.
-    // Not exposed via the API since it's a constant, not runtime state.
-    const WF_SPAN_KHZ = 30000 / 2 ** 10;
+    // Decays a couple of points per frame -- slow enough that a weak signal
+    // flickering in and out still leaves a visible mark for a few seconds,
+    // fast enough that the display doesn't just fill up solid.
+    const PEAK_DECAY_PER_FRAME = 1.5;
+    function drawSpectrumPeaks(bins: Uint8Array, n: number, h: number) {
+      if (!peakLevels || peakLevels.length !== n) peakLevels = new Float32Array(n);
+      spectrumCtx.beginPath();
+      for (let x = 0; x < n; x++) {
+        peakLevels[x] = Math.max(bins[x], peakLevels[x] - PEAK_DECAY_PER_FRAME);
+        const y = h - binHeight(peakLevels[x], h);
+        if (x === 0) spectrumCtx.moveTo(x, y);
+        else spectrumCtx.lineTo(x, y);
+      }
+      spectrumCtx.strokeStyle = peakAccent;
+      spectrumCtx.lineWidth = 1;
+      spectrumCtx.stroke();
+    }
+
+    // A solid wash with no stroke line on top -- the calmer, more minimal
+    // counterpart to 'line', which draws the same fill plus a glowing edge.
+    function drawSpectrumFilled(bins: Uint8Array, n: number, w: number, h: number) {
+      spectrumCtx.beginPath();
+      spectrumCtx.moveTo(0, h);
+      for (let x = 0; x < n; x++) spectrumCtx.lineTo(x, h - binHeight(bins[x], h));
+      spectrumCtx.lineTo(n, h);
+      spectrumCtx.closePath();
+      // Anchored to the tallest point a bin can actually reach (h * (1 -
+      // SPECTRUM_HEADROOM)), not the canvas top -- a gradient spanning the
+      // full 0-h range wastes its most opaque stops on the headroom margin
+      // no bin ever draws into, leaving the visible fill sampling only the
+      // already-fading tail of the gradient and looking washed out.
+      const gradient = spectrumCtx.createLinearGradient(0, h * (1 - SPECTRUM_HEADROOM), 0, h);
+      gradient.addColorStop(0, spectrumAccent);
+      gradient.addColorStop(1, 'transparent');
+      spectrumCtx.globalAlpha = 0.95;
+      spectrumCtx.fillStyle = gradient;
+      spectrumCtx.fill();
+      spectrumCtx.globalAlpha = 1;
+    }
+
+    // Same grouped bars as 'bars', but each bar is colored by its own
+    // amplitude using the active waterfall palette -- a VU-meter look where
+    // switching the Color picker also restyles the spectrum.
+    function drawSpectrumGradientBars(bins: Uint8Array, n: number, w: number, h: number) {
+      const binsPerBar = Math.max(1, Math.floor(n / SPECTRUM_BAR_COUNT));
+      const barWidth = w / SPECTRUM_BAR_COUNT;
+      const gap = barWidth * 0.15;
+      for (let i = 0; i < SPECTRUM_BAR_COUNT; i++) {
+        const start = i * binsPerBar;
+        const end = Math.min(n, start + binsPerBar);
+        let peak = 0;
+        for (let x = start; x < end; x++) peak = Math.max(peak, bins[x]);
+        const barH = binHeight(peak, h);
+        spectrumCtx.fillStyle = `rgb(${palette[peak * 3]}, ${palette[peak * 3 + 1]}, ${palette[peak * 3 + 2]})`;
+        spectrumCtx.fillRect(i * barWidth + gap / 2, h - barH, barWidth - gap, barH);
+      }
+    }
+
+    function drawSpectrum(bins: Uint8Array) {
+      const w = spectrumCanvas.width;
+      const h = spectrumCanvas.height;
+      spectrumCtx.clearRect(0, 0, w, h);
+      const n = Math.min(w, bins.length);
+
+      if (spectrumStyle === 'bars') {
+        drawSpectrumBars(bins, n, w, h);
+      } else if (spectrumStyle === 'gradient-bars') {
+        drawSpectrumGradientBars(bins, n, w, h);
+      } else if (spectrumStyle === 'filled') {
+        drawSpectrumFilled(bins, n, w, h);
+      } else {
+        drawSpectrumLine(bins, n, w, h);
+        if (spectrumStyle === 'peak-hold') drawSpectrumPeaks(bins, n, h);
+      }
+    }
+    function clearSpectrum() {
+      spectrumCtx.clearRect(0, 0, spectrumCanvas.width, spectrumCanvas.height);
+      peakLevels = null;
+    }
+
+    // Recomputed in loadStatus() from the server's current wfZoom (see the
+    // Zoom picker) -- 30000kHz / 2^zoom, same formula kiwiSdr.ts uses
+    // server-side. Starts at the default zoom's span; the first loadStatus()
+    // response settles it to whatever the server actually reports.
+    let WF_SPAN_KHZ = 30000 / 2 ** 10;
     function updateFreqAxis(freqKhz: number) {
       const halfSpan = WF_SPAN_KHZ / 2;
       axisLow.textContent = ((freqKhz - halfSpan) / 1000).toFixed(3);
@@ -452,8 +729,8 @@ import '../styles/kiwisdr.css';
       const rect = canvasEl.getBoundingClientRect();
       const xFraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       const targetKhz = centerKhz - WF_SPAN_KHZ / 2 + xFraction * WF_SPAN_KHZ;
-      tuneFreq.value = (targetKhz / 1000).toFixed(3);
-      tune(targetKhz / 1000, mode);
+      currentFreqMhz = targetKhz / 1000;
+      tune(currentFreqMhz, mode);
     }
     canvas.addEventListener('click', (e) => tuneFromCanvasClick(e, canvas));
     spectrumCanvas.addEventListener('click', (e) => tuneFromCanvasClick(e, spectrumCanvas));
@@ -475,11 +752,16 @@ import '../styles/kiwisdr.css';
     // The waterfall's own on/off checkbox is independent of Start/Stop --
     // it can be flipped off mid-session to free that one channel (and skip
     // the render cost) while audio keeps playing, or back on without
-    // restarting audio. syncWaterfallConnection() is the single place that
-    // reconciles "should the waterfall be connected right now" against
-    // both `running` and the checkbox, called after either changes. ---
+    // restarting audio. The waterfall and spectrum are two independently
+    // toggleable *displays* of that single channel -- either, both, or
+    // neither can be showing; the underlying WebSocket stays open as long
+    // as at least one of them wants data, and only actually closes once
+    // both are off. syncWaterfallConnection() is the single place that
+    // reconciles "should the channel be connected right now" against
+    // `running` and both checkboxes, called after any of them changes. ---
     let running = false;
     let wfEnabled = wfEnabledCheckbox.checked;
+    let spectrumEnabled = spectrumEnabledCheckbox.checked;
     let audioSocket: WebSocket | null = null;
     let wfSocket: WebSocket | null = null;
     let audioCtx: AudioContext | null = null;
@@ -503,17 +785,17 @@ import '../styles/kiwisdr.css';
           return;
         }
         const bins = new Uint8Array(ev.data as ArrayBuffer);
-        drawWaterfallRow(bins);
-        drawSpectrum(bins);
+        if (wfEnabled) drawWaterfallRow(bins);
+        if (spectrumEnabled) drawSpectrum(bins);
       });
       wws.addEventListener('close', () => {
         if (wfSocket !== wws) return;
         wfSocket = null;
         // A drop here doesn't take audio down with it -- the waterfall is
         // independently toggleable now, so treat this the same as the user
-        // having flipped its checkbox off, not a fatal error for the whole
-        // session.
-        if (running && wfEnabled) wfStatus.textContent = 'Waterfall disconnected.';
+        // having flipped both checkboxes off, not a fatal error for the
+        // whole session.
+        if (running && (wfEnabled || spectrumEnabled)) wfStatus.textContent = 'Waterfall disconnected.';
       });
       wws.addEventListener('error', () => wws.close());
     }
@@ -526,8 +808,10 @@ import '../styles/kiwisdr.css';
     }
 
     function syncWaterfallConnection() {
-      wfWrap.hidden = !wfEnabled;
-      const shouldBeConnected = running && wfEnabled;
+      canvas.classList.toggle('kiwi-canvas-hidden', !wfEnabled);
+      spectrumCanvas.classList.toggle('kiwi-canvas-hidden', !spectrumEnabled);
+      wfWrap.hidden = !wfEnabled && !spectrumEnabled;
+      const shouldBeConnected = running && (wfEnabled || spectrumEnabled);
       if (shouldBeConnected && !wfSocket) startWaterfall();
       else if (!shouldBeConnected && wfSocket) stopWaterfall();
       else if (!shouldBeConnected) wfStatus.textContent = '';
@@ -535,6 +819,10 @@ import '../styles/kiwisdr.css';
 
     wfEnabledCheckbox.addEventListener('change', () => {
       wfEnabled = wfEnabledCheckbox.checked;
+      syncWaterfallConnection();
+    });
+    spectrumEnabledCheckbox.addEventListener('change', () => {
+      spectrumEnabled = spectrumEnabledCheckbox.checked;
       syncWaterfallConnection();
     });
     syncWaterfallConnection();
