@@ -23,9 +23,10 @@ alertConfigRoutes.post('/', requireAuth, async (c) => {
     body?.vhfUsSpottersOnly === undefined &&
     body?.kpEnabled === undefined &&
     body?.tropoEnabled === undefined &&
-    body?.satPassEnabled === undefined
+    body?.satPassEnabled === undefined &&
+    body?.lightningEnabled === undefined
   ) {
-    return c.json({ error: 'email, ntfy, vhfEnabled, flareEnabled, windEnabled, kpEnabled, tropoEnabled, satPassEnabled, dxUsSpottersOnly, or vhfUsSpottersOnly is required' }, 400);
+    return c.json({ error: 'email, ntfy, vhfEnabled, flareEnabled, windEnabled, kpEnabled, tropoEnabled, satPassEnabled, lightningEnabled, dxUsSpottersOnly, or vhfUsSpottersOnly is required' }, 400);
   }
 
   if (body.email) {
@@ -57,6 +58,7 @@ alertConfigRoutes.post('/', requireAuth, async (c) => {
     kpEnabled: body.kpEnabled !== undefined ? !!body.kpEnabled : undefined,
     tropoEnabled: body.tropoEnabled !== undefined ? !!body.tropoEnabled : undefined,
     satPassEnabled: body.satPassEnabled !== undefined ? !!body.satPassEnabled : undefined,
+    lightningEnabled: body.lightningEnabled !== undefined ? !!body.lightningEnabled : undefined,
   });
   return c.json(getAlertConfigPublic());
 });

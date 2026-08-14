@@ -464,3 +464,41 @@ export function unregisterWaterfallListener(listener: WaterfallListener) {
   wfSocket = null;
   status.wfConnected = false;
 }
+
+const NOISE_FLOOR_SAMPLE_MS = 1500;
+const NOISE_FLOOR_POLL_MS = 200;
+
+/**
+ * A brief spot-check, not a live stream -- registers a throwaway audio
+ * listener just long enough to average a handful of S-meter readings, then
+ * unregisters it. If nobody else is listening, this opens the upstream
+ * connection for ~1.5s and then closes it again (registerAudioListener/
+ * unregisterAudioListener's normal open-on-first-listener/close-on-last
+ * behavior handles that automatically); if someone already is, it just
+ * piggybacks on their existing connection without disturbing it. Used for
+ * /conditions' "how busy is this band right now" widget -- deliberately
+ * NOT a continuous poll, which would mean quietly holding one of the
+ * Kiwi's few free channels open just for that page to exist, the exact
+ * thing every other lazy-connect choice in this file exists to avoid.
+ */
+export async function sampleNoiseFloor(): Promise<
+  { ok: true; smeterDbm: number; freqKhz: number; mode: string } | { ok: false; error: string }
+> {
+  if (!getKiwiSdrEnabled()) return { ok: false, error: 'KiwiSDR is currently disabled' };
+  const listener: AudioListener = () => {};
+  const result = await registerAudioListener(listener);
+  if (!result.ok) return result;
+  try {
+    const samples: number[] = [];
+    const ticks = Math.round(NOISE_FLOOR_SAMPLE_MS / NOISE_FLOOR_POLL_MS);
+    for (let i = 0; i < ticks; i++) {
+      await new Promise((resolve) => setTimeout(resolve, NOISE_FLOOR_POLL_MS));
+      if (status.smeterDbm !== null) samples.push(status.smeterDbm);
+    }
+    if (samples.length === 0) return { ok: false, error: 'No signal reading yet -- try again' };
+    const avgDbm = samples.reduce((a, b) => a + b, 0) / samples.length;
+    return { ok: true, smeterDbm: avgDbm, freqKhz: currentFreqKhz, mode: currentMode };
+  } finally {
+    unregisterAudioListener(listener);
+  }
+}

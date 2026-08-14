@@ -25,6 +25,8 @@ import { systemStatsRoutes } from './routes/systemStats';
 import { backupRoutes } from './routes/backup';
 import { kiwiSdrRoutes } from './routes/kiwiSdr';
 import { guestbookRoutes } from './routes/guestbook';
+import { lightningRoutes } from './routes/lightning';
+import { startLightningMonitoring } from './lightning';
 import { startFlexRadioClient, registerAudioListener, unregisterAudioListener } from './flexRadio';
 import {
   registerAudioListener as registerKiwiAudioListener,
@@ -64,6 +66,7 @@ app.route('/api/system', systemStatsRoutes);
 app.route('/api/backup', backupRoutes);
 app.route('/api/kiwisdr', kiwiSdrRoutes);
 app.route('/api/guestbook', guestbookRoutes);
+app.route('/api/lightning', lightningRoutes);
 // Registered before the general /media/* handler below -- Hono matches
 // middleware in registration order, and eqsl-card images live in their own
 // directory, not under PHOTOS_DIR.
@@ -90,6 +93,7 @@ app.use('/media/*', serveStatic({ root: PHOTOS_DIR, rewriteRequestPath: (p) => p
 
 startFlexRadioClient();
 startBrandmeisterListener();
+startLightningMonitoring();
 
 const port = Number(process.env.PORT ?? 3000);
 console.log(`API listening on :${port}`);

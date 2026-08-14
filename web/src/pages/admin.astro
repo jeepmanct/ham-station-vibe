@@ -151,6 +151,20 @@ import Base from '../layouts/Base.astro';
 
     <section>
       <div class="card">
+        <h2>Lightning Monitoring</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Whether the persistent Blitzortung lightning-strike connection is running at all &mdash; off by default. Needs a Station Location set above to know what "nearby" means. Powers the map on /conditions and the Lightning alert below.</p>
+        <form id="lightning-monitoring-form" class="form-grid">
+          <label class="form-grid-checkbox"><input type="checkbox" id="lm-enabled" /> Lightning monitoring enabled</label>
+          <p id="lightning-monitoring-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
         <h2>KiwiSDR Configuration</h2>
         <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">The LAN address the /kiwisdr page's waterfall and audio connect to &mdash; leave blank if you don't have a KiwiSDR. Port defaults to 8073 if omitted.</p>
         <form id="kiwi-config-form" class="form-grid">
@@ -442,6 +456,18 @@ import Base from '../layouts/Base.astro';
             <button type="submit" class="btn">Save</button>
           </div>
         </form>
+
+        <h3 style="margin:1.75rem 0 0.5rem;font-size:0.95rem;">Lightning</h3>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
+          Notifies you when a lightning strike lands within 20km of your Station Location -- at most once every 30 minutes even during an active nearby storm. Requires Lightning Monitoring turned on above.
+        </p>
+        <form id="alert-lightning-form" class="form-grid">
+          <label class="form-grid-checkbox"><input type="checkbox" id="al-enabled" /> Lightning alerts enabled</label>
+          <p id="alert-lightning-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
       </div>
     </section>
   </section>
@@ -465,6 +491,7 @@ import Base from '../layouts/Base.astro';
       loadTileLayout(tlPageSelect.value);
       loadBackupStatus();
       loadKiwiVisibility();
+      loadLightningMonitoring();
     }
 
     if (sessionStorage.getItem(TOKEN_KEY)) {
@@ -989,6 +1016,31 @@ import Base from '../layouts/Base.astro';
       }
     });
 
+    // --- Lightning monitoring (persistent background connection) ---
+    const lmEnabled = document.getElementById('lm-enabled') as HTMLInputElement;
+    const lightningMonitoringStatus = document.getElementById('lightning-monitoring-status')!;
+
+    async function loadLightningMonitoring() {
+      const s: { enabled: boolean } = await fetch('/api/lightning/status').then((r) => r.json());
+      lmEnabled.checked = s.enabled;
+    }
+
+    document.getElementById('lightning-monitoring-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      lightningMonitoringStatus.textContent = 'Saving…';
+      const res = await fetch('/api/lightning/monitoring', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ enabled: lmEnabled.checked }),
+      });
+      if (res.ok) {
+        lightningMonitoringStatus.textContent = 'Saved.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        lightningMonitoringStatus.textContent = body.error ?? 'Save failed.';
+      }
+    });
+
     document.getElementById('or-config-form')!.addEventListener('submit', async (e) => {
       e.preventDefault();
       await saveServiceCredentials(
@@ -1393,6 +1445,7 @@ import Base from '../layouts/Base.astro';
       kpEnabled: boolean;
       tropoEnabled: boolean;
       satPassEnabled: boolean;
+      lightningEnabled: boolean;
     };
 
     const aeHost = document.getElementById('ae-host') as HTMLInputElement;
@@ -1426,6 +1479,9 @@ import Base from '../layouts/Base.astro';
     const aspEnabled = document.getElementById('asp-enabled') as HTMLInputElement;
     const alertSatPassStatus = document.getElementById('alert-sat-pass-status')!;
 
+    const alEnabled = document.getElementById('al-enabled') as HTMLInputElement;
+    const alertLightningStatus = document.getElementById('alert-lightning-status')!;
+
     const adxUsOnly = document.getElementById('adx-us-only') as HTMLInputElement;
     const alertDxFilterStatus = document.getElementById('alert-dx-filter-status')!;
 
@@ -1450,6 +1506,7 @@ import Base from '../layouts/Base.astro';
       akEnabled.checked = cfg.kpEnabled;
       atEnabled.checked = cfg.tropoEnabled;
       aspEnabled.checked = cfg.satPassEnabled;
+      alEnabled.checked = cfg.lightningEnabled;
       adxUsOnly.checked = cfg.dxUsSpottersOnly;
     }
 
@@ -1623,6 +1680,22 @@ import Base from '../layouts/Base.astro';
       } else {
         const body = await res.json().catch(() => ({}));
         alertSatPassStatus.textContent = body.error ?? 'Save failed.';
+      }
+    });
+
+    document.getElementById('alert-lightning-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertLightningStatus.textContent = 'Saving…';
+      const res = await fetch('/api/alert-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ lightningEnabled: alEnabled.checked }),
+      });
+      if (res.ok) {
+        alertLightningStatus.textContent = 'Saved.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alertLightningStatus.textContent = body.error ?? 'Save failed.';
       }
     });
 

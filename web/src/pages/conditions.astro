@@ -62,6 +62,29 @@ import '../styles/conditions.css';
   </div>
 
   <div class="card" style="margin-top:1.5rem;">
+    <h2>Band Noise Floor <span style="color:var(--muted);font-weight:400;font-size:0.85rem;">(KiwiSDR)</span></h2>
+    <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
+      A live spot-check on whatever this station's <a href="/kiwisdr">KiwiSDR</a> is currently tuned to &mdash; roughly indicates how busy/quiet that one frequency is right now, not the whole band. Takes a moment to sample; doesn't poll continuously, so it doesn't hold a receiver channel open just for this page to exist.
+    </p>
+    <div id="noise-floor-content">
+      <p class="status-line" id="noise-floor-status">Checking…</p>
+    </div>
+    <button type="button" class="btn secondary" id="noise-floor-refresh" style="margin-top:0.5rem;">Check again</button>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <h2>Lightning</h2>
+    <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
+      Strikes within 100km of the station QTH over the last 2 hours, via <a href="https://www.blitzortung.org/" target="_blank" rel="noopener">Blitzortung.org</a>'s community lightning detection network. Solid circle is the 20km "seriously consider disconnecting antennas" radius.
+    </p>
+    <div id="lightning-unavailable" class="status-line" hidden></div>
+    <div id="lightning-content" hidden>
+      <p class="status-line" id="lightning-status"></p>
+      <div id="lightning-map" style="height:320px;border-radius:var(--radius);"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
     <h2>Sun &amp; Grayline</h2>
     <p style="margin:0;color:var(--muted);font-size:0.85rem;">For the station QTH<span id="sun-grid"></span>, computed client-side when the page loads &mdash; reload for a new day's times.</p>
     <div class="stat-grid" style="margin-top:1rem;">
@@ -107,6 +130,8 @@ import '../styles/conditions.css';
     import { sunriseSunset } from '../lib/grayline';
     import { renderLineChart } from '../lib/charts';
     import { escapeHtml } from '../lib/escapeHtml';
+    import 'leaflet/dist/leaflet.css';
+    import L from 'leaflet';
 
     // --- Propagation trend (last 90 days) — distinct from /stats' yearly
     // solar-cycle-context chart; this answers "how has it been lately,"
@@ -373,5 +398,152 @@ import '../styles/conditions.css';
       .catch(() => {
         document.getElementById('contest-list')!.innerHTML = '<p class="status-line">Could not load contest calendar.</p>';
       });
+
+    // --- KiwiSDR noise floor -- a one-shot spot-check on page load, plus a
+    // manual re-check button, never an auto-poll (see the card's own
+    // description for why: polling would mean quietly holding a receiver
+    // channel open just for this page to exist). ---
+    function dbmToSUnit(dbm: number): string {
+      const sUnits = 9 + (dbm + 73) / 6;
+      if (sUnits >= 9) {
+        const over = Math.round((sUnits - 9) * 6);
+        return over > 0 ? `S9+${over}dB` : 'S9';
+      }
+      return `S${Math.max(1, Math.round(sUnits))}`;
+    }
+
+    function checkNoiseFloor() {
+      const status = document.getElementById('noise-floor-status')!;
+      status.textContent = 'Checking…';
+      fetch('/api/kiwisdr/noise-floor')
+        .then(async (r) => {
+          if (!r.ok) {
+            const body = await r.json().catch(() => ({}));
+            status.textContent = body.error ?? 'Could not read the KiwiSDR right now.';
+            return;
+          }
+          const d: { smeterDbm: number; freqKhz: number; mode: string } = await r.json();
+          status.textContent =
+            `${dbmToSUnit(d.smeterDbm)} (${d.smeterDbm.toFixed(0)}dBm) on ${(d.freqKhz / 1000).toFixed(3)} MHz ${d.mode.toUpperCase()}`;
+        })
+        .catch(() => {
+          status.textContent = 'Could not reach the KiwiSDR.';
+        });
+    }
+    checkNoiseFloor();
+    document.getElementById('noise-floor-refresh')!.addEventListener('click', checkNoiseFloor);
+
+    // --- Lightning map -- polled every 20s (not a WebSocket), which is
+    // plenty responsive for situational awareness on strikes that are
+    // already up to 2 hours old by the time they age out of the feed. ---
+    type LightningStatus = {
+      enabled: boolean;
+      locationConfigured: boolean;
+      homeLat: number | null;
+      homeLon: number | null;
+      connected: boolean;
+      strikeCount: number;
+      closestDistanceKm: number | null;
+      displayRadiusKm: number;
+      alertRadiusKm: number;
+    };
+    type Strike = { lat: number; lon: number; distanceKm: number; timestamp: number };
+
+    const lightningUnavailable = document.getElementById('lightning-unavailable')!;
+    const lightningContent = document.getElementById('lightning-content')!;
+    const lightningStatusEl = document.getElementById('lightning-status')!;
+    let lightningMap: L.Map | null = null;
+    let lightningMarkers: L.CircleMarker[] = [];
+
+    function clearLightningMarkers() {
+      for (const m of lightningMarkers) m.remove();
+      lightningMarkers = [];
+    }
+
+    function strikeColor(ageMinutes: number): string {
+      // Bright/hot for a fresh strike, fading toward muted as it ages out
+      // of the 2h retention window -- an "is this still happening" read at
+      // a glance, not just a flat list of dots.
+      const t = Math.min(1, ageMinutes / 120);
+      const critical = getComputedStyle(document.documentElement).getPropertyValue('--status-critical').trim() || '#d03b3b';
+      const muted = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#8d98a1';
+      return t < 0.5 ? critical : muted;
+    }
+
+    function renderStrikes(strikes: Strike[]) {
+      if (!lightningMap) return;
+      clearLightningMarkers();
+      const now = Date.now();
+      for (const s of strikes) {
+        const ageMinutes = (now - s.timestamp) / 60000;
+        const color = strikeColor(ageMinutes);
+        const marker = L.circleMarker([s.lat, s.lon], {
+          radius: 4,
+          color,
+          fillColor: color,
+          fillOpacity: 0.7,
+          weight: 1,
+        })
+          .bindTooltip(`${s.distanceKm.toFixed(0)}km away, ${ageMinutes < 1 ? 'just now' : `${Math.round(ageMinutes)}m ago`}`, { sticky: true })
+          .addTo(lightningMap);
+        lightningMarkers.push(marker);
+      }
+    }
+
+    function initLightningMap(lat: number, lon: number, displayRadiusKm: number, alertRadiusKm: number) {
+      if (lightningMap) return;
+      lightningMap = L.map('lightning-map').setView([lat, lon], 7);
+      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      L.tileLayer(`https://{s}.basemaps.cartocdn.com/${isDark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 18,
+      }).addTo(lightningMap);
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#5eead4';
+      L.marker([lat, lon]).addTo(lightningMap).bindTooltip('Station QTH');
+      L.circle([lat, lon], { radius: alertRadiusKm * 1000, color: accent, fill: false, weight: 2 }).addTo(lightningMap);
+      L.circle([lat, lon], { radius: displayRadiusKm * 1000, color: accent, fill: false, weight: 1, dashArray: '4 6', opacity: 0.5 }).addTo(lightningMap);
+    }
+
+    function loadLightning() {
+      fetch('/api/lightning/status')
+        .then((r) => r.json())
+        .then((s: LightningStatus) => {
+          if (!s.locationConfigured) {
+            lightningUnavailable.hidden = false;
+            lightningUnavailable.textContent = 'No station location configured under Admin — lightning tracking needs one to know what "nearby" means.';
+            lightningContent.hidden = true;
+            return;
+          }
+          if (!s.enabled) {
+            lightningUnavailable.hidden = false;
+            lightningUnavailable.textContent = 'Lightning monitoring is currently off.';
+            lightningContent.hidden = true;
+            return;
+          }
+          lightningUnavailable.hidden = true;
+          lightningContent.hidden = false;
+          if (s.homeLat != null && s.homeLon != null) initLightningMap(s.homeLat, s.homeLon, s.displayRadiusKm, s.alertRadiusKm);
+
+          if (!s.connected) {
+            lightningStatusEl.textContent = 'Connecting…';
+            return;
+          }
+          const closest =
+            s.closestDistanceKm != null ? `, closest ${s.closestDistanceKm.toFixed(0)}km` : '';
+          lightningStatusEl.textContent = `${s.strikeCount} strike${s.strikeCount === 1 ? '' : 's'} in the last 2 hours${closest}`;
+
+          fetch('/api/lightning/strikes')
+            .then((r) => r.json())
+            .then((strikes: Strike[]) => renderStrikes(strikes));
+        })
+        .catch(() => {
+          lightningUnavailable.hidden = false;
+          lightningUnavailable.textContent = 'Could not load lightning status.';
+          lightningContent.hidden = true;
+        });
+    }
+    loadLightning();
+    setInterval(loadLightning, 20000);
   </script>
 </Base>

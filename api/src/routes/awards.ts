@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { db } from '../db';
 import { DXCC_ENTITIES, resolveWorkedEntities } from '../dxccEntities';
+import { getDxccEntityLocation } from '../dxccPrefixes';
 import { ADIF_DXCC_CODE_TO_ENTITY } from '../data/adifDxccCodes';
 import { wpxPrefix } from '../wpx';
 import { ttlCached } from '../ttlCache';
@@ -358,15 +359,19 @@ awardsRoutes.get('/', async (c) => {
   return c.json(result);
 });
 
-// One marker per worked DXCC entity, positioned at the average lat/lon of
-// its own QSOs -- there's no per-entity centroid/boundary data in this
-// project (DXCC_ENTITIES only has name/cqZone/continent), so this is
-// derived entirely from already-logged contact coordinates rather than
-// pulling in a new geographic dataset. Only ever shows worked entities --
-// an entity never worked has no QSO coordinates to derive a position from,
-// so "needed" stays a text list (Most-Wanted, below) rather than a map pin.
+// One marker per DXCC entity: worked ones positioned at the average lat/lon
+// of their own QSOs (a real, specific position beats a generic reference
+// point when we actually have contacts to average); never-worked ("needed")
+// ones positioned at cty.dat's own per-entity reference coordinate instead,
+// via getDxccEntityLocation() -- there's no QSO to average for those, but
+// cty.dat's header-line coordinate is a reasonable stand-in (this used to
+// be genuinely unavailable, per the comment history here, until
+// dxccPrefixes.ts started exposing it). Needed entities always get
+// qsoCount: 0, confirmed: false -- the frontend uses `worked` to tell them
+// apart from a worked-but-unconfirmed entity, which also has confirmed:
+// false.
 awardsRoutes.get('/dxcc-map', (c) => {
-  const rows = db
+  const workedRows = db
     .query(
       `SELECT country, AVG(lat) as lat, AVG(lon) as lon, COUNT(*) as qsoCount,
               MAX(CASE WHEN lotw_qsl_rcvd = 'Y' OR eqsl_qsl_rcvd = 'Y' THEN 1 ELSE 0 END) as confirmed
@@ -376,6 +381,24 @@ awardsRoutes.get('/dxcc-map', (c) => {
     )
     .all() as { country: string; lat: number; lon: number; qsoCount: number; confirmed: number }[];
 
+  const worked = workedRows.map((r) => ({
+    country: r.country,
+    lat: r.lat,
+    lon: r.lon,
+    qsoCount: r.qsoCount,
+    confirmed: r.confirmed === 1,
+    worked: true,
+  }));
+
+  const allWorkedCountryRows = db.query('SELECT DISTINCT country FROM qsos WHERE country IS NOT NULL').all() as { country: string }[];
+  const resolvedWorked = resolveWorkedEntities(allWorkedCountryRows.map((r) => r.country));
+  const needed = DXCC_ENTITIES.filter((e) => !resolvedWorked.has(e.name))
+    .map((e) => {
+      const loc = getDxccEntityLocation(e.name);
+      return loc ? { country: e.name, lat: loc.lat, lon: loc.lon, qsoCount: 0, confirmed: false, worked: false } : null;
+    })
+    .filter((e) => e !== null);
+
   c.header('Cache-Control', 'no-store');
-  return c.json(rows.map((r) => ({ country: r.country, lat: r.lat, lon: r.lon, qsoCount: r.qsoCount, confirmed: r.confirmed === 1 })));
+  return c.json([...worked, ...needed]);
 });

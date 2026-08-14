@@ -41,9 +41,14 @@ import '../styles/awards.css';
   </div>
 
   <div class="award-card" style="margin-bottom:1.25rem;">
-    <h2>DXCC Map</h2>
-    <p class="award-substat">Worked entities, positioned at the average location of their QSOs (not official country boundaries) &mdash; green is LoTW/eQSL confirmed, amber is worked but not yet confirmed anywhere. Entities never worked aren't shown here; see Most-Wanted below for those.</p>
+    <h2>DXCC Coverage Map</h2>
+    <p class="award-substat">Worked entities sit at the average location of their own QSOs; entities never worked sit at cty.dat's own reference point for that entity, since there's no contact to average yet &mdash; neither is an official country boundary. Green is LoTW/eQSL confirmed, amber is worked but not yet confirmed anywhere, gray is still needed.</p>
     <div id="dxcc-map"></div>
+    <div class="award-legend">
+      <span><span class="dot confirmed"></span> Confirmed</span>
+      <span><span class="dot worked"></span> Worked</span>
+      <span><span class="dot none"></span> Needed</span>
+    </div>
   </div>
 
   <div class="award-card" style="margin-bottom:1.25rem;">
@@ -162,10 +167,12 @@ import '../styles/awards.css';
       })
       .catch(() => {});
 
-    // --- DXCC map: one marker per worked entity, positioned at the average
-    // location of its own QSOs (see the route's own comment for why there's
-    // no proper per-entity centroid/boundary data available). ---
-    type DxccMapEntry = { country: string; lat: number; lon: number; qsoCount: number; confirmed: boolean };
+    // --- DXCC map: worked entities positioned at the average location of
+    // their own QSOs, needed entities at cty.dat's reference point for
+    // that entity (see the route's own comment). Needed markers are added
+    // FIRST (smaller, dimmer) so worked/confirmed markers layer on top of
+    // them in Leaflet's add-order z-stacking, not the other way around. ---
+    type DxccMapEntry = { country: string; lat: number; lon: number; qsoCount: number; confirmed: boolean; worked: boolean };
     const dxccMap = L.map('dxcc-map', { worldCopyJump: true }).setView([20, 0], 2);
     const dxccMapIsDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dxccMapIsDark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
@@ -176,11 +183,26 @@ import '../styles/awards.css';
     const dxccMapRenderer = L.canvas({ padding: 0.5 });
     const dxccMapGoodColor = getComputedStyle(document.documentElement).getPropertyValue('--status-good').trim() || '#22c55e';
     const dxccMapWarningColor = getComputedStyle(document.documentElement).getPropertyValue('--status-warning').trim() || '#eab308';
+    const dxccMapNeededColor = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#666';
 
     fetch('/api/awards/dxcc-map')
       .then((r) => r.json())
       .then((rows: DxccMapEntry[]) => {
-        for (const r of rows) {
+        const needed = rows.filter((r) => !r.worked);
+        const worked = rows.filter((r) => r.worked);
+        for (const r of needed) {
+          L.circleMarker([r.lat, r.lon], {
+            radius: 3,
+            color: dxccMapNeededColor,
+            fillColor: dxccMapNeededColor,
+            fillOpacity: 0.5,
+            weight: 1,
+            renderer: dxccMapRenderer,
+          })
+            .bindTooltip(`${r.country} — needed`, { sticky: true })
+            .addTo(dxccMap);
+        }
+        for (const r of worked) {
           const color = r.confirmed ? dxccMapGoodColor : dxccMapWarningColor;
           L.circleMarker([r.lat, r.lon], { radius: 5, color, fillColor: color, fillOpacity: 0.85, weight: 1, renderer: dxccMapRenderer })
             .bindTooltip(`${r.country} — ${r.qsoCount} QSO${r.qsoCount === 1 ? '' : 's'}${r.confirmed ? ' (confirmed)' : ''}`, { sticky: true })

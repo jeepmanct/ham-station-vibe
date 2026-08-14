@@ -463,6 +463,10 @@ for (const [name, type] of [
   ['tropo_enabled', 'INTEGER NOT NULL DEFAULT 0'],
   // Same independent-trigger pattern, for the satellite-pass alert.
   ['sat_pass_enabled', 'INTEGER NOT NULL DEFAULT 0'],
+  // Same independent-trigger pattern, for the nearby-lightning alert --
+  // also requires lightning_monitoring.enabled to be on, same relationship
+  // radio's alert-worthy features have to radio_monitoring.enabled.
+  ['lightning_enabled', 'INTEGER NOT NULL DEFAULT 0'],
 ] as const) {
   if (!alertConfigColumns.has(name)) {
     db.exec(`ALTER TABLE alert_email_config ADD COLUMN ${name} ${type}`);
@@ -503,6 +507,17 @@ db.exec(`
     message TEXT NOT NULL,
     submitted_at TEXT NOT NULL DEFAULT (datetime('now')),
     approved INTEGER NOT NULL DEFAULT 0
+  );
+
+  -- Whether the persistent Blitzortung lightning-strike MQTT connection
+  -- should be running at all -- same off-by-default, admin-toggled,
+  -- restart-persisted shape as radio_monitoring (see that table's own
+  -- comment). This one holds no credentials and needs no hardware, but the
+  -- always-on background connection is the same kind of thing: opt-in, not
+  -- something that should just start running the moment the code ships.
+  CREATE TABLE IF NOT EXISTS lightning_monitoring (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    enabled INTEGER NOT NULL DEFAULT 0
   );
 `);
 

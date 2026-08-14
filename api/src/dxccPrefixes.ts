@@ -110,6 +110,22 @@ function parseCtyDat(raw: string): Map<string, PrefixEntry> {
 
 const PREFIX_TABLE = parseCtyDat(readFileSync(path.join(import.meta.dir, 'data', 'cty.dat'), 'utf-8'));
 
+// One reference lat/lon per entity, deduped from PREFIX_TABLE's many
+// prefix->entity rows (every prefix sharing an entity carries the exact
+// same coordinate, since parseCtyDat() stamps it once per cty.dat header
+// block and copies it onto each prefix token below it) -- first occurrence
+// wins, arbitrarily, since they're identical anyway. Built once at module
+// load, not per-call, since PREFIX_TABLE itself never changes at runtime.
+const ENTITY_LOCATIONS = new Map<string, { lat: number; lon: number }>();
+for (const entry of PREFIX_TABLE.values()) {
+  if (!ENTITY_LOCATIONS.has(entry.entity)) ENTITY_LOCATIONS.set(entry.entity, { lat: entry.lat, lon: entry.lon });
+}
+
+/** cty.dat's reference coordinate for a DXCC entity (its own header line, not any specific station) -- used for entities with no logged QSO to derive a real position from, e.g. the "needed" markers on /awards' DXCC map. */
+export function getDxccEntityLocation(entity: string): { lat: number; lon: number } | null {
+  return ENTITY_LOCATIONS.get(entity) ?? null;
+}
+
 /**
  * Resolves a callsign to its DXCC entity name + continent via longest-prefix
  * match against cty.dat, after normalizing slash-portable calls (9A/AD8AK,
