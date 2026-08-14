@@ -214,3 +214,72 @@ statsRoutes.get('/activity-pattern', (c) => {
   c.header('Cache-Control', 'no-store');
   return c.json({ dayNames: DAY_NAMES, grid });
 });
+
+const BAND_HOUR_ROW_LIMIT = 8;
+
+// Per-band hour-of-day breakdown, UTC (same reasoning as activity-pattern
+// above). Deliberately a SEPARATE endpoint/grid rather than adding a band
+// dimension to activity-pattern's 7x24 grid -- that would be a 7x24xN
+// cube, awkward to render as a single flat heatmap, and "best hour for
+// this band" doesn't actually need the day-of-week axis at all. Limited to
+// the top BAND_HOUR_ROW_LIMIT bands by total QSO count (matches
+// BAND_VARS.length on the frontend, which only has that many distinct
+// categorical colors defined) -- a station's activity is normally
+// concentrated on a handful of bands, so this doesn't meaningfully cut
+// real signal, just long-tail noise.
+statsRoutes.get('/band-hour-pattern', (c) => {
+  const topBands = db
+    .query(`SELECT band, COUNT(*) as count FROM qsos WHERE band IS NOT NULL GROUP BY band ORDER BY count DESC LIMIT ?`)
+    .all(BAND_HOUR_ROW_LIMIT) as { band: string; count: number }[];
+  const bands = topBands.map((b) => b.band);
+
+  const rows = db
+    .query(
+      `SELECT band, CAST(substr(time_on, 1, 2) AS INTEGER) as hour, COUNT(*) as count
+       FROM qsos WHERE band IS NOT NULL AND time_on IS NOT NULL AND LENGTH(time_on) >= 2
+       GROUP BY band, hour`,
+    )
+    .all() as { band: string; hour: number; count: number }[];
+
+  const grid: number[][] = bands.map(() => Array(24).fill(0));
+  const bandIndex = new Map(bands.map((b, i) => [b, i]));
+  for (const r of rows) {
+    const idx = bandIndex.get(r.band);
+    if (idx === undefined || r.hour < 0 || r.hour >= 24) continue;
+    grid[idx][r.hour] = r.count;
+  }
+
+  c.header('Cache-Control', 'no-store');
+  return c.json({ bands, grid });
+});
+
+// Confirmation coverage by method, plus a per-year trend of "% of that
+// year's QSOs confirmed via LoTW or eQSL as of today" -- deliberately NOT a
+// per-QSO follow-up list (that's /api/qsos/unconfirmed, already surfaced as
+// the "Confirmed Nowhere" checklist on /tools; this endpoint is the
+// aggregate picture, not a duplicate of that one).
+statsRoutes.get('/qsl-confirmation', (c) => {
+  const totals = db
+    .query(
+      `SELECT COUNT(*) as total,
+              SUM(CASE WHEN lotw_qsl_rcvd = 'Y' THEN 1 ELSE 0 END) as confirmedLotw,
+              SUM(CASE WHEN eqsl_qsl_rcvd = 'Y' THEN 1 ELSE 0 END) as confirmedEqsl,
+              SUM(CASE WHEN lotw_qsl_rcvd = 'Y' OR eqsl_qsl_rcvd = 'Y' THEN 1 ELSE 0 END) as confirmedEither,
+              SUM(CASE WHEN lotw_qsl_rcvd = 'Y' AND eqsl_qsl_rcvd = 'Y' THEN 1 ELSE 0 END) as confirmedBoth
+       FROM qsos`,
+    )
+    .get() as { total: number; confirmedLotw: number; confirmedEqsl: number; confirmedEither: number; confirmedBoth: number };
+
+  const byYear = db
+    .query(
+      `SELECT substr(qso_date, 1, 4) as year, COUNT(*) as total,
+              SUM(CASE WHEN lotw_qsl_rcvd = 'Y' OR eqsl_qsl_rcvd = 'Y' THEN 1 ELSE 0 END) as confirmed
+       FROM qsos
+       GROUP BY year
+       ORDER BY year ASC`,
+    )
+    .all() as { year: string; total: number; confirmed: number }[];
+
+  c.header('Cache-Control', 'no-store');
+  return c.json({ ...totals, byYear });
+});

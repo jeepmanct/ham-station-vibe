@@ -1,0 +1,13 @@
+.sync-status-dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  margin-right: 0.5rem;
+  background: var(--status-good);
+  vertical-align: middle;
+}
+.sync-status-dot.warning { background: var(--status-warning); }
+.sync-status-dot.critical { background: var(--status-critical); }
+
+.sync-status-cadence { color: var(--muted); font-size: 0.82rem; }

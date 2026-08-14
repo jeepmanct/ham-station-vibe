@@ -3,7 +3,7 @@ import '../styles/base.css';
 
 interface Props {
   title: string;
-  active?: 'home' | 'photos' | 'log' | 'map' | 'awards' | 'stats' | 'activations' | 'tools' | 'electronics' | 'reference' | 'conditions' | 'radio' | 'satellites' | 'kiwisdr' | 'about' | 'admin' | 'device-stats';
+  active?: 'home' | 'photos' | 'log' | 'map' | 'awards' | 'stats' | 'activations' | 'tools' | 'electronics' | 'reference' | 'conditions' | 'radio' | 'satellites' | 'kiwisdr' | 'about' | 'admin' | 'device-stats' | 'sync-status' | 'guestbook';
 }
 const { title, active } = Astro.props;
 ---
@@ -42,6 +42,7 @@ const { title, active } = Astro.props;
       <a class="brand" href="/"><span class="dot"></span><span id="brand-text">Ham Station</span></a>
       <nav id="site-nav">
         <a data-tile-id="about" href="/about" aria-current={active === 'about' ? 'page' : undefined}>About</a>
+        <a data-tile-id="guestbook" href="/guestbook" aria-current={active === 'guestbook' ? 'page' : undefined}>Guestbook</a>
         <a data-tile-id="photos" href="/photos" aria-current={active === 'photos' ? 'page' : undefined}>Photos</a>
         <a data-tile-id="log" href="/log" aria-current={active === 'log' ? 'page' : undefined}>QSO Log</a>
         <a data-tile-id="map" href="/map" aria-current={active === 'map' ? 'page' : undefined}>QSO Map</a>
@@ -56,6 +57,7 @@ const { title, active } = Astro.props;
         <a data-tile-id="electronics" href="/electronics" aria-current={active === 'electronics' ? 'page' : undefined}>Electronics</a>
         <a data-tile-id="reference" href="/reference" aria-current={active === 'reference' ? 'page' : undefined}>Reference</a>
         <a data-tile-id="device-stats" href="/device-stats" aria-current={active === 'device-stats' ? 'page' : undefined}>Device Stats</a>
+        <a data-tile-id="sync-status" href="/sync-status" aria-current={active === 'sync-status' ? 'page' : undefined}>Sync Status</a>
         <a data-tile-id="admin" href="/admin" aria-current={active === 'admin' ? 'page' : undefined}>Admin</a>
       </nav>
       <div class="theme-picker">

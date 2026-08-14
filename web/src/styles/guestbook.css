@@ -1,0 +1,29 @@
+.guestbook-entry {
+  border-bottom: 1px solid var(--border);
+  padding: 0.85rem 0;
+}
+.guestbook-entry:last-child { border-bottom: none; }
+.guestbook-entry .who { font-weight: 700; }
+.guestbook-entry .callsign { color: var(--accent); font-family: var(--font-mono); font-weight: 400; margin-left: 0.4rem; }
+.guestbook-entry .when { color: var(--muted); font-size: 0.78rem; margin-left: 0.5rem; }
+.guestbook-entry .message { margin: 0.3rem 0 0; white-space: pre-wrap; word-break: break-word; }
+
+/* Honeypot -- hidden from real visitors via CSS (not `hidden`/`display:none`,
+   which some spam bots specifically skip filling in because they parse for
+   those) but still present and tabbable in the raw DOM, so a bot filling
+   every field it finds trips it. Real users never see or reach it. */
+.guestbook-honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.guestbook-pending-entry {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.guestbook-pending-entry .actions { display: flex; gap: 0.5rem; margin-top: 0.6rem; }

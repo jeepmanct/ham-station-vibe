@@ -1,0 +1,196 @@
+---
+import Base from '../layouts/Base.astro';
+import '../styles/guestbook.css';
+---
+<Base title="Guestbook" active="guestbook">
+  <h1>Guestbook</h1>
+  <p class="lede">Passing through, found this via QRZ, or just want to say hi &mdash; leave a note. Entries are reviewed before they show up here.</p>
+
+  <div class="card">
+    <h2>Sign the Guestbook</h2>
+    <form id="guestbook-form" class="form-grid">
+      <label>Name<input type="text" id="gb-name" required maxlength="60" /></label>
+      <label>Callsign (optional)<input type="text" id="gb-callsign" maxlength="15" placeholder="e.g. W1AW" /></label>
+      <label style="grid-column:1 / -1;">Message<textarea id="gb-message" required maxlength="1000" rows="4" style="width:100%;resize:vertical;"></textarea></label>
+      <!-- Honeypot -- see guestbook.css's comment. Real visitors never see this field. -->
+      <label class="guestbook-honeypot" aria-hidden="true">Website<input type="text" id="gb-website" name="website" tabindex="-1" autocomplete="off" /></label>
+      <p id="gb-submit-status" class="status-line"></p>
+      <div style="grid-column:1 / -1;">
+        <button type="submit" class="btn">Sign</button>
+      </div>
+    </form>
+  </div>
+
+  <h2 style="margin-top:1.5rem;">Entries</h2>
+  <div class="card" id="guestbook-entries">
+    <p class="status-line">Loading…</p>
+  </div>
+
+  <section style="margin-top:2.5rem;">
+    <div class="card">
+      <h2>Admin</h2>
+      <div id="gb-admin-login">
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Log in to review pending entries.</p>
+        <form id="login-form">
+          <input type="password" id="password" placeholder="Admin password" autocomplete="current-password" required />
+          <p id="login-status" class="status-line"></p>
+          <button type="submit" class="btn">Log in</button>
+        </form>
+      </div>
+      <div id="gb-admin-panel" hidden>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Pending entries &mdash; not visible above until approved.</p>
+        <div id="gb-pending-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const TOKEN_KEY = 'hamstation_admin_token';
+
+    type GuestbookEntry = { id: number; name: string; callsign: string | null; message: string; submittedAt: string };
+
+    function escapeHtml(s: string): string {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    function formatWhen(iso: string): string {
+      return new Date(iso.replace(' ', 'T') + 'Z').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    async function loadEntries() {
+      const container = document.getElementById('guestbook-entries')!;
+      const res = await fetch('/api/guestbook');
+      if (!res.ok) {
+        container.innerHTML = '<p class="status-line">Could not load entries.</p>';
+        return;
+      }
+      const entries: GuestbookEntry[] = await res.json();
+      if (!entries.length) {
+        container.innerHTML = '<p class="status-line">No entries yet &mdash; be the first.</p>';
+        return;
+      }
+      container.innerHTML = entries
+        .map(
+          (e) => `
+        <div class="guestbook-entry">
+          <span class="who">${escapeHtml(e.name)}</span>${e.callsign ? `<span class="callsign">${escapeHtml(e.callsign)}</span>` : ''}<span class="when">${formatWhen(e.submittedAt)}</span>
+          <p class="message">${escapeHtml(e.message)}</p>
+        </div>`,
+        )
+        .join('');
+    }
+    loadEntries();
+
+    const gbForm = document.getElementById('guestbook-form') as HTMLFormElement;
+    const gbSubmitStatus = document.getElementById('gb-submit-status')!;
+    gbForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      gbSubmitStatus.textContent = 'Submitting…';
+      const res = await fetch('/api/guestbook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: (document.getElementById('gb-name') as HTMLInputElement).value,
+          callsign: (document.getElementById('gb-callsign') as HTMLInputElement).value,
+          message: (document.getElementById('gb-message') as HTMLTextAreaElement).value,
+          website: (document.getElementById('gb-website') as HTMLInputElement).value,
+        }),
+      });
+      if (res.ok) {
+        gbForm.reset();
+        gbSubmitStatus.textContent = 'Thanks — your entry will show up here once reviewed.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        gbSubmitStatus.textContent = body.error ?? 'Could not submit — try again.';
+      }
+    });
+
+    // --- Admin: moderation queue ---
+    const adminLogin = document.getElementById('gb-admin-login')!;
+    const adminPanel = document.getElementById('gb-admin-panel')!;
+    const loginStatus = document.getElementById('login-status')!;
+    const pendingList = document.getElementById('gb-pending-list')!;
+
+    function showAdminPanel() {
+      adminLogin.setAttribute('hidden', '');
+      adminPanel.removeAttribute('hidden');
+      loadPending();
+    }
+    if (sessionStorage.getItem(TOKEN_KEY)) showAdminPanel();
+
+    document.getElementById('login-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = (document.getElementById('password') as HTMLInputElement).value;
+      loginStatus.textContent = 'Checking…';
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (res.ok) {
+        const { token } = await res.json();
+        sessionStorage.setItem(TOKEN_KEY, token);
+        loginStatus.textContent = '';
+        showAdminPanel();
+      } else {
+        loginStatus.textContent = 'Wrong password.';
+      }
+    });
+
+    async function loadPending() {
+      const res = await fetch('/api/guestbook/pending', {
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (res.status === 401) {
+        sessionStorage.removeItem(TOKEN_KEY);
+        adminPanel.setAttribute('hidden', '');
+        adminLogin.removeAttribute('hidden');
+        loginStatus.textContent = 'Session expired, please log in again.';
+        return;
+      }
+      const entries: GuestbookEntry[] = await res.json();
+      if (!entries.length) {
+        pendingList.innerHTML = '<p class="status-line">Nothing pending.</p>';
+        return;
+      }
+      pendingList.innerHTML = entries
+        .map(
+          (e) => `
+        <div class="guestbook-pending-entry" data-id="${e.id}">
+          <span class="who">${escapeHtml(e.name)}</span>${e.callsign ? `<span class="callsign">${escapeHtml(e.callsign)}</span>` : ''}<span class="when">${formatWhen(e.submittedAt)}</span>
+          <p class="message">${escapeHtml(e.message)}</p>
+          <div class="actions">
+            <button type="button" class="btn approve-btn">Approve</button>
+            <button type="button" class="btn secondary reject-btn">Reject</button>
+          </div>
+        </div>`,
+        )
+        .join('');
+
+      pendingList.querySelectorAll<HTMLButtonElement>('.approve-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const id = (btn.closest('[data-id]') as HTMLElement).dataset.id;
+          await fetch(`/api/guestbook/${id}/approve`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+          });
+          loadPending();
+          loadEntries();
+        });
+      });
+      pendingList.querySelectorAll<HTMLButtonElement>('.reject-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Reject and delete this entry?')) return;
+          const id = (btn.closest('[data-id]') as HTMLElement).dataset.id;
+          await fetch(`/api/guestbook/${id}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+          });
+          loadPending();
+        });
+      });
+    }
+  </script>
+</Base>

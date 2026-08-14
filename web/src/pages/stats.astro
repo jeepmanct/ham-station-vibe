@@ -46,6 +46,12 @@ import '../styles/stats.css';
     <div id="operating-heatmap"></div>
   </div>
 
+  <div class="card" style="margin-top:1.5rem;">
+    <h2>Best Time by Band</h2>
+    <p class="chart-desc">UTC hour of day, top bands by QSO count &mdash; each row is scaled to its own busiest hour, since band volumes aren't comparable to each other. A dark cell means that hour is quiet <em>for that band specifically</em>, not overall.</p>
+    <div id="band-hour-heatmap"></div>
+  </div>
+
   <div class="chart-section">
     <h2>QSOs Per Year</h2>
     <div class="chart-svg-wrap" id="chart-by-year"></div>
@@ -60,6 +66,19 @@ import '../styles/stats.css';
       <h2>By Mode</h2>
       <div class="chart-svg-wrap" id="chart-by-mode"></div>
     </div>
+  </div>
+
+  <div class="chart-section">
+    <h2>QSL Confirmation</h2>
+    <p class="chart-desc">Coverage across LoTW and eQSL &mdash; not paper cards, which this site has no way to track. Looking for who to follow up with? See <a href="/tools#confirmed-nowhere">Confirmed Nowhere</a> on Tools.</p>
+    <div class="stats-grid" id="qsl-confirmation-tiles">
+      <div class="stat-tile"><div class="label">Confirmed (Either)</div><div class="value" id="qsl-confirmed-either">&mdash;</div></div>
+      <div class="stat-tile"><div class="label">LoTW</div><div class="value" id="qsl-confirmed-lotw">&mdash;</div></div>
+      <div class="stat-tile"><div class="label">eQSL</div><div class="value" id="qsl-confirmed-eqsl">&mdash;</div></div>
+      <div class="stat-tile"><div class="label">Both</div><div class="value" id="qsl-confirmed-both">&mdash;</div></div>
+    </div>
+    <p class="chart-desc" style="margin:1.25rem 0 0.4rem;">Confirmed by Year</p>
+    <div class="chart-svg-wrap" id="chart-qsl-by-year"></div>
   </div>
 
   <div class="chart-section">
@@ -264,6 +283,30 @@ import '../styles/stats.css';
         document.getElementById('operating-heatmap')!.innerHTML = html;
       });
 
+    // --- Best time by band (hour of day, one row per band, each row scaled
+    // to ITS OWN peak hour rather than a shared max -- band volumes differ
+    // by an order of magnitude or more, so a global scale would flatten
+    // every band but the busiest into invisible near-blank rows). ---
+    fetch('/api/stats/band-hour-pattern')
+      .then((r) => r.json())
+      .then((d: { bands: string[]; grid: number[][] }) => {
+        let html = '<div class="op-heatmap-row op-heatmap-hours"><span></span>';
+        for (let h = 0; h < 24; h++) html += `<span>${h % 3 === 0 ? String(h).padStart(2, '0') : ''}</span>`;
+        html += '</div>';
+        d.bands.forEach((band, i) => {
+          const row = d.grid[i];
+          const maxCount = Math.max(1, ...row);
+          html += `<div class="op-heatmap-row"><span class="op-heatmap-daylabel">${band}</span>`;
+          for (let hour = 0; hour < 24; hour++) {
+            const count = row[hour];
+            const level = count === 0 ? 0 : Math.min(4, Math.ceil((count / maxCount) * 4));
+            html += `<span class="heatmap-cell" data-level="${level}" title="${band} ${String(hour).padStart(2, '0')}:00 UTC — ${count} QSO${count === 1 ? '' : 's'}"></span>`;
+          }
+          html += '</div>';
+        });
+        document.getElementById('band-hour-heatmap')!.innerHTML = html || '<p class="chart-desc">No band/time data yet.</p>';
+      });
+
     // --- QSOs per year ---
     fetch('/api/stats/by-year')
       .then((r) => r.json())
@@ -303,6 +346,32 @@ import '../styles/stats.css';
           ACCENT2,
         );
       });
+
+    // --- QSL confirmation coverage + per-year trend ---
+    fetch('/api/stats/qsl-confirmation')
+      .then((r) => r.json())
+      .then(
+        (d: {
+          total: number;
+          confirmedLotw: number;
+          confirmedEqsl: number;
+          confirmedEither: number;
+          confirmedBoth: number;
+          byYear: { year: string; total: number; confirmed: number }[];
+        }) => {
+          const pct = (n: number) => (d.total ? `${((n / d.total) * 100).toFixed(0)}%` : '—');
+          document.getElementById('qsl-confirmed-either')!.textContent = `${pct(d.confirmedEither)} (${d.confirmedEither})`;
+          document.getElementById('qsl-confirmed-lotw')!.textContent = `${pct(d.confirmedLotw)} (${d.confirmedLotw})`;
+          document.getElementById('qsl-confirmed-eqsl')!.textContent = `${pct(d.confirmedEqsl)} (${d.confirmedEqsl})`;
+          document.getElementById('qsl-confirmed-both')!.textContent = `${pct(d.confirmedBoth)} (${d.confirmedBoth})`;
+          renderLineChart(
+            document.getElementById('chart-qsl-by-year')!,
+            d.byYear.map((r) => ({ x: Number(r.year), y: r.total ? (r.confirmed / r.total) * 100 : 0 })),
+            ACCENT,
+            { minY: 0, suffix: '%' },
+          );
+        },
+      );
 
     // --- Propagation history (two small multiples, never one dual-axis chart) ---
     fetch('/api/solar/history')

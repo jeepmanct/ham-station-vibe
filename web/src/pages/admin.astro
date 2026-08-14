@@ -57,23 +57,28 @@ import Base from '../layouts/Base.astro';
 
     <section>
       <div class="card">
-        <h2>Page Layout</h2>
-        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">
-          Reorder or hide the tiles on the Home, Tools, and Electronics pages, or the links in the site's top navigation bar. Drag a row by its handle to reorder; uncheck a tile to hide it. Changes apply to every visitor once saved.
-        </p>
-        <label style="display:block;max-width:280px;margin-bottom:0.75rem;">Page
-          <select id="tl-page">
-            <option value="home">Home</option>
-            <option value="tools">Tools</option>
-            <option value="electronics">Electronics</option>
-            <option value="nav">Navigation Bar</option>
-          </select>
-        </label>
-        <ul id="tl-list" style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0.4rem;max-width:480px;"></ul>
-        <p id="tl-status" class="status-line"></p>
-        <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
-          <button type="button" id="tl-save" class="btn">Save order</button>
-          <button type="button" id="tl-reset" class="btn secondary">Reset to default</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;">
+          <h2 style="margin:0;">Page Layout</h2>
+          <button type="button" class="btn secondary" id="tl-toggle">Show</button>
+        </div>
+        <div id="tl-section" hidden>
+          <p style="margin:0.75rem 0 0.75rem;color:var(--muted);font-size:0.9rem;">
+            Reorder or hide the tiles on the Home, Tools, and Electronics pages, or the links in the site's top navigation bar. Drag a row by its handle to reorder; uncheck a tile to hide it. Changes apply to every visitor once saved.
+          </p>
+          <label style="display:block;max-width:280px;margin-bottom:0.75rem;">Page
+            <select id="tl-page">
+              <option value="home">Home</option>
+              <option value="tools">Tools</option>
+              <option value="electronics">Electronics</option>
+              <option value="nav">Navigation Bar</option>
+            </select>
+          </label>
+          <ul id="tl-list" style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0.4rem;max-width:480px;"></ul>
+          <p id="tl-status" class="status-line"></p>
+          <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+            <button type="button" id="tl-save" class="btn">Save order</button>
+            <button type="button" id="tl-reset" class="btn secondary">Reset to default</button>
+          </div>
         </div>
       </div>
     </section>
@@ -647,6 +652,7 @@ import Base from '../layouts/Base.astro';
       ],
       nav: [
         { id: 'about', label: 'About' },
+        { id: 'guestbook', label: 'Guestbook' },
         { id: 'photos', label: 'Photos' },
         { id: 'log', label: 'QSO Log' },
         { id: 'map', label: 'QSO Map' },
@@ -661,6 +667,7 @@ import Base from '../layouts/Base.astro';
         { id: 'electronics', label: 'Electronics' },
         { id: 'reference', label: 'Reference' },
         { id: 'device-stats', label: 'Device Stats' },
+        { id: 'sync-status', label: 'Sync Status' },
         { id: 'admin', label: 'Admin' },
       ],
     };
@@ -668,6 +675,17 @@ import Base from '../layouts/Base.astro';
     const tlPageSelect = document.getElementById('tl-page') as HTMLSelectElement;
     const tlList = document.getElementById('tl-list')!;
     const tlStatus = document.getElementById('tl-status')!;
+    const tlSection = document.getElementById('tl-section')!;
+    const tlToggle = document.getElementById('tl-toggle') as HTMLButtonElement;
+
+    // Starts collapsed -- this card's row list can get long (up to 15 nav
+    // items), and unlike the other admin cards it's not something most
+    // visits to this page actually need open.
+    tlToggle.addEventListener('click', () => {
+      const nowHidden = !tlSection.hidden;
+      tlSection.hidden = nowHidden;
+      tlToggle.textContent = nowHidden ? 'Show' : 'Hide';
+    });
 
     // Pointer-based drag reorder -- works for mouse and touch alike, no
     // library needed. The listener is on the whole row (not just the

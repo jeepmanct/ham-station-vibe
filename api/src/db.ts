@@ -490,6 +490,20 @@ db.exec(`
     id INTEGER PRIMARY KEY CHECK (id = 1),
     enabled INTEGER NOT NULL DEFAULT 1
   );
+
+  -- Public guestbook. Entries start unapproved (approved=0) -- this is the
+  -- first feature on the site where an anonymous visitor can write
+  -- persistent content anyone else will see, so unlike everything else
+  -- public here, it gets a moderation queue rather than publishing
+  -- immediately. See guestbook.ts for the submission-side rate limiting.
+  CREATE TABLE IF NOT EXISTS guestbook_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    callsign TEXT,
+    message TEXT NOT NULL,
+    submitted_at TEXT NOT NULL DEFAULT (datetime('now')),
+    approved INTEGER NOT NULL DEFAULT 0
+  );
 `);
 
 // LoTW login, added alongside the original QRZ/eQSL columns -- same
