@@ -468,6 +468,18 @@ import Base from '../layouts/Base.astro';
             <button type="submit" class="btn">Save</button>
           </div>
         </form>
+
+        <h3 style="margin:1.75rem 0 0.5rem;font-size:0.95rem;">DXCC Confirmations</h3>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
+          Notifies you when a DXCC entity you'd worked but not yet confirmed becomes confirmed via LoTW &mdash; checked once daily, shortly after the QRZ/eQSL/LoTW syncs. Turning this on for the first time marks every entity already confirmed as known, so it only ever alerts on genuinely new confirmations, not your whole existing history.
+        </p>
+        <form id="alert-dxcc-confirmed-form" class="form-grid">
+          <label class="form-grid-checkbox"><input type="checkbox" id="adc-enabled" /> DXCC confirmation alerts enabled</label>
+          <p id="alert-dxcc-confirmed-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;">
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
       </div>
     </section>
   </section>
@@ -1446,6 +1458,7 @@ import Base from '../layouts/Base.astro';
       tropoEnabled: boolean;
       satPassEnabled: boolean;
       lightningEnabled: boolean;
+      dxccConfirmedEnabled: boolean;
     };
 
     const aeHost = document.getElementById('ae-host') as HTMLInputElement;
@@ -1482,6 +1495,9 @@ import Base from '../layouts/Base.astro';
     const alEnabled = document.getElementById('al-enabled') as HTMLInputElement;
     const alertLightningStatus = document.getElementById('alert-lightning-status')!;
 
+    const adcEnabled = document.getElementById('adc-enabled') as HTMLInputElement;
+    const alertDxccConfirmedStatus = document.getElementById('alert-dxcc-confirmed-status')!;
+
     const adxUsOnly = document.getElementById('adx-us-only') as HTMLInputElement;
     const alertDxFilterStatus = document.getElementById('alert-dx-filter-status')!;
 
@@ -1507,6 +1523,7 @@ import Base from '../layouts/Base.astro';
       atEnabled.checked = cfg.tropoEnabled;
       aspEnabled.checked = cfg.satPassEnabled;
       alEnabled.checked = cfg.lightningEnabled;
+      adcEnabled.checked = cfg.dxccConfirmedEnabled;
       adxUsOnly.checked = cfg.dxUsSpottersOnly;
     }
 
@@ -1696,6 +1713,22 @@ import Base from '../layouts/Base.astro';
       } else {
         const body = await res.json().catch(() => ({}));
         alertLightningStatus.textContent = body.error ?? 'Save failed.';
+      }
+    });
+
+    document.getElementById('alert-dxcc-confirmed-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertDxccConfirmedStatus.textContent = 'Saving…';
+      const res = await fetch('/api/alert-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ dxccConfirmedEnabled: adcEnabled.checked }),
+      });
+      if (res.ok) {
+        alertDxccConfirmedStatus.textContent = 'Saved.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alertDxccConfirmedStatus.textContent = body.error ?? 'Save failed.';
       }
     });
 

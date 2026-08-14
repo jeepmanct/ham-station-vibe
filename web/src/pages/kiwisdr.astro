@@ -440,6 +440,24 @@ import '../styles/kiwisdr.css';
       axisHigh.textContent = ((freqKhz + halfSpan) / 1000).toFixed(3);
     }
 
+    // Click anywhere on the waterfall or spectrum to jump straight to that
+    // frequency -- both canvases share the same x-axis (the current
+    // WF_SPAN_KHZ window centered on the tuned frequency), so one handler
+    // covers both. Uses getBoundingClientRect() rather than the click
+    // event's offsetX/offsetY, since the canvas's internal resolution
+    // (1024px) and its CSS-scaled display width aren't the same thing.
+    function tuneFromCanvasClick(e: MouseEvent, canvasEl: HTMLCanvasElement) {
+      const centerKhz = lastStatus?.freqKhz ?? 7255;
+      const mode = lastStatus?.mode ?? tuneMode.value;
+      const rect = canvasEl.getBoundingClientRect();
+      const xFraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const targetKhz = centerKhz - WF_SPAN_KHZ / 2 + xFraction * WF_SPAN_KHZ;
+      tuneFreq.value = (targetKhz / 1000).toFixed(3);
+      tune(targetKhz / 1000, mode);
+    }
+    canvas.addEventListener('click', (e) => tuneFromCanvasClick(e, canvas));
+    spectrumCanvas.addEventListener('click', (e) => tuneFromCanvasClick(e, spectrumCanvas));
+
     function clearWaterfall() {
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);

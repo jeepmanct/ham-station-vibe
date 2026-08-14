@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily newly-confirmed DXCC entity check
+
+[Timer]
+# Runs after the QRZ (06:30), eQSL (06:45), and LoTW (07:00) sync timers
+# would all have completed, so it always sees that day's freshest data.
+OnCalendar=*-*-* 07:15:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

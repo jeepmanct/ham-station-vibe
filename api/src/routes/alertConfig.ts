@@ -3,6 +3,7 @@ import { requireAuth } from '../auth';
 import { getAlertConfigPublic, setAlertConfig } from '../alertConfig';
 import { sendAlertEmail } from '../alertEmail';
 import { sendNtfyAlert } from '../alertNtfy';
+import { seedDxccConfirmationBaseline } from '../dxccConfirmedAlert';
 
 export const alertConfigRoutes = new Hono();
 
@@ -24,9 +25,16 @@ alertConfigRoutes.post('/', requireAuth, async (c) => {
     body?.kpEnabled === undefined &&
     body?.tropoEnabled === undefined &&
     body?.satPassEnabled === undefined &&
-    body?.lightningEnabled === undefined
+    body?.lightningEnabled === undefined &&
+    body?.dxccConfirmedEnabled === undefined
   ) {
-    return c.json({ error: 'email, ntfy, vhfEnabled, flareEnabled, windEnabled, kpEnabled, tropoEnabled, satPassEnabled, lightningEnabled, dxUsSpottersOnly, or vhfUsSpottersOnly is required' }, 400);
+    return c.json(
+      {
+        error:
+          'email, ntfy, vhfEnabled, flareEnabled, windEnabled, kpEnabled, tropoEnabled, satPassEnabled, lightningEnabled, dxccConfirmedEnabled, dxUsSpottersOnly, or vhfUsSpottersOnly is required',
+      },
+      400,
+    );
   }
 
   if (body.email) {
@@ -37,6 +45,11 @@ alertConfigRoutes.post('/', requireAuth, async (c) => {
   if (body.ntfy && !body.ntfy.topic) {
     return c.json({ error: 'ntfy.topic is required' }, 400);
   }
+
+  // Seed BEFORE saving -- reads the pre-update enabled state so this only
+  // fires on a genuine false->true transition, not every time the form is
+  // saved while already on.
+  const wasDxccConfirmedEnabled = getAlertConfigPublic().dxccConfirmedEnabled;
 
   setAlertConfig({
     email: body.email
@@ -59,7 +72,13 @@ alertConfigRoutes.post('/', requireAuth, async (c) => {
     tropoEnabled: body.tropoEnabled !== undefined ? !!body.tropoEnabled : undefined,
     satPassEnabled: body.satPassEnabled !== undefined ? !!body.satPassEnabled : undefined,
     lightningEnabled: body.lightningEnabled !== undefined ? !!body.lightningEnabled : undefined,
+    dxccConfirmedEnabled: body.dxccConfirmedEnabled !== undefined ? !!body.dxccConfirmedEnabled : undefined,
   });
+
+  if (body.dxccConfirmedEnabled === true && !wasDxccConfirmedEnabled) {
+    seedDxccConfirmationBaseline();
+  }
+
   return c.json(getAlertConfigPublic());
 });
 

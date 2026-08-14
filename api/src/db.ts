@@ -467,6 +467,10 @@ for (const [name, type] of [
   // also requires lightning_monitoring.enabled to be on, same relationship
   // radio's alert-worthy features have to radio_monitoring.enabled.
   ['lightning_enabled', 'INTEGER NOT NULL DEFAULT 0'],
+  // Same independent-trigger pattern, for the "a needed DXCC entity just
+  // got confirmed" alert -- see alerted_dxcc_confirmations' own comment
+  // for the baseline-seeding this relies on.
+  ['dxcc_confirmed_enabled', 'INTEGER NOT NULL DEFAULT 0'],
 ] as const) {
   if (!alertConfigColumns.has(name)) {
     db.exec(`ALTER TABLE alert_email_config ADD COLUMN ${name} ${type}`);
@@ -518,6 +522,17 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS lightning_monitoring (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     enabled INTEGER NOT NULL DEFAULT 0
+  );
+
+  -- One row per DXCC entity we've already told the operator about being
+  -- LoTW-confirmed -- seeded with every already-confirmed entity the
+  -- moment the alert is turned on (see dxccConfirmedAlert.ts's
+  -- seedDxccConfirmationBaseline()), so enabling this doesn't immediately
+  -- fire off 200+ emails for entities confirmed years ago. Only entities
+  -- that cross into "confirmed" AFTER that baseline ever get alerted.
+  CREATE TABLE IF NOT EXISTS alerted_dxcc_confirmations (
+    entity TEXT PRIMARY KEY,
+    alerted_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
 
