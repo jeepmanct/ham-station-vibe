@@ -154,6 +154,7 @@ import '../styles/radio.css';
   <div class="card" style="margin-top:1.5rem;">
     <h2>Recently Heard (PSK Reporter)</h2>
     <p style="margin:0;color:var(--muted);font-size:0.85rem;">Who's decoding this station's signal right now, via <a href="https://pskreporter.info" target="_blank" rel="noopener">PSK Reporter</a> &mdash; FT8/FT4/digital modes only, last hour, refreshes every 60s. Independent of the monitoring toggle above &mdash; this is external data, not a connection to the radio itself.</p>
+    <p style="margin:0.15rem 0 0;color:var(--muted);font-size:0.78rem;" id="psk-updated-at"></p>
     <div id="psk-map"></div>
     <div class="psk-table" id="psk-table"></div>
   </div>
@@ -161,6 +162,7 @@ import '../styles/radio.css';
   <div class="card" style="margin-top:1.5rem;">
     <h2>WSPR Reception Reports</h2>
     <p style="margin:0;color:var(--muted);font-size:0.85rem;">Who's decoding this station's WSPR beacon, via the <a href="https://wspr.live" target="_blank" rel="noopener">WSPR network</a> &mdash; last hour, refreshes every 60s. Empty whenever the station isn't actively beaconing WSPR.</p>
+    <p style="margin:0.15rem 0 0;color:var(--muted);font-size:0.78rem;" id="wspr-updated-at"></p>
     <div id="wspr-map"></div>
     <div class="psk-table" id="wspr-table"></div>
   </div>
@@ -168,6 +170,7 @@ import '../styles/radio.css';
   <div class="card" style="margin-top:1.5rem;">
     <h2>CW/RTTY Skimmer Reports (Reverse Beacon Network)</h2>
     <p style="margin:0;color:var(--muted);font-size:0.85rem;">Who's decoding this station's CW/RTTY signal, via the <a href="https://www.reversebeacon.net" target="_blank" rel="noopener">Reverse Beacon Network</a> &mdash; last hour, refreshes every 60s. Empty whenever the station isn't currently on CW or RTTY.</p>
+    <p style="margin:0.15rem 0 0;color:var(--muted);font-size:0.78rem;" id="rbn-updated-at"></p>
     <div id="rbn-map"></div>
     <div class="psk-table" id="rbn-table"></div>
   </div>
@@ -181,6 +184,7 @@ import '../styles/radio.css';
   <div class="card" style="margin-top:1.5rem;">
     <h2>D-STAR Last Heard (REF069)</h2>
     <p style="margin:0;color:var(--muted);font-size:0.85rem;">Recent activity on the Connecticut D-STAR Group's REF069 reflector network, via <a href="https://ctdstar.org/reflector.html" target="_blank" rel="noopener">ctdstar.org</a> &mdash; refreshes every 2 min. Not specific to this station's own reception. Times shown are the reflector's own clock, as published.</p>
+    <p style="margin:0.15rem 0 0;color:var(--muted);font-size:0.78rem;" id="dstar-updated-at"></p>
     <div class="psk-table" id="dstar-table"></div>
   </div>
 
@@ -819,6 +823,7 @@ import '../styles/radio.css';
         .then((reports: WsprReport[]) => {
           lastWsprReports = reports;
           drawWsprMap(reports);
+          document.getElementById('wspr-updated-at')!.textContent = `Last updated ${new Date().toLocaleTimeString()}`;
           const table = document.getElementById('wspr-table')!;
           if (!reports.length) {
             table.innerHTML = '<p class="status-line">No WSPR reception reports in the last hour &mdash; station likely not currently beaconing WSPR.</p>';
@@ -869,6 +874,7 @@ import '../styles/radio.css';
         .then((reports: RbnReport[]) => {
           lastRbnReports = reports;
           drawRbnMap(reports);
+          document.getElementById('rbn-updated-at')!.textContent = `Last updated ${new Date().toLocaleTimeString()}`;
           const table = document.getElementById('rbn-table')!;
           if (!reports.length) {
             table.innerHTML = '<p class="status-line">No CW/RTTY skimmer reports in the last hour &mdash; station likely not currently on CW or RTTY.</p>';
@@ -937,6 +943,7 @@ import '../styles/radio.css';
       fetch('/api/dstar/lastheard')
         .then((r) => r.json())
         .then((body: { entries: DstarEntry[] }) => {
+          document.getElementById('dstar-updated-at')!.textContent = `Last updated ${new Date().toLocaleTimeString()}`;
           const table = document.getElementById('dstar-table')!;
           if (!body.entries.length) {
             table.innerHTML = '<p class="status-line">No recent D-STAR activity on REF069 &mdash; or the reflector\'s dashboard is unreachable right now.</p>';
@@ -969,6 +976,7 @@ import '../styles/radio.css';
         .then((reports: PskReport[]) => {
           lastPskReports = reports;
           drawPskMap(reports);
+          document.getElementById('psk-updated-at')!.textContent = `Last updated ${new Date().toLocaleTimeString()}`;
           const table = document.getElementById('psk-table')!;
           if (!reports.length) {
             table.innerHTML = '<p class="status-line">No reception reports in the last hour &mdash; station likely not currently transmitting a decodable digital mode.</p>';

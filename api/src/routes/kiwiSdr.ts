@@ -4,7 +4,10 @@ import { getKiwiSdrStatus, setFrequency, setKiwiSdrEnabled, sampleNoiseFloor } f
 
 export const kiwiSdrRoutes = new Hono();
 
-kiwiSdrRoutes.get('/status', (c) => c.json(getKiwiSdrStatus()));
+kiwiSdrRoutes.get('/status', (c) => {
+  c.header('Cache-Control', 'no-store');
+  return c.json(getKiwiSdrStatus());
+});
 
 // Takes ~1.5s to respond -- see sampleNoiseFloor()'s comment for why this
 // is a deliberate spot-check, not a fast/cacheable status read.

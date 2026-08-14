@@ -70,13 +70,29 @@
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid var(--border);
-  background: #000;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent), 0 0 24px -8px color-mix(in srgb, var(--accent) 60%, transparent);
+  background: linear-gradient(180deg, #050608, #000);
 }
-.kiwi-waterfall-wrap canvas {
+#kiwi-spectrum {
   display: block;
   width: 100%;
-  height: 260px;
+  height: 90px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+}
+#kiwi-waterfall {
+  display: block;
+  width: 100%;
+  height: 220px;
   image-rendering: pixelated;
+}
+.kiwi-freq-axis {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.3rem 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
 }
 
 .kiwi-unconfigured { color: var(--muted); font-size: 0.9rem; }

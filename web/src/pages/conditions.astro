@@ -68,6 +68,7 @@ import '../styles/conditions.css';
     </p>
     <div id="noise-floor-content">
       <p class="status-line" id="noise-floor-status">Checking…</p>
+      <p style="margin:0.15rem 0 0;color:var(--muted);font-size:0.78rem;" id="noise-floor-checked-at"></p>
     </div>
     <button type="button" class="btn secondary" id="noise-floor-refresh" style="margin-top:0.5rem;">Check again</button>
   </div>
@@ -111,6 +112,7 @@ import '../styles/conditions.css';
   <div class="card" style="margin-top:1.5rem;">
     <h2>Live DX Spots</h2>
     <p style="margin:0;color:var(--muted);font-size:0.85rem;">Via <a href="https://dxheat.com" target="_blank" rel="noopener">dxheat.com</a>, refreshes every 60s. <strong style="color:var(--status-warning);">Needed</strong> flags a spot from a DXCC entity not yet worked, resolved from the spotted callsign itself &mdash; still a personal convenience list, not a certified award tracker.</p>
+    <p style="margin:0.15rem 0 0;color:var(--muted);font-size:0.78rem;" id="spot-updated-at"></p>
     <div class="spot-table" id="spot-table"></div>
   </div>
 
@@ -312,6 +314,10 @@ import '../styles/conditions.css';
       fetch('/api/conditions/spots')
         .then((r) => r.json())
         .then((spots: Spot[]) => {
+          // Only touched on a successful fetch -- if a later poll fails,
+          // this keeps showing when the feed was last actually refreshed
+          // rather than going blank or silently looking current.
+          document.getElementById('spot-updated-at')!.textContent = `Last updated ${new Date().toLocaleTimeString()}`;
           const table = document.getElementById('spot-table')!;
           if (!spots.length) {
             table.innerHTML = '<p class="status-line">No spots available right now.</p>';
@@ -414,6 +420,7 @@ import '../styles/conditions.css';
 
     function checkNoiseFloor() {
       const status = document.getElementById('noise-floor-status')!;
+      const checkedAt = document.getElementById('noise-floor-checked-at')!;
       status.textContent = 'Checking…';
       fetch('/api/kiwisdr/noise-floor')
         .then(async (r) => {
@@ -425,6 +432,11 @@ import '../styles/conditions.css';
           const d: { smeterDbm: number; freqKhz: number; mode: string } = await r.json();
           status.textContent =
             `${dbmToSUnit(d.smeterDbm)} (${d.smeterDbm.toFixed(0)}dBm) on ${(d.freqKhz / 1000).toFixed(3)} MHz ${d.mode.toUpperCase()}`;
+          // Only updated on a successful read -- if a later check fails, this
+          // keeps showing when the last GOOD reading actually happened
+          // instead of going blank or silently looking current.
+          const now = new Date();
+          checkedAt.textContent = `Checked ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
         })
         .catch(() => {
           status.textContent = 'Could not reach the KiwiSDR.';
@@ -531,7 +543,8 @@ import '../styles/conditions.css';
           }
           const closest =
             s.closestDistanceKm != null ? `, closest ${s.closestDistanceKm.toFixed(0)}km` : '';
-          lightningStatusEl.textContent = `${s.strikeCount} strike${s.strikeCount === 1 ? '' : 's'} in the last 2 hours${closest}`;
+          lightningStatusEl.textContent =
+            `${s.strikeCount} strike${s.strikeCount === 1 ? '' : 's'} in the last 2 hours${closest} — as of ${new Date().toLocaleTimeString()}`;
 
           fetch('/api/lightning/strikes')
             .then((r) => r.json())

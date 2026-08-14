@@ -33,7 +33,7 @@ import '../styles/kiwisdr.css';
       </div>
 
       <div class="kiwi-slider-row">
-        <input type="range" id="kiwi-freq-slider" min="-10" max="10" step="1" value="0" aria-label="Fine tune -- drag left or right" />
+        <input type="range" id="kiwi-freq-slider" min="-5" max="5" step="1" value="0" aria-label="Fine tune -- drag left or right" />
         <span class="kiwi-slider-hint" id="kiwi-slider-step-label">10kHz/step</span>
       </div>
 
@@ -123,7 +123,13 @@ import '../styles/kiwisdr.css';
     </div>
     <div id="kiwi-waterfall-section">
       <div class="kiwi-waterfall-wrap">
-        <canvas id="kiwi-waterfall" width="1024" height="260"></canvas>
+        <canvas id="kiwi-spectrum" width="1024" height="90"></canvas>
+        <canvas id="kiwi-waterfall" width="1024" height="220"></canvas>
+        <div class="kiwi-freq-axis">
+          <span id="kiwi-axis-low">&mdash;</span>
+          <span id="kiwi-axis-center">&mdash;</span>
+          <span id="kiwi-axis-high">&mdash;</span>
+        </div>
       </div>
       <p class="status-line" id="kiwi-wf-status" style="margin-top:0.4rem;"></p>
     </div>
@@ -156,6 +162,11 @@ import '../styles/kiwisdr.css';
     const wfEnabledCheckbox = document.getElementById('kiwi-wf-enabled') as HTMLInputElement;
     const canvas = document.getElementById('kiwi-waterfall') as HTMLCanvasElement;
     const ctx = canvas.getContext('2d')!;
+    const spectrumCanvas = document.getElementById('kiwi-spectrum') as HTMLCanvasElement;
+    const spectrumCtx = spectrumCanvas.getContext('2d')!;
+    const axisLow = document.getElementById('kiwi-axis-low')!;
+    const axisCenter = document.getElementById('kiwi-axis-center')!;
+    const axisHigh = document.getElementById('kiwi-axis-high')!;
     const tuneToggle = document.getElementById('kiwi-tune-toggle') as HTMLButtonElement;
     const tuneSection = document.getElementById('kiwi-tune-section')!;
     const tuneForm = document.getElementById('kiwi-tune-form') as HTMLFormElement;
@@ -196,6 +207,7 @@ import '../styles/kiwisdr.css';
       // so it's excluded here rather than checked against activeElement.
       if (document.activeElement !== freqSlider) freqEl.textContent = (s.freqKhz / 1000).toFixed(3);
       modeEl.textContent = s.mode.toUpperCase();
+      updateFreqAxis(s.freqKhz);
       if (document.activeElement !== tuneFreq) tuneFreq.value = (s.freqKhz / 1000).toFixed(3);
       if (document.activeElement !== tuneMode) tuneMode.value = s.mode;
 
@@ -325,15 +337,20 @@ import '../styles/kiwisdr.css';
 
     // --- Waterfall -- scrolls a new row of colorized bins in at the top,
     // shifting everything else down by one pixel via a self-drawImage copy
-    // (cheaper than redrawing the whole thing every frame). ---
-    function heatColor(v: number): [number, number, number] {
+    // (cheaper than redrawing the whole thing every frame). Palette is
+    // "inferno" (matplotlib's perceptually-uniform black->purple->orange->
+    // pale-yellow scale) -- the recognizable modern-scientific-viz look
+    // most current SDR software (SDR++, GQRX, etc.) defaults to or offers,
+    // instead of the flatter blue/green/red heat scale this started with. ---
+    function infernoColor(v: number): [number, number, number] {
       const stops: [number, number, number, number][] = [
-        [0, 0, 0, 0],
-        [0.35, 0, 0, 180],
-        [0.55, 0, 180, 180],
-        [0.7, 0, 220, 0],
-        [0.85, 230, 230, 0],
-        [1, 255, 0, 0],
+        [0, 0, 0, 4],
+        [0.2, 40, 11, 84],
+        [0.4, 101, 21, 110],
+        [0.6, 159, 42, 99],
+        [0.75, 212, 72, 66],
+        [0.9, 245, 125, 21],
+        [1, 252, 255, 164],
       ];
       const t = v / 255;
       for (let i = 1; i < stops.length; i++) {
@@ -344,11 +361,11 @@ import '../styles/kiwisdr.css';
           return [r0 + (r1 - r0) * f, g0 + (g1 - g0) * f, b0 + (b1 - b0) * f];
         }
       }
-      return [255, 255, 255];
+      return [252, 255, 164];
     }
     const palette = new Uint8Array(256 * 3);
     for (let i = 0; i < 256; i++) {
-      const [r, g, b] = heatColor(i);
+      const [r, g, b] = infernoColor(i);
       palette[i * 3] = r;
       palette[i * 3 + 1] = g;
       palette[i * 3 + 2] = b;
@@ -370,9 +387,63 @@ import '../styles/kiwisdr.css';
       }
       ctx.putImageData(row, 0, 0);
     }
+
+    // --- Live spectrum analyzer -- the classic line-graph-above-a-waterfall
+    // layout every modern SDR app uses, redrawn from scratch each frame
+    // (cheap: it's one 1024-point line, not a scrolling image). Glowing
+    // accent-colored line + fading fill beneath it, matching the site's own
+    // teal accent rather than an unrelated color. ---
+    const spectrumAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#5eead4';
+    function drawSpectrum(bins: Uint8Array) {
+      const w = spectrumCanvas.width;
+      const h = spectrumCanvas.height;
+      spectrumCtx.clearRect(0, 0, w, h);
+      const n = Math.min(w, bins.length);
+
+      spectrumCtx.beginPath();
+      spectrumCtx.moveTo(0, h);
+      for (let x = 0; x < n; x++) spectrumCtx.lineTo(x, h - (bins[x] / 255) * h);
+      spectrumCtx.lineTo(n, h);
+      spectrumCtx.closePath();
+      const gradient = spectrumCtx.createLinearGradient(0, 0, 0, h);
+      gradient.addColorStop(0, spectrumAccent);
+      gradient.addColorStop(1, 'transparent');
+      spectrumCtx.globalAlpha = 0.3;
+      spectrumCtx.fillStyle = gradient;
+      spectrumCtx.fill();
+      spectrumCtx.globalAlpha = 1;
+
+      spectrumCtx.beginPath();
+      for (let x = 0; x < n; x++) {
+        const y = h - (bins[x] / 255) * h;
+        if (x === 0) spectrumCtx.moveTo(x, y);
+        else spectrumCtx.lineTo(x, y);
+      }
+      spectrumCtx.strokeStyle = spectrumAccent;
+      spectrumCtx.lineWidth = 1.5;
+      spectrumCtx.shadowColor = spectrumAccent;
+      spectrumCtx.shadowBlur = 6;
+      spectrumCtx.stroke();
+      spectrumCtx.shadowBlur = 0;
+    }
+    function clearSpectrum() {
+      spectrumCtx.clearRect(0, 0, spectrumCanvas.width, spectrumCanvas.height);
+    }
+
+    // Matches the server's fixed WF_ZOOM=10 (kiwiSdr.ts) -- 30000kHz / 2^10.
+    // Not exposed via the API since it's a constant, not runtime state.
+    const WF_SPAN_KHZ = 30000 / 2 ** 10;
+    function updateFreqAxis(freqKhz: number) {
+      const halfSpan = WF_SPAN_KHZ / 2;
+      axisLow.textContent = ((freqKhz - halfSpan) / 1000).toFixed(3);
+      axisCenter.textContent = (freqKhz / 1000).toFixed(3);
+      axisHigh.textContent = ((freqKhz + halfSpan) / 1000).toFixed(3);
+    }
+
     function clearWaterfall() {
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      clearSpectrum();
     }
     clearWaterfall();
 
@@ -413,7 +484,9 @@ import '../styles/kiwisdr.css';
           wfSocket = null;
           return;
         }
-        drawWaterfallRow(new Uint8Array(ev.data as ArrayBuffer));
+        const bins = new Uint8Array(ev.data as ArrayBuffer);
+        drawWaterfallRow(bins);
+        drawSpectrum(bins);
       });
       wws.addEventListener('close', () => {
         if (wfSocket !== wws) return;
