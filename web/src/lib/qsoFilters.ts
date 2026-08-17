@@ -115,6 +115,7 @@ const DATE_PRESETS: { label: string; from: () => string }[] = [
   { label: 'Last 30 days', from: () => isoDaysAgo(30) },
   { label: 'Last 7 days', from: () => isoDaysAgo(7) },
   { label: 'Last 3 days', from: () => isoDaysAgo(3) },
+  { label: 'Last Day', from: () => isoDaysAgo(1) },
 ];
 
 // A simple multi-select category: chips + All/None + (optionally) a search box
