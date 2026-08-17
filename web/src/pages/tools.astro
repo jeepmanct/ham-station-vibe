@@ -6,7 +6,8 @@ import '../styles/tools.css';
   <h1>Tools</h1>
   <p class="lede">Quick calculators and log lookups for operating.</p>
 
-  <div class="tools-grid" id="tools-tiles">
+  <h2 class="page-group-heading">Location &amp; Distance</h2>
+  <div class="tools-grid" id="tools-tiles-location">
     <div class="tool-card" data-tile-id="grid-converter">
       <h2><span>Grid Square Converter</span><button type="button" class="tool-reset-btn" id="grid-reset-btn">Reset</button></h2>
       <div class="tool-field">
@@ -72,7 +73,10 @@ import '../styles/tools.css';
         <div class="sub" id="bearing-result-sub"></div>
       </div>
     </div>
+  </div>
 
+  <h2 class="page-group-heading">Antenna &amp; RF Calculators</h2>
+  <div class="tools-grid" id="tools-tiles-rf">
     <div class="tool-card" data-tile-id="antenna-length">
       <h2><span>Antenna Length</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <div class="tool-field">
@@ -343,7 +347,10 @@ import '../styles/tools.css';
         <div class="sub" id="smeter-result-sub"></div>
       </div>
     </div>
+  </div>
 
+  <h2 class="page-group-heading">Time &amp; Log Lookups</h2>
+  <div class="tools-grid" id="tools-tiles-lookup">
     <div class="tool-card" data-tile-id="utc-clock">
       <h2><span>UTC / Local Time</span><button type="button" class="tool-reset-btn" id="clock-reset-btn">Reset</button></h2>
       <div class="tool-result" id="utc-clock" style="margin-top:0;padding-top:0;border-top:none;">
@@ -416,7 +423,15 @@ import '../styles/tools.css';
     import { gridToLatLon, latLonToGrid, distanceKm, bearingDeg } from '../lib/maidenhead';
     import { applyTileLayout } from '../lib/tileLayout';
 
-    applyTileLayout('tools', document.getElementById('tools-tiles')!);
+    // Split into 3 grids (Location & Distance / Antenna & RF / Time & Log
+    // Lookups) for scannability now that there are 20 cards, but all three
+    // still share the single 'tools' saved layout -- applyTileLayout only
+    // ever touches a container's own [data-tile-id] children, so calling it
+    // once per grid with the same page key is safe and keeps Admin's
+    // existing Page Layout reorder/hide controls working unchanged.
+    for (const id of ['tools-tiles-location', 'tools-tiles-rf', 'tools-tiles-lookup']) {
+      applyTileLayout('tools', document.getElementById(id)!);
+    }
 
     // --- Grid <-> Lat/Lon ---
     const gridInput = document.getElementById('grid-input') as HTMLInputElement;

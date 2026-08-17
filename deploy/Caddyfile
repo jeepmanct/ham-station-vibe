@@ -14,6 +14,12 @@ __DOMAIN__ {
 		reverse_proxy localhost:3000
 	}
 
+	# Device Stats and Sync Status merged into one /status page -- keep old
+	# bookmarks/links working rather than letting them silently fall through
+	# to the homepage via try_files below.
+	redir /device-stats /status permanent
+	redir /sync-status /status permanent
+
 	# Everything else is the prebuilt Astro static site.
 	handle {
 		root * __APP_DIR__/web/dist

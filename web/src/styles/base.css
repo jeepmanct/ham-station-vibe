@@ -608,6 +608,24 @@ footer a:hover { text-decoration: underline; }
 .chart-svg-wrap rect.bar { transition: opacity 0.15s ease; }
 .chart-svg-wrap rect.bar:hover { opacity: 0.75; }
 
+/* Sub-page section grouping — a bigger, non-uppercase step above the
+   card-title h2 style above, so a group of related cards (e.g. /tools'
+   calculators, /conditions' data cards) reads as its own section rather
+   than just another card. Used by /tools and /conditions. */
+.page-group-heading {
+  font-size: 1.3rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--fg);
+  margin: 2.5rem 0 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.page-group-heading:first-of-type {
+  margin-top: 0;
+}
+
 /* Shared calculator-card layout — used by /tools and /electronics. */
 .tools-grid {
   display: grid;

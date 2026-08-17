@@ -25,6 +25,13 @@ import '../styles/colophon.css';
       </ul>
     </div>
     <div class="feature-block">
+      <h3>Guestbook</h3>
+      <ul>
+        <li>Public sign-in book with an optional callsign field &mdash; entries are admin-reviewed before they show up publicly</li>
+        <li>A honeypot field (invisible to real visitors) to quietly filter out basic spam bots without a CAPTCHA</li>
+      </ul>
+    </div>
+    <div class="feature-block">
       <h3>About</h3>
       <ul>
         <li>Station details: rigs, antennas, QTH, operating history, callsign chain (FCC ULS)</li>
@@ -85,10 +92,11 @@ import '../styles/colophon.css';
     <div class="feature-block">
       <h3>Conditions</h3>
       <ul>
-        <li>Today's solar flux index, A-index, K-index, and sunspot number</li>
-        <li>Sunrise, sunset, solar noon, and day length for the station's own location</li>
+        <li>Today's solar flux index, A-index, K-index, and sunspot number, plus a 90-day propagation trend chart and NOAA's 27-day forecast for the same metrics</li>
+        <li>Real-time worldwide Maximum Usable Frequency map, and the NCDXF/IARU beacon schedule (which of the 18 beacons is on which band right now)</li>
+        <li>Live band noise floor spot-check via this station's own KiwiSDR</li>
+        <li>Lightning strikes within a configurable radius of the station QTH, via a persistent Blitzortung feed, plus sunrise/sunset/solar noon/day length for the station's own location</li>
         <li>Live DX spot feed, with a <strong>Needed</strong> flag resolved directly from the spotted callsign's DXCC entity (not just its ISO country code)</li>
-        <li>Real-time <strong>&ldquo;who's hearing me&rdquo;</strong> reception reports via PSK Reporter</li>
         <li>Announced/active DXpedition calendar, cross-referenced against the log the same entity-precise way the spot feed is</li>
         <li>Upcoming contest calendar</li>
       </ul>
@@ -101,6 +109,15 @@ import '../styles/colophon.css';
         <li>Live audio streaming for that same control slice &mdash; Opus-decoded server-side, played back over the Web Audio API &mdash; plus its own S-meter</li>
         <li>Reception reports for the operator's own signal via PSK Reporter, WSPR, and the Reverse Beacon Network (CW/RTTY), each its own live map</li>
         <li>DMR Last Heard &mdash; live activity on an admin-configured BrandMeister talkgroup, via a persistent real-time connection to the network (not a periodic poll)</li>
+        <li>D-STAR Last Heard &mdash; recent activity on a configured reflector</li>
+      </ul>
+    </div>
+    <div class="feature-block">
+      <h3>KiwiSDR</h3>
+      <ul>
+        <li>Live waterfall and spectrum display from the station's own KiwiSDR, with adjustable colormap, spectrum style, and zoom</li>
+        <li>Live receive audio and drag-to-tune frequency control, with band/mode presets</li>
+        <li>Admin-configurable visibility, so a site without a KiwiSDR can hide the page entirely rather than show a non-functional one</li>
       </ul>
     </div>
     <div class="feature-block">
@@ -139,14 +156,24 @@ import '../styles/colophon.css';
       </ul>
     </div>
     <div class="feature-block">
+      <h3>Status</h3>
+      <ul>
+        <li>Live health of the Pi itself &mdash; memory, disk, CPU load and temperature, uptime</li>
+        <li>Freshness table for every external data sync (QRZ, eQSL, LoTW, solar data, satellite TLEs, Club Log lists), flagged stale or very stale relative to each source's own real sync cadence</li>
+        <li>Admin-gated device reboot</li>
+      </ul>
+    </div>
+    <div class="feature-block">
       <h3>Admin</h3>
       <ul>
         <li>Photo upload; service-credential management (QRZ, eQSL, LoTW, HamQTH, Open Repeater, and FlexRadio LAN address &mdash; with a one-click network auto-detect), stored server-side and never sent back to the browser once saved</li>
-        <li>QRZ, eQSL, and LoTW sync controls (each incremental &mdash; only pulls what's changed); solar data sync, with a Full Resync option for rebuilding the entire history</li>
-        <li>Alert configuration for Needed-DX spots and VHF/Sporadic-E band openings (each optionally filterable to US-based spotters only), X-class solar flares, solar wind (early-warning), and geomagnetic storms (Kp-index) &mdash; email and/or push notification, each independently testable</li>
-        <li>FlexRadio hardware-status and remote-control visibility toggles &mdash; lets an installer without a FlexRadio hide that dashboard entirely rather than leave a non-functional one visible</li>
+        <li>Page Layout &mdash; drag-and-drop reorder/hide for the Home, Tools, and Electronics tile grids, and the main nav itself</li>
+        <li>QRZ, eQSL, and LoTW sync controls (each incremental &mdash; only pulls what's changed); solar data sync, with a Full Resync option for rebuilding the entire history; on-demand database/photo backup, in addition to the nightly automatic one</li>
+        <li>Alert configuration for Needed-DX spots and VHF/Sporadic-E band openings (each optionally filterable to US-based spotters only), X-class solar flares, solar wind (early-warning), geomagnetic storms (Kp-index), tropospheric ducting, satellite passes, lightning, newly-confirmed DXCC entities, and a weekly DX digest &mdash; email and/or push notification, each independently testable</li>
+        <li>FlexRadio hardware-status and remote-control visibility toggles, and a separate KiwiSDR visibility toggle &mdash; lets an installer without that hardware hide the corresponding dashboard entirely rather than leave a non-functional one visible</li>
+        <li>Lightning monitoring on/off toggle for the persistent Blitzortung connection powering the Conditions map and lightning alerts</li>
         <li>Admin-only Repeater Lookup (via Open Repeater) &mdash; DMR/D-STAR/analog FM repeaters near a configured location, filterable by band; kept admin-only since a public repeater directory isn't something every data source's terms permit</li>
-        <li>DMR talkgroup configuration for the Radio page's Last Heard panel</li>
+        <li>DMR talkgroup and D-STAR reflector configuration for the Radio page's Last Heard panels</li>
       </ul>
     </div>
   </div>
@@ -156,13 +183,15 @@ import '../styles/colophon.css';
   <div class="card">
     <ul style="margin:0;padding-left:1.25rem;color:var(--muted);font-size:0.9rem;line-height:1.7;">
       <li><strong style="color:var(--fg);">Solar data</strong> &mdash; refreshed daily, incremental (only pulls the last ~640 days)</li>
-      <li><strong style="color:var(--fg);">QRZ Logbook sync</strong> &mdash; refreshed daily, incremental (only pulls what changed)</li>
-      <li><strong style="color:var(--fg);">eQSL.cc sync</strong> &mdash; refreshed daily, incremental</li>
-      <li><strong style="color:var(--fg);">LoTW sync</strong> &mdash; refreshed daily, incremental</li>
+      <li><strong style="color:var(--fg);">QRZ Logbook, eQSL.cc, and LoTW sync</strong> &mdash; each refreshed daily, incremental (only pulls what changed)</li>
       <li><strong style="color:var(--fg);">Satellite orbital elements</strong> &mdash; refreshed daily</li>
-      <li><strong style="color:var(--fg);">Club Log OQRS list and Most-Wanted ranking</strong> &mdash; refreshed weekly</li>
+      <li><strong style="color:var(--fg);">Club Log OQRS list and Most-Wanted ranking</strong> &mdash; each refreshed weekly</li>
+      <li><strong style="color:var(--fg);">Database and photo backup</strong> &mdash; nightly</li>
       <li><strong style="color:var(--fg);">Needed-DX spot check</strong> &mdash; every 10 minutes, alerting by email and/or push when a not-yet-worked DXCC entity shows up on the live spot feed</li>
       <li><strong style="color:var(--fg);">VHF/Sporadic-E, solar flare, solar wind, and geomagnetic storm (Kp-index) checks</strong> &mdash; every 5 minutes each, same alert channels</li>
+      <li><strong style="color:var(--fg);">Tropospheric ducting and satellite-pass checks</strong> &mdash; every 5 minutes each, same alert channels</li>
+      <li><strong style="color:var(--fg);">Newly-confirmed DXCC check</strong> &mdash; daily, shortly after the QRZ/eQSL/LoTW syncs</li>
+      <li><strong style="color:var(--fg);">Weekly DX digest</strong> &mdash; every Sunday, regardless of activity level</li>
     </ul>
   </div>
 
@@ -185,8 +214,10 @@ import '../styles/colophon.css';
         <li><a href="https://hono.dev" target="_blank" rel="noopener">Hono</a><span class="desc">Web framework the API is built on</span></li>
         <li><a href="https://www.sqlite.org" target="_blank" rel="noopener">SQLite</a><span class="desc">The entire database &mdash; one file on disk</span></li>
         <li><a href="https://www.npmjs.com/package/opus-decoder" target="_blank" rel="noopener">opus-decoder</a><span class="desc">WASM Opus decode for the radio's live receive audio</span></li>
-        <li><a href="https://nodemailer.com" target="_blank" rel="noopener">Nodemailer</a><span class="desc">Sends the needed-DX email alerts</span></li>
+        <li><a href="https://sharp.pixelplumbing.com" target="_blank" rel="noopener">sharp</a><span class="desc">Photo upload processing/thumbnails</span></li>
+        <li><a href="https://nodemailer.com" target="_blank" rel="noopener">Nodemailer</a><span class="desc">Sends the alert emails</span></li>
         <li><a href="https://socket.io" target="_blank" rel="noopener">Socket.IO client</a><span class="desc">Persistent real-time connection powering DMR Last Heard</span></li>
+        <li><a href="https://github.com/mqttjs/MQTT.js" target="_blank" rel="noopener">MQTT.js</a><span class="desc">Persistent connection to the Blitzortung lightning-detection network</span></li>
       </ul>
     </div>
     <div class="link-group">
@@ -224,6 +255,10 @@ import '../styles/colophon.css';
         <li><a href="https://www.reversebeacon.net" target="_blank" rel="noopener">Reverse Beacon Network</a><span class="desc">CW/RTTY skimmer reception reports</span></li>
         <li><a href="https://www.ng3k.com/Misc/adxo.html" target="_blank" rel="noopener">NG3K ADXO</a><span class="desc">Announced/active DXpedition calendar</span></li>
         <li><a href="https://www.contestcalendar.com" target="_blank" rel="noopener">WA7BNM Contest Calendar</a><span class="desc">Upcoming contests</span></li>
+        <li><a href="https://prop.kc2g.com" target="_blank" rel="noopener">prop.kc2g.com</a><span class="desc">Real-time worldwide MUF map</span></li>
+        <li><a href="https://www.ncdxf.org/beacon/" target="_blank" rel="noopener">NCDXF/IARU Beacon Project</a><span class="desc">International beacon schedule</span></li>
+        <li><a href="https://www.blitzortung.org" target="_blank" rel="noopener">Blitzortung.org</a><span class="desc">Community lightning-strike detection network, behind the Conditions map and lightning alerts</span></li>
+        <li><a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a><span class="desc">Weather-forecast data behind the tropospheric ducting alert</span></li>
       </ul>
     </div>
     <div class="link-group">
@@ -248,6 +283,7 @@ import '../styles/colophon.css';
       <ul>
         <li><a href="https://www.openrepeater.org" target="_blank" rel="noopener">Open Repeater</a><span class="desc">DMR/D-STAR/analog repeater data for the admin-only Repeater Lookup tool</span></li>
         <li><a href="https://brandmeister.network" target="_blank" rel="noopener">BrandMeister</a><span class="desc">Live DMR talkgroup activity for the Radio page's Last Heard panel</span></li>
+        <li>A configured D-STAR reflector's own dashboard<span class="desc">Last Heard activity on the Radio page (example integration points at REF069)</span></li>
       </ul>
     </div>
   </div>

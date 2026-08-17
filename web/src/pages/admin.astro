@@ -172,11 +172,11 @@ import Base from '../layouts/Base.astro';
 
     <section>
       <div class="card">
-        <h2>Lightning Monitoring</h2>
-        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Whether the persistent Blitzortung lightning-strike connection is running at all &mdash; off by default. Needs a Station Location set above to know what "nearby" means. Powers the map on /conditions and the Lightning alert below.</p>
-        <form id="lightning-monitoring-form" class="form-grid">
-          <label class="form-grid-checkbox"><input type="checkbox" id="lm-enabled" /> Lightning monitoring enabled</label>
-          <p id="lightning-monitoring-status" class="status-line"></p>
+        <h2>KiwiSDR Configuration</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">The LAN address the /kiwisdr page's waterfall and audio connect to &mdash; leave blank if you don't have a KiwiSDR. Port defaults to 8073 if omitted.</p>
+        <form id="kiwi-config-form" class="form-grid">
+          <label style="grid-column:1 / -1;">KiwiSDR Host<input type="text" id="cr-kiwi-host" placeholder="e.g. 192.168.1.50:8073" style="max-width:220px;" /></label>
+          <p id="kiwi-config-status" class="status-line"></p>
           <div style="grid-column:1 / -1;">
             <button type="submit" class="btn">Save</button>
           </div>
@@ -186,11 +186,11 @@ import Base from '../layouts/Base.astro';
 
     <section>
       <div class="card">
-        <h2>KiwiSDR Configuration</h2>
-        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">The LAN address the /kiwisdr page's waterfall and audio connect to &mdash; leave blank if you don't have a KiwiSDR. Port defaults to 8073 if omitted.</p>
-        <form id="kiwi-config-form" class="form-grid">
-          <label style="grid-column:1 / -1;">KiwiSDR Host<input type="text" id="cr-kiwi-host" placeholder="e.g. 192.168.1.50:8073" style="max-width:220px;" /></label>
-          <p id="kiwi-config-status" class="status-line"></p>
+        <h2>Lightning Monitoring</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Whether the persistent Blitzortung lightning-strike connection is running at all &mdash; off by default. Needs a Station Location set above to know what "nearby" means. Powers the map on /conditions and the Lightning alert below.</p>
+        <form id="lightning-monitoring-form" class="form-grid">
+          <label class="form-grid-checkbox"><input type="checkbox" id="lm-enabled" /> Lightning monitoring enabled</label>
+          <p id="lightning-monitoring-status" class="status-line"></p>
           <div style="grid-column:1 / -1;">
             <button type="submit" class="btn">Save</button>
           </div>
@@ -351,7 +351,7 @@ import Base from '../layouts/Base.astro';
       <div class="card">
         <h2>Alerts &amp; Notifications</h2>
         <p style="margin:0 0 1.25rem;color:var(--muted);font-size:0.9rem;">
-          Email and/or push notification for four independent things worth knowing about right away &mdash; set up either delivery channel, or both, then turn on whichever alert type(s) you want below.
+          Email and/or push notification for the alert types below &mdash; set up either delivery channel, or both, then turn on whichever ones you want.
         </p>
 
         <h3 style="margin:0 0 0.5rem;font-size:0.95rem;">Email</h3>
@@ -734,13 +734,12 @@ import Base from '../layouts/Base.astro';
         { id: 'activations', label: 'Activations' },
         { id: 'conditions', label: 'Conditions' },
         { id: 'radio', label: 'Radio' },
-        { id: 'satellites', label: 'Satellites' },
         { id: 'kiwisdr', label: 'KiwiSDR' },
+        { id: 'satellites', label: 'Satellites' },
         { id: 'tools', label: 'Tools' },
         { id: 'electronics', label: 'Electronics' },
         { id: 'reference', label: 'Reference' },
-        { id: 'device-stats', label: 'Device Stats' },
-        { id: 'sync-status', label: 'Sync Status' },
+        { id: 'status', label: 'Status' },
         { id: 'admin', label: 'Admin' },
       ],
     };
