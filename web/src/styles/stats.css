@@ -106,7 +106,7 @@
 }
 .heatmap-legend .heatmap-cell { width: 11px; height: 11px; cursor: default; }
 
-#operating-heatmap { margin-top: 1rem; overflow-x: auto; padding-bottom: 0.5rem; }
+#operating-heatmap, #band-hour-heatmap { margin-top: 1rem; overflow-x: auto; padding-bottom: 0.5rem; }
 .op-heatmap-row {
   display: grid;
   grid-template-columns: 2.2rem repeat(24, minmax(14px, 1fr));
