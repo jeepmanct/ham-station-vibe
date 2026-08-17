@@ -99,7 +99,6 @@ import FilterPanel from '../components/FilterPanel.astro';
             <th>Mode</th>
             <th>QSL</th>
             <th>Solar</th>
-            <th>Card</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -111,16 +110,9 @@ import FilterPanel from '../components/FilterPanel.astro';
     <button type="button" id="load-more" class="btn secondary" hidden>Load more</button>
   </div>
 
-  <div id="eqsl-modal-backdrop" class="eqsl-modal-backdrop" hidden>
-    <div class="eqsl-modal">
-      <button type="button" id="eqsl-modal-close" class="btn secondary eqsl-modal-close">&times;</button>
-      <div id="eqsl-modal-body"></div>
-    </div>
-  </div>
-
   <script>
     import { initQsoFilters } from '../lib/qsoFilters';
-    import { downloadOrShareImage, downloadOrShareBlob } from '../lib/downloadImage';
+    import { downloadOrShareBlob } from '../lib/downloadImage';
 
     type Qso = {
       id: number;
@@ -157,16 +149,12 @@ import FilterPanel from '../components/FilterPanel.astro';
     let loadedCount = 0;
     let currentQuery = '';
 
-    // Fetched once up front rather than per-card-click -- by the time a user
-    // clicks "download QSL card" (a deliberate action well after page load),
-    // this has virtually always already resolved.
+    // Used for export filenames below.
     let stationCallsign = 'Your Callsign';
-    let stationQth = '';
     fetch('/api/station-location')
       .then((r) => r.json())
-      .then((data: { callsign: string | null; location: { label: string | null; grid: string | null } | null }) => {
+      .then((data: { callsign: string | null }) => {
         if (data.callsign) stationCallsign = data.callsign;
-        if (data.location) stationQth = [data.location.label, data.location.grid].filter(Boolean).join(' · ');
       })
       .catch(() => {});
 
@@ -178,111 +166,6 @@ import FilterPanel from '../components/FilterPanel.astro';
     function formatTimeOn(t: string | null): string {
       if (!t || t.length !== 4) return '—';
       return `${t.slice(0, 2)}:${t.slice(2, 4)} UTC`;
-    }
-
-    function generateQslCard(q: Qso): string {
-      const canvas = document.createElement('canvas');
-      canvas.width = 1400;
-      canvas.height = 900;
-      const ctx = canvas.getContext('2d')!;
-
-      ctx.fillStyle = '#f7f6f2';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = '#e5e3dc';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
-
-      // Header band
-      ctx.fillStyle = '#0d9488';
-      ctx.fillRect(0, 0, canvas.width, 150);
-      ctx.textAlign = 'left';
-      ctx.fillStyle = '#f7f6f2';
-      ctx.font = '700 64px ui-monospace, monospace';
-      ctx.fillText(stationCallsign, 50, 95);
-      ctx.font = '400 22px sans-serif';
-      ctx.fillText(stationQth, 50, 128);
-
-      ctx.textAlign = 'right';
-      ctx.font = '600 20px sans-serif';
-      ctx.fillText('QSL CARD', canvas.width - 50, 95);
-
-      // Confirms QSO with
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#888888';
-      ctx.font = '400 24px sans-serif';
-      ctx.fillText('This QSL confirms a two-way radio contact with', canvas.width / 2, 225);
-
-      ctx.fillStyle = '#1a1a1a';
-      ctx.font = '700 100px ui-monospace, monospace';
-      ctx.fillText(q.call, canvas.width / 2, 330);
-
-      // Detail grid
-      const details: [string, string][] = [
-        ['Date', formatDate(q.qsoDate)],
-        ['Time', formatTimeOn(q.timeOn)],
-        ['Band', q.band ?? '—'],
-        ['Mode', q.mode ?? '—'],
-        ['Frequency', q.freq ? `${q.freq} MHz` : '—'],
-        ['RST Sent', q.rstSent ?? '—'],
-        ['Grid', q.gridsquare ?? '—'],
-        ['Country', q.country ?? '—'],
-      ];
-      const cols = 4;
-      const cellW = (canvas.width - 100) / cols;
-      const startY = 420;
-      const rowH = 110;
-      details.forEach(([label, value], i) => {
-        const col = i % cols;
-        const row = Math.floor(i / cols);
-        const x = 50 + col * cellW;
-        const y = startY + row * rowH;
-        ctx.textAlign = 'left';
-        ctx.fillStyle = '#888888';
-        ctx.font = '600 16px sans-serif';
-        ctx.fillText(label.toUpperCase(), x, y);
-        ctx.fillStyle = '#1a1a1a';
-        ctx.font = '600 30px sans-serif';
-        ctx.fillText(value, x, y + 36);
-      });
-
-      // LoTW confirmation stamp
-      if (q.lotwQslRcvd === 'Y') {
-        ctx.save();
-        ctx.translate(canvas.width - 200, 700);
-        ctx.rotate(-0.2);
-        ctx.strokeStyle = '#0ca30c';
-        ctx.lineWidth = 5;
-        ctx.strokeRect(-140, -40, 280, 80);
-        ctx.fillStyle = '#0ca30c';
-        ctx.textAlign = 'center';
-        ctx.font = '700 26px sans-serif';
-        ctx.fillText('CONFIRMED', 0, -5);
-        ctx.font = '600 16px sans-serif';
-        ctx.fillText('VIA LOTW', 0, 20);
-        ctx.restore();
-      }
-
-      // Footer
-      ctx.textAlign = 'center';
-      ctx.strokeStyle = '#e5e3dc';
-      ctx.beginPath();
-      ctx.moveTo(50, 800);
-      ctx.lineTo(canvas.width - 50, 800);
-      ctx.stroke();
-      ctx.fillStyle = '#1a1a1a';
-      ctx.font = '600 24px sans-serif';
-      ctx.fillText(`73! de ${stationCallsign}`, canvas.width / 2, 845);
-      ctx.fillStyle = '#999999';
-      ctx.font = '400 16px sans-serif';
-      const genDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-      ctx.fillText(`Generated ${genDate} from the station log`, canvas.width / 2, 875);
-
-      return canvas.toDataURL('image/png');
-    }
-
-    function downloadQslCard(q: Qso) {
-      const dataUrl = generateQslCard(q);
-      downloadOrShareImage(dataUrl, `QSL-${stationCallsign}-${q.call}-${q.qsoDate}.png`);
     }
 
     function formatQslStatus(q: Qso): string {
@@ -302,13 +185,7 @@ import FilterPanel from '../components/FilterPanel.astro';
           <td>${q.mode ?? '—'}</td>
           <td>${formatQslStatus(q)}</td>
           <td style="color:var(--muted);white-space:nowrap;">${formatSolar(q)}</td>
-          <td style="display:flex;gap:0.4rem;">
-            <button type="button" class="btn secondary qsl-card-btn" style="padding:0.3rem 0.7rem;font-size:0.78rem;">QSL</button>
-            ${q.eqslQslRcvd === 'Y' ? '<button type="button" class="btn secondary eqsl-view-btn" style="padding:0.3rem 0.7rem;font-size:0.78rem;">eQSL</button>' : ''}
-          </td>
         `;
-        tr.querySelector('.qsl-card-btn')!.addEventListener('click', () => downloadQslCard(q));
-        tr.querySelector('.eqsl-view-btn')?.addEventListener('click', () => viewEqslCard(q));
         tbody.appendChild(tr);
       }
     }
@@ -329,7 +206,7 @@ import FilterPanel from '../components/FilterPanel.astro';
 
     function loadQsos() {
       loadPage(0).catch(() => {
-        tbody.innerHTML = '<tr><td colspan="7" style="font-family:inherit;color:var(--muted);">Could not load log data.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="font-family:inherit;color:var(--muted);">Could not load log data.</td></tr>';
       });
     }
 
@@ -563,50 +440,5 @@ import FilterPanel from '../components/FilterPanel.astro';
         status.textContent = errBody.error ?? 'Could not log QSO.';
       }
     });
-
-    // --- eQSL card viewer -- fetches (and server-side caches) one card
-    // image on demand, never a bulk gallery. Reuses the same login the
-    // Import panel uses, since this also needs an auth token. ---
-    const eqslModalBackdrop = document.getElementById('eqsl-modal-backdrop')!;
-    const eqslModalBody = document.getElementById('eqsl-modal-body')!;
-
-    function openEqslModal(html: string) {
-      eqslModalBody.innerHTML = html;
-      eqslModalBackdrop.removeAttribute('hidden');
-    }
-    function closeEqslModal() {
-      eqslModalBackdrop.setAttribute('hidden', '');
-    }
-    document.getElementById('eqsl-modal-close')!.addEventListener('click', closeEqslModal);
-    eqslModalBackdrop.addEventListener('click', (e) => {
-      if (e.target === eqslModalBackdrop) closeEqslModal();
-    });
-
-    async function viewEqslCard(q: Qso) {
-      if (!sessionStorage.getItem(TOKEN_KEY)) {
-        openEqslModal('<p>Log in via the Import panel above to view eQSL cards.</p>');
-        return;
-      }
-      openEqslModal('<p>Loading…</p>');
-      const res = await fetch(`/api/qsos/${q.id}/eqsl-card`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
-      });
-      if (res.status === 401) {
-        openEqslModal('<p>Session expired — log in again via the Import panel above.</p>');
-        return;
-      }
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        openEqslModal(`<p>${body.error ?? 'Could not load eQSL card.'}</p>`);
-        return;
-      }
-      const { imagePath } = await res.json();
-      openEqslModal(
-        imagePath
-          ? `<img src="${imagePath}" alt="eQSL card from ${q.call}" />`
-          : `<p>No eQSL card graphic available for this QSO.</p>`,
-      );
-    }
   </script>
 </Base>
