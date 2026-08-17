@@ -567,15 +567,28 @@ import '../styles/kiwisdr.css';
       peakLevels = null;
     });
 
-    // Raw bin values routinely peak near 255, which -- mapped straight to
-    // canvas height -- left bars/lines pinned at the very top with no
-    // headroom to see peaks against. Scaling to 85% of height still leaves
-    // a small margin above a maxed-out reading without wasting most of the
-    // canvas on empty space (0.6 read as a large, mostly-black band at the
-    // top of the display in practice).
+    // The server already contrast-stretches each waterfall row to its own
+    // observed 2nd/98th-percentile range (see kiwiSdr.ts) so the waterfall
+    // itself isn't a flat, low-contrast smear -- but that means these same
+    // bin values are already close to using the full 0-255 range on nearly
+    // every frame, ordinary noise floor included. A plain linear v/255
+    // mapping to height made routine noise look almost as tall as a real
+    // peak, and a bigger headroom margin (tried 0.6, then 0.85) only ever
+    // trades "too much empty space above the trace" against "the trace
+    // fills too much of it" -- it can't fix peaks-vs-noise separation on
+    // its own, since scaling everything by the same constant preserves
+    // their relative heights exactly.
+    //
+    // SPECTRUM_GAMMA > 1 compresses low/mid values toward the bottom
+    // disproportionately more than high ones (v/255 raised to a power <1
+    // stays close to 1), so ordinary noise sits low and only genuinely
+    // strong bins rise up sharply -- the same reason real spectrum
+    // analyzers use a non-linear (usually dB/log) response instead of raw
+    // linear amplitude.
     const SPECTRUM_HEADROOM = 0.85;
+    const SPECTRUM_GAMMA = 1.8;
     function binHeight(v: number, h: number): number {
-      return (v / 255) * h * SPECTRUM_HEADROOM;
+      return (v / 255) ** SPECTRUM_GAMMA * h * SPECTRUM_HEADROOM;
     }
 
     function drawSpectrumLine(bins: Uint8Array, n: number, w: number, h: number) {
