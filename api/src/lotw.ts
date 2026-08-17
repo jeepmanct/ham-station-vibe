@@ -120,17 +120,17 @@ function setLastSyncedDate(date: string) {
   ).run(date);
 }
 
-/** When a sync last actually ran, for UI display -- see db.ts's comment on `last_run_at` for why this is separate from the rxSince watermark above. */
-export function getLastLotwSyncRunAt(): string | null {
-  const row = db.query('SELECT last_run_at FROM lotw_sync_state WHERE id = 1').get() as { last_run_at: string | null } | null;
-  return row?.last_run_at ?? null;
+/** When a sync last actually ran (and how many records it imported), for UI display -- see db.ts's comment on `last_run_at` for why this is separate from the rxSince watermark above. */
+export function getLastLotwSyncRun(): { at: string | null; count: number | null } {
+  const row = db.query('SELECT last_run_at, last_run_count FROM lotw_sync_state WHERE id = 1').get() as { last_run_at: string | null; last_run_count: number | null } | null;
+  return { at: row?.last_run_at ?? null, count: row?.last_run_count ?? null };
 }
 
-function setLastRunAt(timestamp: string) {
+function setLastRun(timestamp: string, count: number) {
   db.query(
-    `INSERT INTO lotw_sync_state (id, last_run_at) VALUES (1, ?)
-     ON CONFLICT(id) DO UPDATE SET last_run_at = excluded.last_run_at`,
-  ).run(timestamp);
+    `INSERT INTO lotw_sync_state (id, last_run_at, last_run_count) VALUES (1, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET last_run_at = excluded.last_run_at, last_run_count = excluded.last_run_count`,
+  ).run(timestamp, count);
 }
 
 /**
@@ -154,6 +154,6 @@ export async function syncFromLotw(
   const records = parseAdif(adif).map(normalizeLotwRecord);
   const imported = importAdifRecords(records);
   setLastSyncedDate(new Date().toISOString().slice(0, 10));
-  setLastRunAt(new Date().toISOString());
+  setLastRun(new Date().toISOString(), imported);
   return { imported, total: records.length, incremental: !!lastSynced };
 }

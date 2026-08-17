@@ -1243,15 +1243,27 @@ import Base from '../layouts/Base.astro';
     // sync feature tracking/formatting its own. Refreshed on page load and
     // again after any sync completes, so a successful click updates its own
     // line immediately instead of waiting for the next page visit. ---
-    function formatLastSynced(iso: string | null): string {
-      return iso ? `Last synced ${new Date(iso).toLocaleString()}` : 'Never synced';
+    // countLabel lets each source use its own wording (QRZ/LoTW import new
+    // QSOs, eQSL only matches confirmations against QSOs already logged) --
+    // shown even when 0, since "ran and found nothing new" vs "hasn't run
+    // at all" is exactly the distinction this is for (e.g. confirming an
+    // overnight auto-sync actually ran, not just guessing from the time).
+    function formatLastSynced(iso: string | null, count: number | null, countLabel: string): string {
+      if (!iso) return 'Never synced';
+      const countText = count == null ? '' : ` — ${count} ${countLabel}`;
+      return `Last synced ${new Date(iso).toLocaleString()}${countText}`;
     }
     async function loadSyncStatus() {
-      const status: { qrz: string | null; eqsl: string | null; lotw: string | null; solar: string | null } = await fetch('/api/sync-status').then((r) => r.json());
-      document.getElementById('qrz-last-synced')!.textContent = formatLastSynced(status.qrz);
-      document.getElementById('eqsl-last-synced')!.textContent = formatLastSynced(status.eqsl);
-      document.getElementById('lotw-last-synced')!.textContent = formatLastSynced(status.lotw);
-      document.getElementById('solar-last-synced')!.textContent = formatLastSynced(status.solar);
+      const status: {
+        qrz: string | null; qrzCount: number | null;
+        eqsl: string | null; eqslCount: number | null;
+        lotw: string | null; lotwCount: number | null;
+        solar: string | null;
+      } = await fetch('/api/sync-status').then((r) => r.json());
+      document.getElementById('qrz-last-synced')!.textContent = formatLastSynced(status.qrz, status.qrzCount, 'imported');
+      document.getElementById('eqsl-last-synced')!.textContent = formatLastSynced(status.eqsl, status.eqslCount, 'matched');
+      document.getElementById('lotw-last-synced')!.textContent = formatLastSynced(status.lotw, status.lotwCount, 'imported');
+      document.getElementById('solar-last-synced')!.textContent = formatLastSynced(status.solar, null, '');
     }
 
     // --- Remote Control card visibility (site-wide, not per-session) ---

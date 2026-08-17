@@ -37,7 +37,7 @@ import '../styles/syncStatus.css';
   <div class="card">
     <table>
       <thead>
-        <tr><th>Source</th><th>Last Synced</th><th>Status</th></tr>
+        <tr><th>Source</th><th>Last Synced</th><th>Records</th><th>Status</th></tr>
       </thead>
       <tbody id="sync-status-rows"></tbody>
     </table>
@@ -202,8 +202,11 @@ import '../styles/syncStatus.css';
     // --- Sync status ---
     type SyncStatus = {
       qrz: string | null;
+      qrzCount: number | null;
       eqsl: string | null;
+      eqslCount: number | null;
       lotw: string | null;
+      lotwCount: number | null;
       solar: string | null;
       satelliteTle: string | null;
       clublogOqrs: string | null;
@@ -214,10 +217,13 @@ import '../styles/syncStatus.css';
     // (see deploy/*.timer) -- thresholds below are multiples of that, not
     // one fixed number for every source, since a weekly sync being 2 days
     // old is completely normal while a daily one being 2 days old is not.
-    const SOURCES: { key: keyof SyncStatus; label: string; cadenceHours: number; cadenceLabel: string }[] = [
-      { key: 'qrz', label: 'QRZ Logbook', cadenceHours: 24, cadenceLabel: 'daily' },
-      { key: 'eqsl', label: 'eQSL.cc', cadenceHours: 24, cadenceLabel: 'daily' },
-      { key: 'lotw', label: 'ARRL LoTW', cadenceHours: 24, cadenceLabel: 'daily' },
+    // countKey/countLabel are only set for the three sources that actually
+    // track a per-run record count (see qrz.ts/eqsl.ts/lotw.ts's
+    // last_run_count) -- the rest just show an em dash in that column.
+    const SOURCES: { key: keyof SyncStatus; label: string; cadenceHours: number; cadenceLabel: string; countKey?: keyof SyncStatus; countLabel?: string }[] = [
+      { key: 'qrz', label: 'QRZ Logbook', cadenceHours: 24, cadenceLabel: 'daily', countKey: 'qrzCount', countLabel: 'imported' },
+      { key: 'eqsl', label: 'eQSL.cc', cadenceHours: 24, cadenceLabel: 'daily', countKey: 'eqslCount', countLabel: 'matched' },
+      { key: 'lotw', label: 'ARRL LoTW', cadenceHours: 24, cadenceLabel: 'daily', countKey: 'lotwCount', countLabel: 'imported' },
       { key: 'solar', label: 'Solar / Geomagnetic Data', cadenceHours: 24, cadenceLabel: 'daily' },
       { key: 'satelliteTle', label: 'Satellite TLEs', cadenceHours: 24, cadenceLabel: 'daily' },
       { key: 'clublogOqrs', label: 'Club Log OQRS List', cadenceHours: 168, cadenceLabel: 'weekly' },
@@ -269,16 +275,20 @@ import '../styles/syncStatus.css';
         nameTd.appendChild(cadence);
 
         const lastTd = document.createElement('td');
+        const recordsTd = document.createElement('td');
         const statusTd = document.createElement('td');
         const dot = document.createElement('span');
         dot.className = 'sync-status-dot';
+
+        const count = source.countKey ? status[source.countKey] : null;
+        recordsTd.textContent = count == null ? '—' : `${count} ${source.countLabel}`;
 
         if (!raw) {
           lastTd.textContent = 'Never';
           dot.classList.add('critical');
           statusTd.append(dot, 'Never synced');
         } else {
-          const date = parseUtc(raw);
+          const date = parseUtc(raw as string);
           lastTd.textContent = `${formatAgo(date)} (${date.toLocaleString()})`;
           const ageHours = (Date.now() - date.getTime()) / 3_600_000;
           let label = 'Fresh';
@@ -292,7 +302,7 @@ import '../styles/syncStatus.css';
           statusTd.append(dot, label);
         }
 
-        tr.append(nameTd, lastTd, statusTd);
+        tr.append(nameTd, lastTd, recordsTd, statusTd);
         tbody.appendChild(tr);
       }
     }

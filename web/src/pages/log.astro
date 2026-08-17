@@ -242,13 +242,15 @@ import FilterPanel from '../components/FilterPanel.astro';
     // "Last synced" readouts for the QRZ/Solar sync buttons below, from the
     // small aggregated status endpoint -- refreshed on login and again after
     // any sync completes.
-    function formatLastSynced(iso: string | null): string {
-      return iso ? `Last synced ${new Date(iso).toLocaleString()}` : 'Never synced';
+    function formatLastSynced(iso: string | null, count: number | null, countLabel: string): string {
+      if (!iso) return 'Never synced';
+      const countText = count == null ? '' : ` — ${count} ${countLabel}`;
+      return `Last synced ${new Date(iso).toLocaleString()}${countText}`;
     }
     async function loadSyncStatus() {
-      const status: { qrz: string | null; solar: string | null } = await fetch('/api/sync-status').then((r) => r.json());
-      document.getElementById('qrz-last-synced')!.textContent = formatLastSynced(status.qrz);
-      document.getElementById('solar-last-synced')!.textContent = formatLastSynced(status.solar);
+      const status: { qrz: string | null; qrzCount: number | null; solar: string | null } = await fetch('/api/sync-status').then((r) => r.json());
+      document.getElementById('qrz-last-synced')!.textContent = formatLastSynced(status.qrz, status.qrzCount, 'imported');
+      document.getElementById('solar-last-synced')!.textContent = formatLastSynced(status.solar, null, '');
     }
 
     importToggle.addEventListener('click', () => {

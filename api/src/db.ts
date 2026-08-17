@@ -627,10 +627,17 @@ for (const name of ['repeaterbook_token', 'repeaterbook_state', 'repeaterbook_co
 // its own RcvdSince YYYYMMDDHHMM), not necessarily a clean displayable
 // datetime, and repurposing them for display risked touching the
 // already-working incremental-fetch logic that reads them.
+// last_run_count alongside last_run_at -- how many records that run actually
+// touched (QRZ/LoTW: imported; eQSL: matched), so "last synced 2h ago" in the
+// UI can also say "0 imported" vs "5 imported" rather than just a timestamp
+// that looks the same whether the auto-sync found something or not.
 for (const table of ['qrz_sync_state', 'lotw_sync_state', 'eqsl_sync_state']) {
   const cols = new Set((db.query(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name));
   if (!cols.has('last_run_at')) {
     db.exec(`ALTER TABLE ${table} ADD COLUMN last_run_at TEXT`);
+  }
+  if (!cols.has('last_run_count')) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN last_run_count INTEGER`);
   }
 }
 

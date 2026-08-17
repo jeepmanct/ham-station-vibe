@@ -72,17 +72,17 @@ function setLastSyncedAt(timestamp: string) {
   ).run(timestamp);
 }
 
-/** When a sync last actually ran, for UI display -- see db.ts's comment on `last_run_at` for why this is separate from the RcvdSince watermark above (that one's in eQSL's own YYYYMMDDHHMM format, not a clean displayable datetime). */
-export function getLastEqslSyncRunAt(): string | null {
-  const row = db.query('SELECT last_run_at FROM eqsl_sync_state WHERE id = 1').get() as { last_run_at: string | null } | null;
-  return row?.last_run_at ?? null;
+/** When a sync last actually ran (and how many confirmations it matched), for UI display -- see db.ts's comment on `last_run_at` for why this is separate from the RcvdSince watermark above (that one's in eQSL's own YYYYMMDDHHMM format, not a clean displayable datetime). */
+export function getLastEqslSyncRun(): { at: string | null; count: number | null } {
+  const row = db.query('SELECT last_run_at, last_run_count FROM eqsl_sync_state WHERE id = 1').get() as { last_run_at: string | null; last_run_count: number | null } | null;
+  return { at: row?.last_run_at ?? null, count: row?.last_run_count ?? null };
 }
 
-function setLastRunAt(timestamp: string) {
+function setLastRun(timestamp: string, count: number) {
   db.query(
-    `INSERT INTO eqsl_sync_state (id, last_run_at) VALUES (1, ?)
-     ON CONFLICT(id) DO UPDATE SET last_run_at = excluded.last_run_at`,
-  ).run(timestamp);
+    `INSERT INTO eqsl_sync_state (id, last_run_at, last_run_count) VALUES (1, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET last_run_at = excluded.last_run_at, last_run_count = excluded.last_run_count`,
+  ).run(timestamp, count);
 }
 
 /** Current UTC time in eQSL's RcvdSince format (YYYYMMDDHHMM). */
@@ -175,6 +175,6 @@ export async function syncFromEqsl(
   const records = parseAdif(html);
   const { matched, unmatched, unconfirmed } = applyEqslConfirmations(records);
   setLastSyncedAt(nowAsEqslTimestamp());
-  setLastRunAt(new Date().toISOString());
+  setLastRun(new Date().toISOString(), matched);
   return { matched, unmatched, unconfirmed, total: records.length, incremental: !!lastSynced };
 }
