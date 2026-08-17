@@ -282,8 +282,11 @@ import Base from '../layouts/Base.astro';
     <section>
       <div class="card">
         <h2>Sync from QRZ.com</h2>
-        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Pulls what's changed since the last sync via the QRZ Logbook API.</p>
-        <button type="button" id="qrz-sync" class="btn">Sync now</button>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Pulls what's changed since the last sync via the QRZ Logbook API &mdash; Full Resync re-pulls the entire logbook.</p>
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+          <button type="button" id="qrz-sync" class="btn">Sync now</button>
+          <button type="button" id="qrz-full-sync" class="btn secondary">Full Resync</button>
+        </div>
         <p id="qrz-last-synced" class="status-line" style="font-size:0.8rem;"></p>
         <p id="qrz-status" class="status-line"></p>
       </div>
@@ -292,8 +295,11 @@ import Base from '../layouts/Base.astro';
     <section>
       <div class="card">
         <h2>Sync from eQSL.cc</h2>
-        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Marks already-logged QSOs as eQSL-confirmed, pulling only what's changed since the last sync.</p>
-        <button type="button" id="eqsl-sync" class="btn">Sync now</button>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Marks already-logged QSOs as eQSL-confirmed, pulling only what's changed since the last sync &mdash; Full Resync re-checks the entire inbox.</p>
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+          <button type="button" id="eqsl-sync" class="btn">Sync now</button>
+          <button type="button" id="eqsl-full-sync" class="btn secondary">Full Resync</button>
+        </div>
         <p id="eqsl-last-synced" class="status-line" style="font-size:0.8rem;"></p>
         <p id="eqsl-status" class="status-line"></p>
       </div>
@@ -302,8 +308,11 @@ import Base from '../layouts/Base.astro';
     <section>
       <div class="card">
         <h2>Sync from LoTW</h2>
-        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Pulls every QSO on file via LoTW's own report mechanism &mdash; not just confirmations &mdash; incrementally since the last sync. An alternative to downloading and importing the ADIF file by hand below.</p>
-        <button type="button" id="lotw-sync" class="btn">Sync now</button>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Pulls every QSO on file via LoTW's own report mechanism &mdash; not just confirmations &mdash; incrementally since the last sync (Full Resync re-pulls everything). An alternative to downloading and importing the ADIF file by hand below.</p>
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+          <button type="button" id="lotw-sync" class="btn">Sync now</button>
+          <button type="button" id="lotw-full-sync" class="btn secondary">Full Resync</button>
+        </div>
         <p id="lotw-last-synced" class="status-line" style="font-size:0.8rem;"></p>
         <p id="lotw-status" class="status-line"></p>
       </div>
@@ -678,6 +687,7 @@ import Base from '../layouts/Base.astro';
     const PAGE_TILES: Record<string, { id: string; label: string }[]> = {
       home: [
         { id: 'about', label: 'About' },
+        { id: 'guestbook', label: 'Guestbook' },
         { id: 'photos', label: 'Photos' },
         { id: 'log', label: 'QSO Log' },
         { id: 'map', label: 'QSO Map' },
@@ -686,6 +696,7 @@ import Base from '../layouts/Base.astro';
         { id: 'activations', label: 'Activations' },
         { id: 'conditions', label: 'Conditions' },
         { id: 'radio', label: 'Radio' },
+        { id: 'kiwisdr', label: 'KiwiSDR' },
         { id: 'satellites', label: 'Satellites' },
         { id: 'tools', label: 'Tools' },
         { id: 'electronics', label: 'Electronics' },
@@ -1316,56 +1327,62 @@ import Base from '../layouts/Base.astro';
       }
     });
 
-    document.getElementById('qrz-sync')!.addEventListener('click', async () => {
+    async function syncFromQrz(full: boolean) {
       const status = document.getElementById('qrz-status')!;
-      status.textContent = 'Syncing…';
-      const res = await fetch('/api/qsos/import/qrz', {
+      status.textContent = full ? 'Running a full resync…' : 'Syncing…';
+      const res = await fetch(`/api/qsos/import/qrz${full ? '?full=1' : ''}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
       });
       if (res.ok) {
-        const { imported } = await res.json();
-        status.textContent = `Synced ${imported} contacts.`;
+        const { imported, incremental } = await res.json();
+        status.textContent = `Synced ${imported} contact${imported === 1 ? '' : 's'}${incremental ? ' (incremental)' : ' (full)'}.`;
         loadSyncStatus();
       } else {
         const body = await res.json().catch(() => ({}));
         status.textContent = body.error ?? 'QRZ sync failed.';
       }
-    });
+    }
+    document.getElementById('qrz-sync')!.addEventListener('click', () => syncFromQrz(false));
+    document.getElementById('qrz-full-sync')!.addEventListener('click', () => syncFromQrz(true));
 
-    document.getElementById('eqsl-sync')!.addEventListener('click', async () => {
+    async function syncFromEqsl(full: boolean) {
       const status = document.getElementById('eqsl-status')!;
-      status.textContent = 'Syncing…';
-      const res = await fetch('/api/qsos/import/eqsl', {
+      status.textContent = full ? 'Running a full resync…' : 'Syncing…';
+      const res = await fetch(`/api/qsos/import/eqsl${full ? '?full=1' : ''}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
       });
       if (res.ok) {
-        const { matched, unmatched } = await res.json();
-        status.textContent = `Matched ${matched} confirmed QSL${matched === 1 ? '' : 's'} to logged QSOs${unmatched ? ` (${unmatched} confirmed but not found in the log)` : ''}.`;
+        const { matched, unmatched, incremental } = await res.json();
+        status.textContent = `Matched ${matched} confirmed QSL${matched === 1 ? '' : 's'} to logged QSOs${unmatched ? ` (${unmatched} confirmed but not found in the log)` : ''}${incremental ? ' (incremental)' : ' (full)'}.`;
         loadSyncStatus();
       } else {
         const body = await res.json().catch(() => ({}));
         status.textContent = body.error ?? 'eQSL sync failed.';
       }
-    });
+    }
+    document.getElementById('eqsl-sync')!.addEventListener('click', () => syncFromEqsl(false));
+    document.getElementById('eqsl-full-sync')!.addEventListener('click', () => syncFromEqsl(true));
 
-    document.getElementById('lotw-sync')!.addEventListener('click', async () => {
+    async function syncFromLotw(full: boolean) {
       const status = document.getElementById('lotw-status')!;
-      status.textContent = 'Syncing…';
-      const res = await fetch('/api/qsos/import/lotw', {
+      status.textContent = full ? 'Running a full resync…' : 'Syncing…';
+      const res = await fetch(`/api/qsos/import/lotw${full ? '?full=1' : ''}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
       });
       if (res.ok) {
-        const { imported } = await res.json();
-        status.textContent = `Imported ${imported} record${imported === 1 ? '' : 's'}.`;
+        const { imported, incremental } = await res.json();
+        status.textContent = `Imported ${imported} record${imported === 1 ? '' : 's'}${incremental ? ' (incremental)' : ' (full)'}.`;
         loadSyncStatus();
       } else {
         const body = await res.json().catch(() => ({}));
         status.textContent = body.error ?? 'LoTW sync failed.';
       }
-    });
+    }
+    document.getElementById('lotw-sync')!.addEventListener('click', () => syncFromLotw(false));
+    document.getElementById('lotw-full-sync')!.addEventListener('click', () => syncFromLotw(true));
 
     async function syncSolarData(full: boolean) {
       const status = document.getElementById('solar-status')!;
