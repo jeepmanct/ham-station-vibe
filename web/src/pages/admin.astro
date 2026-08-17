@@ -334,7 +334,7 @@ import Base from '../layouts/Base.astro';
     <section>
       <div class="card">
         <h2>Backups</h2>
-        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">A nightly job snapshots the database and photos to <code id="backup-destination">&mdash;</code>, keeping the last 14 days. Runs on its own timer &mdash; this button is just for an on-demand copy right now. Download a backup to save a copy to iCloud Drive (or wherever) via your device's own Save/Share sheet; upload one the same way to bring it back.</p>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">A nightly job snapshots the database and photos to <code id="backup-destination">&mdash;</code>, keeping the last 3 on a rolling basis. Runs on its own timer &mdash; this button is just for an on-demand copy right now. Download a backup to save a copy to iCloud Drive (or wherever) via your device's own Save/Share sheet; upload one the same way to bring it back.</p>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
           <button type="button" id="backup-run" class="btn">Back up now</button>
           <label class="btn secondary" style="cursor:pointer;">

@@ -10,7 +10,7 @@ import { db, DATA_DIR, PHOTOS_DIR, EQSL_CARDS_DIR } from './db';
 // card on a Pi, a different physical device than a DATA_DIR pointed at an
 // external drive).
 const BACKUP_DIR = process.env.BACKUP_DIR ?? path.join(import.meta.dir, '..', 'backups');
-const RETENTION_DAYS = Number(process.env.BACKUP_RETENTION_DAYS) || 14;
+const RETENTION_COUNT = Number(process.env.BACKUP_RETENTION_COUNT) || 3;
 // Only needs overriding if you renamed the systemd unit from what setup.sh
 // installs it as -- see restoreBackup()'s comment for why a restart matters.
 const API_SERVICE_NAME = process.env.API_SERVICE_NAME ?? 'hamstation-api';
@@ -59,8 +59,10 @@ function dirSizeBytes(dir: string): number {
  * Snapshots the database (via VACUUM INTO -- safe to run against a live
  * WAL-mode DB, unlike copying the .sqlite file directly, which can catch a
  * half-written page) plus photos/ and eqsl-cards/, into a new timestamped
- * subdirectory of BACKUP_DIR. Prunes anything older than RETENTION_DAYS
- * afterward.
+ * subdirectory of BACKUP_DIR. Prunes down to the newest RETENTION_COUNT
+ * entries afterward (a rolling count, not an age cutoff -- a gap in nightly
+ * runs no longer means losing everything at once when the cutoff catches
+ * up).
  */
 export function runBackup(): BackupResult {
   mkdirSync(BACKUP_DIR, { recursive: true });
@@ -78,13 +80,13 @@ export function runBackup(): BackupResult {
   if (existsSync(PHOTOS_DIR)) cpSync(PHOTOS_DIR, path.join(runDir, 'photos'), { recursive: true });
   if (existsSync(EQSL_CARDS_DIR)) cpSync(EQSL_CARDS_DIR, path.join(runDir, 'eqsl-cards'), { recursive: true });
 
-  const cutoff = Date.now() - RETENTION_DAYS * 86400 * 1000;
-  for (const entry of readdirSync(BACKUP_DIR, { withFileTypes: true })) {
-    if (!entry.isDirectory() || entry.name === timestamp) continue;
-    const parsed = parseTimestamp(entry.name);
-    if (!Number.isNaN(parsed) && parsed < cutoff) {
-      rmSync(path.join(BACKUP_DIR, entry.name), { recursive: true, force: true });
-    }
+  const existing = readdirSync(BACKUP_DIR, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => ({ name: e.name, parsed: parseTimestamp(e.name) }))
+    .filter((e) => !Number.isNaN(e.parsed))
+    .sort((a, b) => b.parsed - a.parsed);
+  for (const entry of existing.slice(RETENTION_COUNT)) {
+    rmSync(path.join(BACKUP_DIR, entry.name), { recursive: true, force: true });
   }
 
   return { dir: runDir, dbBytes: Bun.file(dbBackupPath).size };
