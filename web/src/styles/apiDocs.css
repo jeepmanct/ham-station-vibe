@@ -1,0 +1,13 @@
+/* Endpoint paths read as one unit -- wrapping mid-path (e.g. "GET /api/qsos/" then "countries" on its own line) is worse than letting the already-present .table-scroll wrapper handle overflow via horizontal scroll instead. */
+table td:first-child code { white-space: nowrap; }
+
+.auth-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  color: var(--status-warning);
+  background: color-mix(in srgb, var(--status-warning) 15%, transparent);
+}

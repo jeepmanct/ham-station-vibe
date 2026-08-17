@@ -190,8 +190,6 @@
 .band-dxcc-status.achieved { color: var(--status-good); }
 .band-dxcc-status.pending { color: var(--muted); }
 
-.table-scroll { overflow-x: auto; }
-
 .cert-btn { margin-top: 1rem; width: 100%; }
 
 .triple-play-row { margin-bottom: 0.85rem; }
