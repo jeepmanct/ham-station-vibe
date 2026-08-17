@@ -120,6 +120,12 @@ import '../styles/conditions.css';
   </div>
 
   <div class="card" style="margin-top:1.5rem;">
+    <h2>Band Activity</h2>
+    <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">How much of the live spot feed above is on each band right now &mdash; a rough proxy for which bands are actually open, not a real propagation prediction.</p>
+    <div id="band-activity-bars"></div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
     <h2>Announced DX Operations</h2>
     <p style="margin:0;color:var(--muted);font-size:0.85rem;">Via <a href="https://www.ng3k.com/Misc/adxo.html" target="_blank" rel="noopener">NG3K's ADXO list</a>. <strong style="color:var(--status-warning);">Needed</strong> flags an entity not yet worked.</p>
     <div class="dxpedition-list" id="dxpedition-list"></div>
@@ -314,6 +320,42 @@ import '../styles/conditions.css';
         document.getElementById('cond-date')!.textContent = `As of ${formatDate(data.date)} (most recent available solar data)`;
       });
 
+    // Reuses the same spot feed the table below already fetches -- no
+    // second request to dxheat just to also show it grouped by band. Sorted
+    // by descending band-in-meters, which is naturally 160m-\>2m in the
+    // right ham-band order without needing a hardcoded band list. Excludes
+    // sub-1m "bands" -- confirmed live these are real but rare geostationary
+    // satellite crossband spots (dxheat reports QO-100 traffic at its true
+    // ~10GHz/0.03m), not terrestrial propagation, which is what this gauge
+    // is actually meant to represent.
+    function renderBandActivity(spots: Spot[]) {
+      const container = document.getElementById('band-activity-bars')!;
+      const counts = new Map<number, number>();
+      for (const s of spots) {
+        if (s.band < 1) continue;
+        counts.set(s.band, (counts.get(s.band) ?? 0) + 1);
+      }
+      if (!counts.size) {
+        container.innerHTML = '<p class="status-line">No spots available right now.</p>';
+        return;
+      }
+      const maxCount = Math.max(...counts.values());
+      const bands = [...counts.keys()].sort((a, b) => b - a);
+      container.innerHTML = bands
+        .map((band) => {
+          const count = counts.get(band)!;
+          const pct = ((count / maxCount) * 100).toFixed(0);
+          return `
+            <div class="band-activity-row">
+              <span class="band-activity-label">${band}M</span>
+              <div class="meter-track"><div class="meter-fill" style="width:${pct}%;"></div></div>
+              <span class="band-activity-count">${count}</span>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
     function loadSpots() {
       fetch('/api/conditions/spots')
         .then((r) => r.json())
@@ -322,6 +364,7 @@ import '../styles/conditions.css';
           // this keeps showing when the feed was last actually refreshed
           // rather than going blank or silently looking current.
           document.getElementById('spot-updated-at')!.textContent = `Last updated ${new Date().toLocaleTimeString()}`;
+          renderBandActivity(spots);
           const table = document.getElementById('spot-table')!;
           if (!spots.length) {
             table.innerHTML = '<p class="status-line">No spots available right now.</p>';
@@ -346,6 +389,7 @@ import '../styles/conditions.css';
         })
         .catch(() => {
           document.getElementById('spot-table')!.innerHTML = '<p class="status-line">Could not load spots.</p>';
+          document.getElementById('band-activity-bars')!.innerHTML = '<p class="status-line">Could not load spots.</p>';
         });
     }
     loadSpots();
