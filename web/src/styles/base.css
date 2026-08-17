@@ -190,6 +190,100 @@
   --band-8: #e66767;
   --band-other: #8d98a1;
 }
+/* fg/muted brightened from Solarized's own stock base1/base01 (#93a1a1 /
+   #657b83) -- true Solarized is deliberately low-contrast by design intent,
+   but that fell under this site's own ~8:1 fg and ~4.5-6.6:1 muted bar
+   (5.61:1 / 3.37:1 against this bg), the same gap the Dracula theme's muted
+   color had -- brightened within the same cyan-gray hue family rather than
+   accepted as-is, same fix applied there. */
+:root[data-theme="solarized"] {
+  --bg: #002b36;
+  --bg-2: #073642;
+  --fg: #b8c6c6;
+  --muted: #8ba0a7;
+  --accent: #2aa198;
+  --accent-2: #cb4b16;
+  --on-accent: #002b36;
+  --card: #073642;
+  --card-hover: #0a4552;
+  --border: #0b3d4a;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  --band-1: #3987e5;
+  --band-2: #d95926;
+  --band-3: #199e70;
+  --band-4: #c98500;
+  --band-5: #d55181;
+  --band-6: #008300;
+  --band-7: #9085e9;
+  --band-8: #e66767;
+  --band-other: #8d98a1;
+}
+:root[data-theme="gruvbox"] {
+  --bg: #282828;
+  --bg-2: #1d2021;
+  --fg: #ebdbb2;
+  --muted: #a89984;
+  --accent: #fe8019;
+  --accent-2: #8ec07c;
+  --on-accent: #282828;
+  --card: #3c3836;
+  --card-hover: #504945;
+  --border: #504945;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  --band-1: #3987e5;
+  --band-2: #d95926;
+  --band-3: #199e70;
+  --band-4: #c98500;
+  --band-5: #d55181;
+  --band-6: #008300;
+  --band-7: #9085e9;
+  --band-8: #e66767;
+  --band-other: #8d98a1;
+}
+:root[data-theme="tokyonight"] {
+  --bg: #1a1b26;
+  --bg-2: #16161e;
+  --fg: #c0caf5;
+  --muted: #7982a9;
+  --accent: #7aa2f7;
+  --accent-2: #bb9af7;
+  --on-accent: #1a1b26;
+  --card: #1f2335;
+  --card-hover: #292e42;
+  --border: #292e42;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  --band-1: #3987e5;
+  --band-2: #d95926;
+  --band-3: #199e70;
+  --band-4: #c98500;
+  --band-5: #d55181;
+  --band-6: #008300;
+  --band-7: #9085e9;
+  --band-8: #e66767;
+  --band-other: #8d98a1;
+}
+:root[data-theme="catppuccin"] {
+  --bg: #1e1e2e;
+  --bg-2: #181825;
+  --fg: #cdd6f4;
+  --muted: #a6adc8;
+  --accent: #cba6f7;
+  --accent-2: #fab387;
+  --on-accent: #1e1e2e;
+  --card: #313244;
+  --card-hover: #45475a;
+  --border: #45475a;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  --band-1: #3987e5;
+  --band-2: #d95926;
+  --band-3: #199e70;
+  --band-4: #c98500;
+  --band-5: #d55181;
+  --band-6: #008300;
+  --band-7: #9085e9;
+  --band-8: #e66767;
+  --band-other: #8d98a1;
+}
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 body {
@@ -335,6 +429,8 @@ nav a[aria-current="page"] { color: var(--bg); background: var(--accent); }
   right: 0;
   z-index: 20;
   min-width: 190px;
+  max-height: min(70vh, 420px);
+  overflow-y: auto;
   padding: 0.4rem;
   border-radius: 12px;
   border: 1px solid var(--border);

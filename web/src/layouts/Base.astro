@@ -32,7 +32,7 @@ const { title, active } = Astro.props;
 
     <script is:inline>
       // Applied before first paint to avoid a flash of the wrong theme.
-      const THEMES = ['light', 'dark', 'dracula', 'nord', 'amber', 'green'];
+      const THEMES = ['light', 'dark', 'dracula', 'nord', 'amber', 'green', 'solarized', 'gruvbox', 'tokyonight', 'catppuccin'];
       const saved = localStorage.getItem('hamstation-theme');
       if (THEMES.includes(saved)) document.documentElement.dataset.theme = saved;
     </script>
@@ -102,6 +102,10 @@ const { title, active } = Astro.props;
         { value: 'nord', label: 'Nord', bg: '#2e3440', accent: '#88c0d0' },
         { value: 'amber', label: 'Amber Terminal', bg: '#120d08', accent: '#ffb000' },
         { value: 'green', label: 'Green Phosphor', bg: '#060a06', accent: '#3ddc84' },
+        { value: 'solarized', label: 'Solarized Dark', bg: '#002b36', accent: '#2aa198' },
+        { value: 'gruvbox', label: 'Gruvbox Dark', bg: '#282828', accent: '#fe8019' },
+        { value: 'tokyonight', label: 'Tokyo Night', bg: '#1a1b26', accent: '#7aa2f7' },
+        { value: 'catppuccin', label: 'Catppuccin Mocha', bg: '#1e1e2e', accent: '#cba6f7' },
       ];
 
       const toggle = document.getElementById('theme-toggle')!;
