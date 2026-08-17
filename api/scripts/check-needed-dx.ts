@@ -28,7 +28,11 @@ async function main() {
     return;
   }
 
-  const res = await fetch('https://dxheat.com/source/spots/', { signal: AbortSignal.timeout(8000) });
+  // 15s, not 8s -- dxheat occasionally runs slow, and this check has no
+  // real time pressure (runs every 10 minutes regardless), so a longer
+  // timeout trades nothing for fewer false-failure TimeoutErrors (confirmed
+  // via journalctl: 44 of these over 10 days, all against this exact call).
+  const res = await fetch('https://dxheat.com/source/spots/', { signal: AbortSignal.timeout(15000) });
   if (!res.ok) {
     console.log(`dxheat fetch failed: HTTP ${res.status}`);
     return;

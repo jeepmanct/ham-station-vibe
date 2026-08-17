@@ -14,6 +14,16 @@ export const EQSL_CARDS_DIR = path.join(DATA_DIR, 'eqsl-cards');
 
 export const db = new Database(path.join(DATA_DIR, 'hamstation.sqlite'));
 db.exec('PRAGMA journal_mode = WAL;');
+// Without this, SQLite throws SQLITE_BUSY ("database is locked") the instant
+// two of this app's many independent processes (the long-running API plus
+// ~17 standalone oneshot scripts, several sharing a 5-minute schedule) try
+// to write at the same moment, rather than waiting briefly for the other to
+// finish -- confirmed live via journalctl: ~83 real alert-check failures
+// over 10 days, all this exact error, all at this exact seed-satellites
+// insert (the first write every script makes on startup). 5s is long enough
+// to ride out a same-instant collision between short writes without masking
+// a genuinely stuck connection.
+db.exec('PRAGMA busy_timeout = 5000;');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS qsos (
