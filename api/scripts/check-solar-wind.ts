@@ -23,6 +23,7 @@ import { db } from '../src/db';
 import { sendAlertEmail } from '../src/alertEmail';
 import { sendNtfyAlert } from '../src/alertNtfy';
 import { getAlertConfig } from '../src/alertConfig';
+import { fetchJsonLenient } from '../src/fetchJson';
 
 const MAG_URL = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json';
 const PLASMA_URL = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json';
@@ -69,7 +70,7 @@ async function main() {
     console.log(`NOAA SWPC mag fetch failed: HTTP ${magRes.status}`);
     return;
   }
-  const magReadings = (await magRes.json()) as MagReading[];
+  const magReadings = await fetchJsonLenient<MagReading[]>(magRes);
   const latestMag = latestActive(magReadings);
   if (!latestMag || latestMag.bz_gsm == null) {
     console.log('No active Bz reading in the NOAA response.');
@@ -78,7 +79,7 @@ async function main() {
 
   let speedText = '';
   if (plasmaRes.ok) {
-    const plasmaReadings = (await plasmaRes.json()) as PlasmaReading[];
+    const plasmaReadings = await fetchJsonLenient<PlasmaReading[]>(plasmaRes);
     const latestPlasma = latestActive(plasmaReadings);
     if (latestPlasma?.proton_speed != null) speedText = `, solar wind speed ${latestPlasma.proton_speed.toFixed(0)} km/s`;
   }

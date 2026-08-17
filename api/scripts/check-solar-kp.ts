@@ -21,6 +21,7 @@ import { db } from '../src/db';
 import { sendAlertEmail } from '../src/alertEmail';
 import { sendNtfyAlert } from '../src/alertNtfy';
 import { getAlertConfig } from '../src/alertConfig';
+import { fetchJsonLenient } from '../src/fetchJson';
 
 const KP_URL = 'https://services.swpc.noaa.gov/json/planetary_k_index_1m.json';
 const KP_STORM_THRESHOLD = 5;
@@ -65,7 +66,7 @@ async function main() {
     console.log(`NOAA SWPC fetch failed: HTTP ${res.status}`);
     return;
   }
-  const readings = (await res.json()) as KpReading[];
+  const readings = await fetchJsonLenient<KpReading[]>(res);
   const latest = [...readings].sort((a, b) => (a.time_tag < b.time_tag ? -1 : 1)).pop();
   if (!latest) {
     console.log('No Kp-index readings in the NOAA response.');

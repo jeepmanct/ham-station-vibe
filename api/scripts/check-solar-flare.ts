@@ -18,6 +18,7 @@ import { db } from '../src/db';
 import { sendAlertEmail } from '../src/alertEmail';
 import { sendNtfyAlert } from '../src/alertNtfy';
 import { getAlertConfig } from '../src/alertConfig';
+import { fetchJsonLenient } from '../src/fetchJson';
 
 const XRAY_URL = 'https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json';
 const X_CLASS_THRESHOLD = 1e-4;
@@ -62,7 +63,7 @@ async function main() {
     console.log(`NOAA SWPC fetch failed: HTTP ${res.status}`);
     return;
   }
-  const readings = (await res.json()) as XrayReading[];
+  const readings = await fetchJsonLenient<XrayReading[]>(res);
   const longChannel = readings.filter((r) => r.energy === '0.1-0.8nm').sort((a, b) => (a.time_tag < b.time_tag ? -1 : 1));
   const latest = longChannel[longChannel.length - 1];
   if (!latest) {
