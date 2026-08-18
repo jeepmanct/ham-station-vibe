@@ -723,6 +723,16 @@ footer a:hover { text-decoration: underline; }
   font-weight: 700;
   margin-top: 0.35rem;
 }
+/* stats.css has its own near-duplicate .stat-tile block with this same rule
+   (that page loads both) -- added here too since other pages using the
+   shared .stat-tile (conditions.astro, this feature included) never had
+   it, and .sub is a plain additive rule with no risk to existing tiles
+   that don't use it. */
+.stat-tile .sub {
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-top: 0.2rem;
+}
 
 #import-upload { display: flex; flex-direction: column; gap: 1.5rem; }
 #import-upload[hidden] { display: none; }

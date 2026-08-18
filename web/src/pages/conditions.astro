@@ -23,6 +23,11 @@ import '../styles/conditions.css';
       <div class="label">Sunspot No.</div>
       <div class="value" id="cond-sn">&mdash;</div>
     </div>
+    <div class="stat-tile">
+      <div class="label">HF Grade</div>
+      <div class="value" id="cond-grade">&mdash;</div>
+      <div class="sub" id="cond-grade-sub"></div>
+    </div>
   </div>
   <p class="status-line" id="cond-date"></p>
 
@@ -309,6 +314,27 @@ import '../styles/conditions.css';
         document.getElementById('sun-status')!.textContent = `${status} at the station QTH · see the grayline overlay on the Map page for the current worldwide day/night line.`;
       });
 
+    // Rough A-F shorthand for "is HF propagation good right now" -- SFI
+    // (higher is better, more ionization/higher MUF) and K-index (lower is
+    // better, geomagnetic disturbance degrades HF) are the two numbers hams
+    // actually glance at first; A-index is deliberately left out since it's
+    // just K's own daily-average restated on a different scale, not a
+    // second independent signal. Thresholds are standard, commonly-cited
+    // tiers (e.g. K>=5 is NOAA's own "storm" threshold), but the combined
+    // grade itself is this page's own simplified heuristic, not a
+    // certified forecast -- same "don't overclaim precision" spirit as the
+    // MUF map and coax-loss table elsewhere on this site.
+    function gradeConditions(sfi: number, kIndex: number): { grade: string; color: string } {
+      const sfiPoints = sfi >= 160 ? 4 : sfi >= 130 ? 3 : sfi >= 100 ? 2 : sfi >= 70 ? 1 : 0;
+      const kPoints = kIndex <= 1 ? 4 : kIndex <= 2 ? 3 : kIndex <= 3 ? 2 : kIndex <= 4 ? 1 : 0;
+      const total = sfiPoints + kPoints;
+      if (total >= 7) return { grade: 'A', color: 'var(--status-good)' };
+      if (total >= 5) return { grade: 'B', color: 'var(--status-good)' };
+      if (total >= 3) return { grade: 'C', color: 'var(--status-warning)' };
+      if (total >= 1) return { grade: 'D', color: 'var(--status-warning)' };
+      return { grade: 'F', color: 'var(--status-critical)' };
+    }
+
     fetch('/api/conditions/today')
       .then((r) => r.json())
       .then((data: Today) => {
@@ -318,6 +344,18 @@ import '../styles/conditions.css';
         document.getElementById('cond-k')!.textContent = data.kIndex != null ? data.kIndex.toFixed(1) : '—';
         document.getElementById('cond-sn')!.textContent = data.sunspotNumber != null ? String(data.sunspotNumber) : '—';
         document.getElementById('cond-date')!.textContent = `As of ${formatDate(data.date)} (most recent available solar data)`;
+
+        const gradeEl = document.getElementById('cond-grade')!;
+        const gradeSubEl = document.getElementById('cond-grade-sub')!;
+        if (data.sfi != null && data.kIndex != null) {
+          const { grade, color } = gradeConditions(data.sfi, data.kIndex);
+          gradeEl.textContent = grade;
+          gradeEl.style.color = color;
+          gradeSubEl.textContent = `SFI ${data.sfi}, K ${data.kIndex.toFixed(1)} · rough estimate`;
+        } else {
+          gradeEl.textContent = '—';
+          gradeSubEl.textContent = 'Not enough data';
+        }
       });
 
     // Reuses the same spot feed the table below already fetches -- no
