@@ -283,3 +283,50 @@ statsRoutes.get('/qsl-confirmation', (c) => {
   c.header('Cache-Control', 'no-store');
   return c.json({ ...totals, byYear });
 });
+
+// Confirmation *velocity*: how fast new confirmations are actually arriving,
+// based on the LoTW/eQSL received-date stamps (not qso_date -- a QSO logged
+// years ago can be confirmed today). Used to project time-to-next-milestone.
+statsRoutes.get('/qsl-velocity', (c) => {
+  const confirmedTotal = db
+    .query(`SELECT COUNT(*) as n FROM qsos WHERE lotw_qsl_rcvd = 'Y' OR eqsl_qsl_rcvd = 'Y'`)
+    .get() as { n: number };
+
+  const events = db
+    .query(
+      `SELECT
+         CASE
+           WHEN lotw_qsl_rcvd_date IS NOT NULL AND lotw_qsl_rcvd_date != ''
+                AND (eqsl_qsl_rcvd_date IS NULL OR eqsl_qsl_rcvd_date = '' OR lotw_qsl_rcvd_date <= eqsl_qsl_rcvd_date)
+             THEN lotw_qsl_rcvd_date
+           ELSE eqsl_qsl_rcvd_date
+         END as confirmedDate
+       FROM qsos
+       WHERE (lotw_qsl_rcvd = 'Y' OR eqsl_qsl_rcvd = 'Y')
+         AND ((lotw_qsl_rcvd_date IS NOT NULL AND lotw_qsl_rcvd_date != '') OR (eqsl_qsl_rcvd_date IS NOT NULL AND eqsl_qsl_rcvd_date != ''))`,
+    )
+    .all() as { confirmedDate: string }[];
+
+  const now = new Date();
+  const cutoff = new Date(now);
+  cutoff.setDate(cutoff.getDate() - 90);
+  const cutoffStr = `${cutoff.getFullYear()}${String(cutoff.getMonth() + 1).padStart(2, '0')}${String(cutoff.getDate()).padStart(2, '0')}`;
+  const recent90 = events.filter((e) => e.confirmedDate >= cutoffStr).length;
+  const ratePerDay = recent90 / 90;
+
+  const milestoneStep = 500;
+  const nextMilestone = Math.ceil((confirmedTotal.n + 1) / milestoneStep) * milestoneStep;
+  const remaining = nextMilestone - confirmedTotal.n;
+  const daysToMilestone = ratePerDay > 0 ? remaining / ratePerDay : null;
+  const estimatedDate = daysToMilestone != null ? new Date(now.getTime() + daysToMilestone * 86400000).toISOString().slice(0, 10) : null;
+
+  c.header('Cache-Control', 'no-store');
+  return c.json({
+    confirmedTotal: confirmedTotal.n,
+    recentConfirmations90d: recent90,
+    ratePerDay: Math.round(ratePerDay * 100) / 100,
+    nextMilestone,
+    daysToMilestone: daysToMilestone != null ? Math.round(daysToMilestone) : null,
+    estimatedDate,
+  });
+});

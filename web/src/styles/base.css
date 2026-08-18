@@ -406,6 +406,33 @@ nav a[aria-current="page"] { color: var(--bg); background: var(--accent); }
   }
 }
 
+/* Scales every rem-based size on the site (nearly everything) from one
+   place -- see Base.astro's comment on the button wiring for why. */
+html[data-text-size="large"] { font-size: 112.5%; }
+html[data-text-size="larger"] { font-size: 125%; }
+
+.text-size-picker { display: flex; gap: 0.2rem; margin-left: 0.4rem; flex-shrink: 0; }
+.text-size-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 700;
+}
+.text-size-btn:nth-child(1) { font-size: 0.7rem; }
+.text-size-btn:nth-child(2) { font-size: 0.9rem; }
+.text-size-btn:nth-child(3) { font-size: 1.1rem; }
+.text-size-btn:hover { color: var(--fg); }
+.text-size-btn.active { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+
 .theme-picker { position: relative; margin-left: 0.4rem; flex-shrink: 0; }
 .theme-toggle {
   display: inline-flex;

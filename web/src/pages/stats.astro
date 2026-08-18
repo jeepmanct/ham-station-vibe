@@ -79,6 +79,7 @@ import '../styles/stats.css';
     </div>
     <p class="chart-desc" style="margin:1.25rem 0 0.4rem;">Confirmed by Year</p>
     <div class="chart-svg-wrap" id="chart-qsl-by-year"></div>
+    <p class="chart-desc" id="qsl-velocity-note" style="margin-top:0.75rem;"></p>
   </div>
 
   <div class="chart-section">
@@ -376,6 +377,30 @@ import '../styles/stats.css';
             ACCENT,
             { minY: 0, suffix: '%' },
           );
+        },
+      );
+
+    // --- QSL confirmation velocity (projected time to next round-number milestone) ---
+    fetch('/api/stats/qsl-velocity')
+      .then((r) => r.json())
+      .then(
+        (d: {
+          confirmedTotal: number;
+          recentConfirmations90d: number;
+          ratePerDay: number;
+          nextMilestone: number;
+          daysToMilestone: number | null;
+          estimatedDate: string | null;
+        }) => {
+          const note = document.getElementById('qsl-velocity-note')!;
+          if (d.daysToMilestone == null || d.ratePerDay <= 0) {
+            note.textContent = `${d.recentConfirmations90d} new confirmations in the last 90 days.`;
+            return;
+          }
+          const months = d.daysToMilestone / 30;
+          const monthsText = months < 1 ? `${d.daysToMilestone} days` : `~${months.toFixed(1)} months`;
+          const est = new Date(`${d.estimatedDate}T00:00:00`).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+          note.textContent = `At the current pace (${d.recentConfirmations90d} confirmed in the last 90 days, ~${d.ratePerDay}/day), you'll hit ${d.nextMilestone.toLocaleString()} confirmed QSOs in ${monthsText} (around ${est}).`;
         },
       );
 

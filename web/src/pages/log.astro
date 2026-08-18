@@ -121,6 +121,7 @@ import FilterPanel from '../components/FilterPanel.astro';
             <th>Mode</th>
             <th>QSL</th>
             <th>Solar</th>
+            <th></th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -130,6 +131,34 @@ import FilterPanel from '../components/FilterPanel.astro';
   <div style="display:flex;align-items:center;justify-content:space-between;margin-top:0.75rem;">
     <span id="log-count" class="status-line" style="margin:0;"></span>
     <button type="button" id="load-more" class="btn secondary" hidden>Load more</button>
+  </div>
+
+  <div id="edit-modal-backdrop" class="eqsl-modal-backdrop" hidden>
+    <div class="eqsl-modal">
+      <button type="button" id="edit-modal-close" class="btn secondary eqsl-modal-close">&times;</button>
+      <h2 style="margin-top:0;">Edit QSO</h2>
+      <p id="edit-imported-warning" class="status-line" hidden>This QSO came from an import. Changing its call, date, time, band, or mode could cause it to reappear as a duplicate the next time that source is synced &mdash; a service can only tell "changed" from "new" by that exact combination.</p>
+      <form id="edit-form" class="form-grid">
+        <label>Call<input type="text" id="eq-call" required autocapitalize="characters" /></label>
+        <label>Date (UTC)<input type="date" id="eq-date" required /></label>
+        <label>Time (UTC)<input type="time" id="eq-time" required /></label>
+        <label>Band
+          <select id="eq-band" required></select>
+        </label>
+        <label>Mode
+          <select id="eq-mode" required></select>
+        </label>
+        <label>Freq (MHz)<input type="text" id="eq-freq" /></label>
+        <label>RST Sent<input type="text" id="eq-rst-sent" /></label>
+        <label>RST Rcvd<input type="text" id="eq-rst-rcvd" /></label>
+        <label>Grid Square<input type="text" id="eq-grid" autocapitalize="characters" /></label>
+        <p id="edit-status" class="status-line"></p>
+        <div style="grid-column:1 / -1;display:flex;gap:0.75rem;flex-wrap:wrap;justify-content:space-between;">
+          <button type="button" id="edit-delete-btn" class="btn secondary" style="background:var(--status-critical);color:#fff;">Delete QSO</button>
+          <button type="submit" class="btn">Save Changes</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <script>
@@ -147,6 +176,7 @@ import FilterPanel from '../components/FilterPanel.astro';
       gridsquare: string | null;
       country: string | null;
       rstSent: string | null;
+      rstRcvd: string | null;
       lotwQslRcvd?: string;
       eqslQslRcvd?: string;
       sfi: number | null;
@@ -198,6 +228,7 @@ import FilterPanel from '../components/FilterPanel.astro';
     }
 
     function appendRows(qsos: Qso[]) {
+      const isAdmin = !!sessionStorage.getItem(TOKEN_KEY);
       for (const q of qsos) {
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -207,7 +238,9 @@ import FilterPanel from '../components/FilterPanel.astro';
           <td>${q.mode ?? '—'}</td>
           <td>${formatQslStatus(q)}</td>
           <td style="color:var(--muted);white-space:nowrap;">${formatSolar(q)}</td>
+          <td>${isAdmin ? '<button type="button" class="btn secondary edit-qso-btn" style="padding:0.25rem 0.6rem;font-size:0.75rem;">Edit</button>' : ''}</td>
         `;
+        tr.querySelector('.edit-qso-btn')?.addEventListener('click', () => openEditModal(q));
         tbody.appendChild(tr);
       }
     }
@@ -228,7 +261,7 @@ import FilterPanel from '../components/FilterPanel.astro';
 
     function loadQsos() {
       loadPage(0).catch(() => {
-        tbody.innerHTML = '<tr><td colspan="6" style="font-family:inherit;color:var(--muted);">Could not load log data.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="font-family:inherit;color:var(--muted);">Could not load log data.</td></tr>';
       });
     }
 
@@ -513,6 +546,104 @@ import FilterPanel from '../components/FilterPanel.astro';
       } else {
         const errBody = await res.json().catch(() => ({}));
         status.textContent = errBody.error ?? 'Could not log QSO.';
+      }
+    });
+
+    // --- Edit / delete an existing QSO -- reuses the same band/mode lists
+    // and .eqsl-modal-backdrop/.eqsl-modal shared modal styling the eQSL
+    // card viewer and photo lightbox already use elsewhere on the site. ---
+    const editModalBackdrop = document.getElementById('edit-modal-backdrop')!;
+    const editForm = document.getElementById('edit-form') as HTMLFormElement;
+    const editStatus = document.getElementById('edit-status')!;
+    const editImportedWarning = document.getElementById('edit-imported-warning')!;
+    const editBandSelect = document.getElementById('eq-band') as HTMLSelectElement;
+    const editModeSelect = document.getElementById('eq-mode') as HTMLSelectElement;
+    editBandSelect.innerHTML = BANDS.map((b) => `<option value="${b}">${b}</option>`).join('');
+    editModeSelect.innerHTML = MODES.map((m) => `<option value="${m}">${m}</option>`).join('');
+    let editingId: number | null = null;
+
+    function closeEditModal() {
+      editModalBackdrop.setAttribute('hidden', '');
+      editingId = null;
+    }
+    document.getElementById('edit-modal-close')!.addEventListener('click', closeEditModal);
+    editModalBackdrop.addEventListener('click', (e) => {
+      if (e.target === editModalBackdrop) closeEditModal();
+    });
+
+    function openEditModal(q: Qso) {
+      editingId = q.id;
+      editStatus.textContent = '';
+      editImportedWarning.hidden = true;
+      (document.getElementById('eq-call') as HTMLInputElement).value = q.call;
+      (document.getElementById('eq-date') as HTMLInputElement).value = formatDate(q.qsoDate);
+      (document.getElementById('eq-time') as HTMLInputElement).value = q.timeOn ? `${q.timeOn.slice(0, 2)}:${q.timeOn.slice(2, 4)}` : '';
+      if (q.band && !BANDS.includes(q.band)) editBandSelect.innerHTML += `<option value="${q.band}">${q.band}</option>`;
+      editBandSelect.value = q.band ?? '';
+      if (q.mode && !MODES.includes(q.mode)) editModeSelect.innerHTML += `<option value="${q.mode}">${q.mode}</option>`;
+      editModeSelect.value = q.mode ?? '';
+      (document.getElementById('eq-freq') as HTMLInputElement).value = q.freq ?? '';
+      (document.getElementById('eq-rst-sent') as HTMLInputElement).value = q.rstSent ?? '';
+      (document.getElementById('eq-rst-rcvd') as HTMLInputElement).value = q.rstRcvd ?? '';
+      (document.getElementById('eq-grid') as HTMLInputElement).value = q.gridsquare ?? '';
+      editModalBackdrop.removeAttribute('hidden');
+    }
+
+    editForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (editingId == null) return;
+      editStatus.textContent = 'Saving…';
+      const body = {
+        call: (document.getElementById('eq-call') as HTMLInputElement).value.trim(),
+        qsoDate: (document.getElementById('eq-date') as HTMLInputElement).value,
+        timeOn: (document.getElementById('eq-time') as HTMLInputElement).value,
+        band: editBandSelect.value,
+        mode: editModeSelect.value,
+        freq: (document.getElementById('eq-freq') as HTMLInputElement).value.trim(),
+        rstSent: (document.getElementById('eq-rst-sent') as HTMLInputElement).value.trim(),
+        rstRcvd: (document.getElementById('eq-rst-rcvd') as HTMLInputElement).value.trim(),
+        gridsquare: (document.getElementById('eq-grid') as HTMLInputElement).value.trim(),
+      };
+      const res = await fetch(`/api/qsos/${editingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const { wasImported, keyChanged } = await res.json();
+        if (wasImported && keyChanged) {
+          editStatus.textContent = '';
+          editImportedWarning.hidden = false;
+        } else {
+          closeEditModal();
+        }
+        loadQsos();
+      } else if (res.status === 401) {
+        handleSessionExpired(editStatus);
+      } else if (res.status === 409) {
+        editStatus.textContent = 'Another QSO with this call, date, time, band, and mode already exists.';
+      } else {
+        const errBody = await res.json().catch(() => ({}));
+        editStatus.textContent = errBody.error ?? 'Could not save changes.';
+      }
+    });
+
+    document.getElementById('edit-delete-btn')!.addEventListener('click', async () => {
+      if (editingId == null) return;
+      if (!confirm('Delete this QSO permanently? This cannot be undone.')) return;
+      editStatus.textContent = 'Deleting…';
+      const res = await fetch(`/api/qsos/${editingId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (res.ok) {
+        closeEditModal();
+        loadQsos();
+      } else if (res.status === 401) {
+        handleSessionExpired(editStatus);
+      } else {
+        const errBody = await res.json().catch(() => ({}));
+        editStatus.textContent = errBody.error ?? 'Could not delete QSO.';
       }
     });
   </script>

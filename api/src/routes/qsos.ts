@@ -9,6 +9,7 @@ import { syncFromLotw } from '../lotw';
 import { getOrFetchEqslCard } from '../eqslCard';
 import { getQrzApiKey, getEqslCredentials, getLotwCredentials } from '../serviceCredentials';
 import { resolveCallsignEntity } from '../dxccPrefixes';
+import { resolveLatLon } from '../maidenhead';
 import { DXCC_ENTITIES } from '../dxccEntities';
 import { getStationLocation, getStationCallsign } from '../stationLocation';
 import { ttlCached } from '../ttlCache';
@@ -44,7 +45,7 @@ qsoRoutes.get('/', (c) => {
 
   const rows = db
     .query(
-      `SELECT q.id, q.call, q.qso_date, q.time_on, q.band, q.mode, q.freq, q.gridsquare, q.country, q.rst_sent, q.lotw_qsl_rcvd, q.eqsl_qsl_rcvd,
+      `SELECT q.id, q.call, q.qso_date, q.time_on, q.band, q.mode, q.freq, q.gridsquare, q.country, q.rst_sent, q.rst_rcvd, q.lotw_qsl_rcvd, q.eqsl_qsl_rcvd,
               s.sfi, s.a_index, s.k_index
        FROM qsos q
        LEFT JOIN solar_data s ON s.date = q.qso_date
@@ -63,6 +64,7 @@ qsoRoutes.get('/', (c) => {
     gridsquare: string | null;
     country: string | null;
     rst_sent: string | null;
+    rst_rcvd: string | null;
     lotw_qsl_rcvd: string | null;
     eqsl_qsl_rcvd: string | null;
     sfi: number | null;
@@ -84,6 +86,7 @@ qsoRoutes.get('/', (c) => {
       gridsquare: r.gridsquare,
       country: r.country,
       rstSent: r.rst_sent,
+      rstRcvd: r.rst_rcvd,
       lotwQslRcvd: r.lotw_qsl_rcvd,
       eqslQslRcvd: r.eqsl_qsl_rcvd,
       sfi: r.sfi,
@@ -590,4 +593,94 @@ qsoRoutes.post('/manual', requireAuth, async (c) => {
   }
 
   return c.json({ imported, resolvedEntity: resolved?.entity ?? null, qrz });
+});
+
+/**
+ * Edits an existing QSO. Fixes a real gap -- until this route existed, a
+ * typo (wrong callsign, wrong band) in any QSO, manually-logged or
+ * imported, had no way to be corrected short of direct database surgery.
+ *
+ * Only fields that are genuinely user-entered/queryable columns are
+ * editable (call/date/time/band/mode/freq/RST/gridsquare) -- there's no
+ * `comment` column on this table to begin with (the manual-entry form's
+ * COMMENT field only ever lived inside that QSO's own raw_adif blob), so
+ * this doesn't pretend to expose editing something that was never really
+ * a first-class field.
+ *
+ * country/continent/cqz/lat/lon are re-derived from the (possibly new)
+ * callsign/gridsquare using the exact same resolveCallsignEntity()/
+ * resolveLatLon() logic POST /manual already uses, so an edited QSO ends
+ * up exactly as correct as a freshly-logged one -- not left holding
+ * stale derived data from before the edit.
+ *
+ * Deliberately does NOT try to prevent a future re-sync from reintroducing
+ * a duplicate if call/date/time/band/mode change on an *imported* QSO
+ * (raw_adif is set) -- the response's `wasImported`/`keyChanged` flags let
+ * the UI warn about that honestly instead of silently claiming a
+ * guarantee this route can't actually make.
+ */
+qsoRoutes.patch('/:id', requireAuth, async (c) => {
+  const id = Number(c.req.param('id'));
+  const existing = db.query('SELECT * FROM qsos WHERE id = ?').get(id) as Record<string, unknown> | null;
+  if (!existing) return c.json({ error: 'QSO not found' }, 404);
+
+  const body = await c.req.json().catch(() => null);
+  if (!body) return c.json({ error: 'Invalid request body' }, 400);
+
+  const call = body.call != null ? String(body.call).toUpperCase().trim() : (existing.call as string);
+  const qsoDate = body.qsoDate != null ? String(body.qsoDate).replaceAll('-', '') : (existing.qso_date as string);
+  const timeOn = body.timeOn != null ? String(body.timeOn).replaceAll(':', '').padEnd(4, '0').slice(0, 6) : (existing.time_on as string | null);
+  const band = body.band != null ? String(body.band).toUpperCase().trim() : (existing.band as string | null);
+  const mode = body.mode != null ? String(body.mode).toUpperCase().trim() : (existing.mode as string | null);
+  const freq = body.freq != null ? String(body.freq) : (existing.freq as string | null);
+  const rstSent = body.rstSent != null ? String(body.rstSent) : (existing.rst_sent as string | null);
+  const rstRcvd = body.rstRcvd != null ? String(body.rstRcvd) : (existing.rst_rcvd as string | null);
+  const gridsquare = body.gridsquare != null ? String(body.gridsquare).toUpperCase().trim() : (existing.gridsquare as string | null);
+
+  const keyChanged = call !== existing.call || qsoDate !== existing.qso_date || timeOn !== existing.time_on || band !== existing.band || mode !== existing.mode;
+  if (keyChanged) {
+    const conflict = db
+      .query('SELECT id FROM qsos WHERE call = ? AND qso_date = ? AND time_on = ? AND band = ? AND mode = ? AND id != ?')
+      .get(call, qsoDate, timeOn, band, mode, id);
+    if (conflict) return c.json({ error: 'Another QSO with this call, date, time, band, and mode already exists.' }, 409);
+  }
+
+  let country = existing.country as string | null;
+  let continent = existing.continent as string | null;
+  let cqz = existing.cqz as string | null;
+  let lat = existing.lat as number | null;
+  let lon = existing.lon as number | null;
+  if (call !== existing.call) {
+    const resolved = resolveCallsignEntity(call);
+    if (resolved) {
+      country = resolved.entity;
+      continent = resolved.continent;
+      const zone = ENTITY_CQ_ZONE.get(resolved.entity);
+      if (zone) cqz = String(zone);
+    }
+  }
+  if (call !== existing.call || gridsquare !== existing.gridsquare) {
+    const resolvedLatLon = resolveLatLon(undefined, undefined, gridsquare ?? undefined);
+    if (resolvedLatLon) {
+      lat = resolvedLatLon.lat;
+      lon = resolvedLatLon.lon;
+    }
+  }
+
+  db.query(
+    `UPDATE qsos SET call = ?, qso_date = ?, time_on = ?, band = ?, mode = ?, freq = ?, rst_sent = ?, rst_rcvd = ?, gridsquare = ?, country = ?, continent = ?, cqz = ?, lat = ?, lon = ? WHERE id = ?`,
+  ).run(call, qsoDate, timeOn, band, mode, freq, rstSent, rstRcvd, gridsquare, country, continent, cqz, lat, lon, id);
+
+  const updated = db.query('SELECT * FROM qsos WHERE id = ?').get(id);
+  return c.json({ qso: updated, wasImported: existing.raw_adif != null, keyChanged });
+});
+
+/** Deletes a QSO. Also clears any cached eQSL card image row for it (see eqslCard.ts) rather than leaving an orphaned reference behind. */
+qsoRoutes.delete('/:id', requireAuth, (c) => {
+  const id = Number(c.req.param('id'));
+  const existing = db.query('SELECT id, raw_adif FROM qsos WHERE id = ?').get(id) as { id: number; raw_adif: string | null } | null;
+  if (!existing) return c.json({ error: 'QSO not found' }, 404);
+  db.query('DELETE FROM eqsl_cards WHERE qso_id = ?').run(id);
+  db.query('DELETE FROM qsos WHERE id = ?').run(id);
+  return c.json({ ok: true, wasImported: existing.raw_adif != null });
 });

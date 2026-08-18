@@ -31,10 +31,13 @@ const { title, active } = Astro.props;
     <meta name="apple-mobile-web-app-title" content="Ham Station" />
 
     <script is:inline>
-      // Applied before first paint to avoid a flash of the wrong theme.
+      // Applied before first paint to avoid a flash of the wrong theme/size.
       const THEMES = ['light', 'dark', 'dracula', 'nord', 'amber', 'green', 'solarized', 'gruvbox', 'tokyonight', 'catppuccin'];
       const saved = localStorage.getItem('hamstation-theme');
       if (THEMES.includes(saved)) document.documentElement.dataset.theme = saved;
+      const TEXT_SIZES = ['large', 'larger'];
+      const savedSize = localStorage.getItem('hamstation-textsize');
+      if (TEXT_SIZES.includes(savedSize)) document.documentElement.dataset.textSize = savedSize;
     </script>
   </head>
   <body>
@@ -59,6 +62,11 @@ const { title, active } = Astro.props;
         <a data-tile-id="status" href="/status" aria-current={active === 'status' ? 'page' : undefined}>Status</a>
         <a data-tile-id="admin" href="/admin" aria-current={active === 'admin' ? 'page' : undefined}>Admin</a>
       </nav>
+      <div class="text-size-picker" role="group" aria-label="Text size">
+        <button type="button" class="text-size-btn" id="text-size-normal" aria-label="Normal text size">A</button>
+        <button type="button" class="text-size-btn" id="text-size-large" aria-label="Large text size">A</button>
+        <button type="button" class="text-size-btn" id="text-size-larger" aria-label="Larger text size">A</button>
+      </div>
       <div class="theme-picker">
         <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Change theme" aria-haspopup="true" aria-expanded="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 0 20 2.5 2.5 0 0 0 1.8-4.2 1.7 1.7 0 0 1 1.2-2.9H17a5 5 0 0 0 5-5c0-4.4-4.5-8-10-8Z"/><circle cx="7.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="16.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/></svg>
@@ -93,6 +101,32 @@ const { title, active } = Astro.props;
           navToggle.setAttribute('aria-expanded', 'false');
         }
       });
+
+      // Text size -- three plain always-visible buttons rather than a
+      // dropdown (like the theme picker), since there are only three states
+      // and a reader who actually needs this shouldn't have to open a menu
+      // to reach it. Scales the root font-size, which every rem-based size
+      // on the site (nearly everything) already cascades from -- one rule
+      // instead of touching every page's own font-size declarations.
+      const textSizeButtons: Record<string, HTMLButtonElement> = {
+        '': document.getElementById('text-size-normal') as HTMLButtonElement,
+        large: document.getElementById('text-size-large') as HTMLButtonElement,
+        larger: document.getElementById('text-size-larger') as HTMLButtonElement,
+      };
+      function applyTextSize(value: string) {
+        if (value) {
+          document.documentElement.dataset.textSize = value;
+          localStorage.setItem('hamstation-textsize', value);
+        } else {
+          delete document.documentElement.dataset.textSize;
+          localStorage.removeItem('hamstation-textsize');
+        }
+        for (const [v, btn] of Object.entries(textSizeButtons)) btn.classList.toggle('active', v === value);
+      }
+      for (const [value, btn] of Object.entries(textSizeButtons)) {
+        btn.addEventListener('click', () => applyTextSize(value));
+      }
+      applyTextSize(document.documentElement.dataset.textSize ?? '');
 
       const THEMES = [
         { value: '', label: 'Auto (System)', bg: null, accent: null },
