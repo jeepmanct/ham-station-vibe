@@ -30,6 +30,7 @@ import '../styles/conditions.css';
     </div>
   </div>
   <p class="status-line" id="cond-date"></p>
+  <p class="status-line" id="cond-year-ago"></p>
 
   <h2 class="page-group-heading">Propagation &amp; Solar</h2>
   <div class="card" style="margin-top:1.5rem;">
@@ -356,6 +357,38 @@ import '../styles/conditions.css';
           gradeEl.textContent = '—';
           gradeSubEl.textContent = 'Not enough data';
         }
+
+        // "This day last year" -- relative to data.date (the most recent
+        // day with real data), not new Date(), so it stays consistent with
+        // whatever the tiles above are actually showing even if solar sync
+        // is a day or two behind.
+        const y = Number(data.date.slice(0, 4));
+        const m = Number(data.date.slice(4, 6));
+        const d = Number(data.date.slice(6, 8));
+        const yearAgo = new Date(Date.UTC(y - 1, m - 1, d));
+        const yearAgoStr = `${yearAgo.getUTCFullYear()}${String(yearAgo.getUTCMonth() + 1).padStart(2, '0')}${String(yearAgo.getUTCDate()).padStart(2, '0')}`;
+        fetch(`/api/solar/on-date?date=${yearAgoStr}`)
+          .then((r) => r.json())
+          .then((prior: { sfi: number | null; kIndex: number | null } | null) => {
+            const el = document.getElementById('cond-year-ago')!;
+            if (!prior || prior.sfi == null || prior.kIndex == null || data.sfi == null || data.kIndex == null) return;
+            // Round to the same 1 decimal shown in the tiles *before*
+            // subtracting, not after -- otherwise the displayed delta can
+            // silently disagree with the two displayed numbers it's
+            // supposedly the difference of (e.g. "2.3, +1.4 since 1.0" isn't
+            // self-consistent even though it's the mathematically correct
+            // delta of the raw, unrounded values).
+            const priorSfi = Number(prior.sfi.toFixed(1));
+            const priorK = Number(prior.kIndex.toFixed(1));
+            const nowSfi = Number(data.sfi.toFixed(1));
+            const nowK = Number(data.kIndex.toFixed(1));
+            const sfiDelta = nowSfi - priorSfi;
+            const kDelta = nowK - priorK;
+            el.textContent =
+              `This day last year (${formatDate(yearAgoStr)}): SFI ${priorSfi} (${sfiDelta >= 0 ? '+' : ''}${sfiDelta.toFixed(1)} since)` +
+              `, K ${priorK.toFixed(1)} (${kDelta >= 0 ? '+' : ''}${kDelta.toFixed(1)} since)`;
+          })
+          .catch(() => {});
       });
 
     // Reuses the same spot feed the table below already fetches -- no

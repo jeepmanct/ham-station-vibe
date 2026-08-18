@@ -73,3 +73,60 @@ export function renderLineChart(
   svg += '</svg>';
   container.innerHTML = svg;
 }
+
+export type LineSeries = { label: string; color: string; data: LinePoint[] };
+
+/**
+ * Same shape as renderLineChart, but multiple series sharing one set of
+ * axes -- for genuinely comparative questions (e.g. this solar cycle vs.
+ * the previous one) where a shared y-axis is the whole point, not two
+ * separate small-multiple charts. A simple HTML legend (colored dot + label)
+ * is prepended since more than one line needs a way to tell them apart.
+ */
+export function renderMultiLineChart(
+  container: HTMLElement,
+  series: LineSeries[],
+  opts: { minY?: number; suffix?: string; formatX?: (x: number) => string } = {},
+) {
+  const formatX = opts.formatX ?? String;
+  const width = container.clientWidth || 400;
+  const height = 180;
+  const padding = { top: 14, right: 12, bottom: 22, left: 34 };
+  const nonEmpty = series.filter((s) => s.data.length);
+  if (!nonEmpty.length) {
+    container.innerHTML = '<p class="status-line">No data.</p>';
+    return;
+  }
+  const allPoints = nonEmpty.flatMap((s) => s.data);
+  const xs = allPoints.map((d) => d.x);
+  const ys = allPoints.map((d) => d.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = opts.minY ?? Math.min(...ys) * 0.95;
+  const maxY = Math.max(...ys) * 1.08;
+  const plotW = width - padding.left - padding.right;
+  const plotH = height - padding.top - padding.bottom;
+
+  const xScale = (x: number) => padding.left + (maxX === minX ? 0 : ((x - minX) / (maxX - minX)) * plotW);
+  const yScale = (y: number) => padding.top + plotH - (maxY === minY ? 0 : ((y - minY) / (maxY - minY)) * plotH);
+
+  let svg = `<svg viewBox="0 0 ${width} ${height}" class="chart-svg" preserveAspectRatio="xMidYMid meet">`;
+  svg += `<line x1="${padding.left}" y1="${padding.top + plotH}" x2="${width - padding.right}" y2="${padding.top + plotH}" stroke="var(--border)" stroke-width="1"/>`;
+  for (const s of nonEmpty) {
+    const path = s.data.map((d, i) => `${i === 0 ? 'M' : 'L'}${xScale(d.x).toFixed(1)},${yScale(d.y).toFixed(1)}`).join(' ');
+    svg += `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    for (const d of s.data) {
+      svg += `<circle cx="${xScale(d.x).toFixed(1)}" cy="${yScale(d.y).toFixed(1)}" r="2.5" fill="${s.color}"><title>${s.label} — ${formatX(d.x)}: ${d.y.toFixed(1)}${opts.suffix ?? ''}</title></circle>`;
+    }
+  }
+  svg += `<text x="${padding.left}" y="${padding.top - 2}" font-size="10" fill="var(--muted)">${maxY.toFixed(0)}${opts.suffix ?? ''}</text>`;
+  svg += `<text x="${padding.left}" y="${padding.top + plotH + 4}" font-size="10" fill="var(--muted)">${minY.toFixed(0)}</text>`;
+  svg += `<text x="${padding.left}" y="${height - 4}" font-size="10" fill="var(--muted)">${formatX(minX)}</text>`;
+  svg += `<text x="${width - padding.right}" y="${height - 4}" font-size="10" fill="var(--muted)" text-anchor="end">${formatX(maxX)}</text>`;
+  svg += '</svg>';
+
+  const legend = nonEmpty
+    .map((s) => `<span class="chart-legend-item"><span class="chart-legend-dot" style="background:${s.color};"></span>${s.label}</span>`)
+    .join('');
+  container.innerHTML = `<div class="chart-legend">${legend}</div>${svg}`;
+}

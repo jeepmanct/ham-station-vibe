@@ -41,6 +41,22 @@ solarRoutes.get('/recent', (c) => {
   return c.json(rows);
 });
 
+// One specific day's numbers, by exact YYYYMMDD match -- used for "this day
+// last year" comparisons rather than trends. Exact match only (no nearest-
+// date fallback): daily coverage back to 1932 is essentially complete, and
+// silently substituting a nearby day for the one actually asked about would
+// be a wrong-but-plausible-looking answer, worse than just saying there's
+// no data for that exact date.
+solarRoutes.get('/on-date', (c) => {
+  const date = c.req.query('date') ?? '';
+  if (!/^\d{8}$/.test(date)) return c.json({ error: 'date must be YYYYMMDD' }, 400);
+  const row = db
+    .query(`SELECT date, sfi, a_index as aIndex, k_index as kIndex, sunspot_number as sunspotNumber FROM solar_data WHERE date = ?`)
+    .get(date) as { date: string; sfi: number | null; aIndex: number | null; kIndex: number | null; sunspotNumber: number | null } | null;
+  c.header('Cache-Control', 'no-store');
+  return c.json(row);
+});
+
 const OUTLOOK_MONTHS: Record<string, string> = {
   Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
   Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12',

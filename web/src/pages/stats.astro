@@ -109,10 +109,12 @@ import '../styles/stats.css';
         <div class="chart-svg-wrap" id="chart-k"></div>
       </div>
     </div>
+    <p class="chart-desc" style="margin:1.25rem 0 0.4rem;">This Cycle vs. the Previous One (Solar Flux Index, aligned by year-into-cycle)</p>
+    <div class="chart-svg-wrap" id="chart-cycle-compare"></div>
   </div>
 
   <script>
-    import { renderBarChart, renderLineChart } from '../lib/charts';
+    import { renderBarChart, renderLineChart, renderMultiLineChart } from '../lib/charts';
     import { fetchDistanceUnit, formatDistance } from '../lib/units';
 
     const style = getComputedStyle(document.documentElement);
@@ -392,6 +394,29 @@ import '../styles/stats.css';
           rows.map((r) => ({ x: Number(r.year), y: r.avgK })),
           ACCENT2,
           { minY: 0 },
+        );
+
+        // Cycle 24 started Dec 2008, Cycle 25 started Dec 2019 (both per
+        // NOAA/NASA's own Solar Cycle Prediction Panel announcements, not
+        // guessed) -- 11 years apart, aligned here by "years into cycle"
+        // rather than calendar year so the two lines are actually
+        // comparable at a glance instead of just offset copies of the
+        // yearly chart above.
+        const CURRENT_CYCLE_START = 2019;
+        const PREVIOUS_CYCLE_START = 2008;
+        const currentCycle = rows
+          .filter((r) => Number(r.year) >= CURRENT_CYCLE_START)
+          .map((r) => ({ x: Number(r.year) - CURRENT_CYCLE_START, y: r.avgSfi }));
+        const previousCycle = rows
+          .filter((r) => Number(r.year) >= PREVIOUS_CYCLE_START && Number(r.year) <= CURRENT_CYCLE_START)
+          .map((r) => ({ x: Number(r.year) - PREVIOUS_CYCLE_START, y: r.avgSfi }));
+        renderMultiLineChart(
+          document.getElementById('chart-cycle-compare')!,
+          [
+            { label: `Cycle 25 (${CURRENT_CYCLE_START}–present)`, color: ACCENT, data: currentCycle },
+            { label: `Cycle 24 (${PREVIOUS_CYCLE_START}–${CURRENT_CYCLE_START})`, color: ACCENT2, data: previousCycle },
+          ],
+          { minY: 0, formatX: (x) => `Yr ${x}` },
         );
       });
   </script>
