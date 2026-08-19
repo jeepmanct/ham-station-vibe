@@ -906,19 +906,23 @@ footer a:hover { text-decoration: underline; }
 /* Inline tile editing (drag/hide directly on live pages) -- injected only
    when an admin session already exists, see lib/tileLayout.ts's
    enableInlineTileEditing(). */
-.tile-edit-toggle {
+.tile-edit-toolbar {
   position: fixed;
   bottom: 1.25rem;
   right: 1.25rem;
   z-index: 500;
-  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: calc(100vw - 2.5rem);
 }
+.tile-edit-toggle { box-shadow: var(--shadow); }
 .tile-edit-toggle.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.tile-edit-reset { box-shadow: var(--shadow); }
+.tile-edit-reset[hidden] { display: none; }
 .tile-edit-status {
-  position: fixed;
-  bottom: 1.35rem;
-  right: 8.5rem;
-  z-index: 500;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);

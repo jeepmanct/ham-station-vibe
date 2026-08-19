@@ -102,16 +102,32 @@ export function enableInlineTileEditing(page: string, containers: HTMLElement[])
 
   let editing = false;
 
+  const toolbar = document.createElement('div');
+  toolbar.className = 'tile-edit-toolbar';
+  document.body.appendChild(toolbar);
+
+  // DOM order matters here even though the toolbar is right-anchored:
+  // flex justify-content:flex-end packs children in source order, so this
+  // reads left-to-right as [status] [Reset] [Edit Layout] with the main
+  // toggle staying pinned at the fixed right edge regardless of whether the
+  // other two are currently shown.
+  const status = document.createElement('span');
+  status.className = 'tile-edit-status';
+  status.hidden = true;
+  toolbar.appendChild(status);
+
+  const resetBtn = document.createElement('button');
+  resetBtn.type = 'button';
+  resetBtn.className = 'btn secondary tile-edit-reset';
+  resetBtn.textContent = 'Reset';
+  resetBtn.hidden = true; // only shown while editing -- resetting outside edit mode has nothing to preview the result of
+  toolbar.appendChild(resetBtn);
+
   const toggle = document.createElement('button');
   toggle.type = 'button';
   toggle.className = 'btn tile-edit-toggle';
   toggle.textContent = 'Edit Layout';
-  document.body.appendChild(toggle);
-
-  const status = document.createElement('span');
-  status.className = 'tile-edit-status';
-  status.hidden = true;
-  document.body.appendChild(status);
+  toolbar.appendChild(toggle);
 
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
   async function save() {
@@ -217,22 +233,56 @@ export function enableInlineTileEditing(page: string, containers: HTMLElement[])
     }
   }
 
-  function exit() {
+  // Strips the injected edit-mode UI and re-fetches+re-applies the real
+  // saved order/hidden state -- shared by exit() (just leaving edit mode)
+  // and resetToDefault() (which needs the *default* state reflected before
+  // it re-enters edit mode), so neither has to duplicate applyTileLayout's
+  // own logic.
+  async function stripEditingUi() {
     for (const container of containers) {
       for (const tile of tileChildren(container)) {
         tile.classList.remove('tile-editing', 'tile-edit-hidden', 'tile-dragging');
         tile.querySelector('.tile-edit-controls')?.remove();
       }
-      // Re-fetches the saved layout and re-applies real order/hidden state --
-      // avoids duplicating that logic here a second time.
-      applyTileLayout(page, container);
+      await applyTileLayout(page, container);
     }
   }
+
+  function exit() {
+    stripEditingUi();
+  }
+
+  async function resetToDefault() {
+    status.hidden = false;
+    status.textContent = 'Resetting…';
+    try {
+      const res = await fetch(`/api/tile-layout/${page}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      status.textContent = res.ok ? 'Reset to default' : 'Reset failed';
+    } catch {
+      status.textContent = 'Reset failed';
+    }
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      status.hidden = true;
+    }, 2000);
+
+    // Re-enters edit mode on the now-default state, rather than just
+    // exiting -- resetting is something you do *while* editing, so landing
+    // back in edit mode (with nothing hidden, default order, all controls
+    // present) is more useful than being dropped out of it.
+    await stripEditingUi();
+    enter();
+  }
+  resetBtn.addEventListener('click', resetToDefault);
 
   toggle.addEventListener('click', () => {
     editing = !editing;
     toggle.textContent = editing ? 'Done Editing' : 'Edit Layout';
     toggle.classList.toggle('active', editing);
+    resetBtn.hidden = !editing;
     if (editing) enter();
     else exit();
   });

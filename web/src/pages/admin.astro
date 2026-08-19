@@ -63,23 +63,9 @@ import Base from '../layouts/Base.astro';
         </div>
         <div id="tl-section" hidden>
           <p style="margin:0.75rem 0 0.75rem;color:var(--muted);font-size:0.9rem;">
-            Reorder or hide the tiles on the Home, Tools, and Electronics pages, or the links in the site's top navigation bar. Drag a row by its handle to reorder; uncheck a tile to hide it. Changes apply to every visitor once saved.
+            Reorder or hide the links in the site's top navigation bar. Drag a row by its handle to reorder; uncheck a tile to hide it. Changes apply to every visitor once saved.
+            Every other page's own tiles (Home, Tools, Electronics, Conditions, Awards, Stats, Radio, Digital Voice, Reference, Status) are edited the same way but <em>in place</em> instead &mdash; visit that page while logged in and use its floating "Edit Layout" button.
           </p>
-          <label style="display:block;max-width:280px;margin-bottom:0.75rem;">Page
-            <select id="tl-page">
-              <option value="home">Home</option>
-              <option value="tools">Tools</option>
-              <option value="electronics">Electronics</option>
-              <option value="nav">Navigation Bar</option>
-              <option value="conditions">Conditions</option>
-              <option value="awards">Awards</option>
-              <option value="stats">Stats</option>
-              <option value="radio">Radio</option>
-              <option value="digital-voice">Digital Voice</option>
-              <option value="reference">Reference</option>
-              <option value="status">Status</option>
-            </select>
-          </label>
           <ul id="tl-list" style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0.4rem;max-width:480px;"></ul>
           <p id="tl-status" class="status-line"></p>
           <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
@@ -566,7 +552,7 @@ import Base from '../layouts/Base.astro';
       loadRadioControlVisibility();
       loadRadioHardwareVisibility();
       loadStationLocation();
-      loadTileLayout(tlPageSelect.value);
+      loadTileLayout(TL_PAGE);
       loadBackupStatus();
       loadKiwiVisibility();
       loadLightningMonitoring();
@@ -704,56 +690,14 @@ import Base from '../layouts/Base.astro';
     // Each page's own tile IDs/labels are duplicated here since there's no
     // dynamic component registry to read them from -- keep in sync with the
     // data-tile-id attributes in index.astro/tools.astro/electronics.astro.
+    // Every other page's own tiles (Home, Tools, Electronics, Conditions,
+    // Awards, Stats, Radio, Digital Voice, Reference, Status) used to be
+    // listed here too, back when this was the only way to reorder/hide
+    // them -- now that each of those pages can be edited in place (see
+    // lib/tileLayout.ts's enableInlineTileEditing()), this list only needs
+    // to cover the one thing that still can't be: the nav bar itself, which
+    // doesn't fit a drag-a-card metaphor.
     const PAGE_TILES: Record<string, { id: string; label: string }[]> = {
-      home: [
-        { id: 'about', label: 'About' },
-        { id: 'guestbook', label: 'Guestbook' },
-        { id: 'photos', label: 'Photos' },
-        { id: 'log', label: 'QSO Log' },
-        { id: 'map', label: 'QSO Map' },
-        { id: 'awards', label: 'Awards' },
-        { id: 'stats', label: 'Stats' },
-        { id: 'activations', label: 'Activations' },
-        { id: 'conditions', label: 'Conditions' },
-        { id: 'radio', label: 'Radio' },
-        { id: 'digital-voice', label: 'Digital Voice' },
-        { id: 'kiwisdr', label: 'KiwiSDR' },
-        { id: 'satellites', label: 'Satellites' },
-        { id: 'tools', label: 'Tools' },
-        { id: 'electronics', label: 'Electronics' },
-        { id: 'reference', label: 'Reference' },
-      ],
-      tools: [
-        { id: 'grid-converter', label: 'Grid Square Converter' },
-        { id: 'distance-bearing', label: 'Distance & Bearing' },
-        { id: 'bearing-callsign', label: 'Bearing to Callsign' },
-        { id: 'antenna-length', label: 'Antenna Length' },
-        { id: 'antenna-takeoff', label: 'Antenna Takeoff Angle' },
-        { id: 'swr', label: 'SWR Calculator' },
-        { id: 'coax-loss', label: 'Coax Feedline Loss' },
-        { id: 'wavelength-freq', label: 'Wavelength & Frequency' },
-        { id: 'erp-eirp', label: 'ERP / EIRP Calculator' },
-        { id: 'antenna-gain', label: 'Antenna Gain (dBi ↔ dBd)' },
-        { id: 'fspl', label: 'Free Space Path Loss' },
-        { id: 'vhf-los', label: 'VHF/UHF Line-of-Sight Range' },
-        { id: 'rf-exposure', label: 'RF Exposure (MPE) Estimate' },
-        { id: 'smeter-db', label: 'S-Meter / dB Converter' },
-        { id: 'utc-clock', label: 'UTC / Local Time' },
-        { id: 'worked-lookup', label: 'Have I Worked This Call?' },
-        { id: 'callsign-lookup', label: 'Callsign Lookup' },
-        { id: 'oqrs-check', label: 'Club Log OQRS Check' },
-        { id: 'confirmed-nowhere', label: 'Confirmed Nowhere' },
-      ],
-      electronics: [
-        { id: 'resistor-code', label: 'Resistor Color Code' },
-        { id: 'ohms-law', label: "Ohm's Law" },
-        { id: 'dbm-watts-volts', label: 'dBm / Watts / Volts' },
-        { id: 'led-resistor', label: 'LED Series Resistor' },
-        { id: 'voltage-divider', label: 'Voltage Divider' },
-        { id: 'capacitor-code', label: 'Capacitor Code' },
-        { id: 'coil-winding', label: 'Coil Winding (Air-Core)' },
-        { id: 'battery-runtime', label: 'Battery Runtime' },
-      ],
       nav: [
         { id: 'about', label: 'About' },
         { id: 'guestbook', label: 'Guestbook' },
@@ -774,73 +718,9 @@ import Base from '../layouts/Base.astro';
         { id: 'status', label: 'Status' },
         { id: 'admin', label: 'Admin' },
       ],
-      conditions: [
-        { id: 'propagation-trend', label: 'Propagation Trend' },
-        { id: 'forecast-27day', label: '27-Day Forecast' },
-        { id: 'muf-map', label: 'Real-Time MUF Map' },
-        { id: 'ncdxf-beacons', label: 'NCDXF/IARU Beacons' },
-        { id: 'band-noise-floor', label: 'Band Noise Floor' },
-        { id: 'lightning', label: 'Lightning' },
-        { id: 'sun-grayline', label: 'Sun & Grayline' },
-        { id: 'live-dx-spots', label: 'Live DX Spots' },
-        { id: 'band-activity', label: 'Band Activity' },
-        { id: 'dx-operations', label: 'Announced DX Operations' },
-        { id: 'upcoming-contests', label: 'Upcoming Contests' },
-        { id: 'psk-reporter', label: 'Recently Heard (PSK Reporter)' },
-        { id: 'wspr-reports', label: 'WSPR Reception Reports' },
-        { id: 'rbn-reports', label: 'CW/RTTY Skimmer Reports (RBN)' },
-      ],
-      awards: [
-        { id: 'awards-by-band', label: 'Awards by Band' },
-        { id: 'dxcc-map', label: 'DXCC Coverage Map' },
-        { id: 'most-wanted-dxcc', label: 'Most-Wanted DXCC' },
-        { id: 'dxcc', label: 'DXCC' },
-        { id: 'was', label: 'Worked All States' },
-        { id: 'wac', label: 'Worked All Continents' },
-        { id: 'vucc', label: 'VUCC (Grid Squares)' },
-        { id: 'waz', label: 'Worked All Zones' },
-        { id: 'dxcc-by-mode', label: 'DXCC by Mode' },
-        { id: 'wpx', label: 'WPX (Worked All Prefixes)' },
-        { id: 'triple-play-was', label: 'Triple Play WAS' },
-        { id: 'usa-counties', label: 'USA Counties (USA-CA)' },
-        { id: 'iota', label: 'IOTA (Islands on the Air)' },
-      ],
-      stats: [
-        { id: 'activity', label: 'Activity' },
-        { id: 'operating-pattern', label: 'Operating Pattern' },
-        { id: 'best-time-by-band', label: 'Best Time by Band' },
-        { id: 'qsos-per-year', label: 'QSOs Per Year' },
-        { id: 'by-band-mode', label: 'By Band / By Mode' },
-        { id: 'qsl-confirmation', label: 'QSL Confirmation' },
-        { id: 'distance', label: 'Distance' },
-        { id: 'solar-cycle-history', label: 'Solar Cycle History' },
-      ],
-      radio: [
-        { id: 'on-the-air', label: 'On the Air' },
-        { id: 'recent-sessions', label: 'Recent Sessions' },
-      ],
-      'digital-voice': [
-        { id: 'dmr-last-heard', label: 'DMR Last Heard' },
-        { id: 'dstar-last-heard', label: 'D-STAR Last Heard' },
-        { id: 'repeater-offset', label: 'Repeater Offset' },
-      ],
-      reference: [
-        { id: 'exam-question', label: 'License Exam Question of the Day' },
-        { id: 'morse-trainer', label: 'Morse Code Trainer' },
-        { id: 'band-plan', label: 'US Amateur Band Plan' },
-        { id: 'q-codes', label: 'Q-Codes' },
-        { id: 'prosigns', label: 'Prosigns' },
-        { id: 'external-resources', label: 'External Resources' },
-      ],
-      status: [
-        { id: 'memory', label: 'Memory' },
-        { id: 'disk', label: 'Disk' },
-        { id: 'cpu', label: 'CPU' },
-        { id: 'data-sync', label: 'Data Sync' },
-      ],
     };
 
-    const tlPageSelect = document.getElementById('tl-page') as HTMLSelectElement;
+    const TL_PAGE = 'nav'; // the only page this editor still covers -- see PAGE_TILES's own comment for why
     const tlList = document.getElementById('tl-list')!;
     const tlStatus = document.getElementById('tl-status')!;
     const tlSection = document.getElementById('tl-section')!;
@@ -944,15 +824,13 @@ import Base from '../layouts/Base.astro';
       tlStatus.textContent = '';
     }
 
-    tlPageSelect.addEventListener('change', () => loadTileLayout(tlPageSelect.value));
-
     document.getElementById('tl-save')!.addEventListener('click', async () => {
       const tiles = Array.from(tlList.querySelectorAll<HTMLLIElement>('.tl-row')).map((row) => ({
         id: row.dataset.id!,
         hidden: !(row.querySelector('.tl-visible') as HTMLInputElement).checked,
       }));
       tlStatus.textContent = 'Saving…';
-      const res = await fetch(`/api/tile-layout/${tlPageSelect.value}`, {
+      const res = await fetch(`/api/tile-layout/${TL_PAGE}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
         body: JSON.stringify({ tiles }),
@@ -962,12 +840,12 @@ import Base from '../layouts/Base.astro';
 
     document.getElementById('tl-reset')!.addEventListener('click', async () => {
       tlStatus.textContent = 'Resetting…';
-      const res = await fetch(`/api/tile-layout/${tlPageSelect.value}`, {
+      const res = await fetch(`/api/tile-layout/${TL_PAGE}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
       });
       if (res.ok) {
-        await loadTileLayout(tlPageSelect.value);
+        await loadTileLayout(TL_PAGE);
         tlStatus.textContent = 'Reset to default.';
       } else {
         tlStatus.textContent = 'Reset failed.';
@@ -2055,7 +1933,7 @@ import Base from '../layouts/Base.astro';
 
     // Moved here from right after showAdmin()'s own definition, near the top
     // of this script -- showAdmin() calls into functions/reads consts (e.g.
-    // tlPageSelect, declared much further down for the Page Layout section)
+    // TL_PAGE/tlList, declared much further down for the Page Layout section)
     // that don't exist yet that early in the file's top-level evaluation
     // order. Calling it immediately on a page load where a session already
     // exists hit that TDZ and threw -- which, since it's a synchronous
