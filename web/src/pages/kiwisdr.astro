@@ -150,6 +150,15 @@ import '../styles/kiwisdr.css';
         <span class="status-line" id="kiwi-audio-status" style="margin:0;"></span>
       </div>
 
+      <div class="kiwi-cw-decoder">
+        <label class="kiwi-cw-toggle" title="Adapts to the sender's speed automatically -- the first character or two after enabling (or after a long gap) may come out garbled while it locks on, same as any adaptive CW decoder.">
+          <input type="checkbox" id="kiwi-cw-enabled" /> CW Decoder
+        </label>
+        <span class="status-line" id="kiwi-cw-status" style="margin:0;"></span>
+        <button type="button" class="btn secondary" id="kiwi-cw-clear" style="padding:0.25rem 0.6rem;font-size:0.75rem;" hidden>Clear</button>
+        <div class="kiwi-cw-output" id="kiwi-cw-output" hidden></div>
+      </div>
+
       <div class="form-grid kiwi-quick-tune">
         <label>Ham Band
           <select id="kiwi-band-select">
@@ -194,6 +203,8 @@ import '../styles/kiwisdr.css';
   </div>
 
   <script>
+    import { MORSE_DECODE } from '../lib/morse';
+
     type KiwiSdrStatus = {
       configured: boolean;
       enabled: boolean;
@@ -273,6 +284,7 @@ import '../styles/kiwisdr.css';
     const publicBannerLabel = document.getElementById('kiwi-public-banner-label')!;
 
     let lastStatus: KiwiSdrStatus | null = null;
+    let lastSourceLabel: string | null = null;
     // Tracks the current frequency in MHz for the controls that need to read
     // it back (mode-only retune, step buttons, click-to-tune) now that there's
     // no visible frequency text field to read from directly.
@@ -305,6 +317,13 @@ import '../styles/kiwisdr.css';
       const s: KiwiSdrStatus = await res.json();
       if (ticket !== statusRequestTicket) return;
       lastStatus = s;
+      // A receiver switch means a different noise floor/signal
+      // characteristic entirely -- whatever the CW decoder had adapted
+      // to (or was mid-character on) no longer applies.
+      if (s.source.label !== lastSourceLabel) {
+        lastSourceLabel = s.source.label;
+        cwResetDecoder();
+      }
       unconfiguredEl.hidden = s.configured;
       disabledEl.hidden = !s.configured || s.enabled;
       contentEl.hidden = !s.configured || !s.enabled;
@@ -336,6 +355,7 @@ import '../styles/kiwisdr.css';
           ? `${s.listenerCount} of ${s.listenerMax} receive channel${s.listenerMax === 1 ? '' : 's'} in use`
           : '';
       siteListenersEl.textContent = `🎧 ${s.siteListeners} listening on this site now`;
+      cwSyncStatus();
 
       if (s.smeterDbm == null) {
         smeterFill.style.width = '0%';
@@ -1156,6 +1176,7 @@ import '../styles/kiwisdr.css';
         // lastStatus.sampleRate caught up to whatever's actually connected.
         const sampleRate = Math.round(lastStatus?.sampleRate ?? 12000);
         const pcm = new Int16Array(ev.data as ArrayBuffer);
+        if (cwEnabledCheckbox.checked && lastStatus?.mode === 'cw') cwProcessFrame(pcm, sampleRate);
         const buffer = audioCtx.createBuffer(1, pcm.length, sampleRate);
         const channel = buffer.getChannelData(0);
         for (let i = 0; i < pcm.length; i++) channel[i] = pcm[i] / 0x8000;
@@ -1173,6 +1194,188 @@ import '../styles/kiwisdr.css';
         if (audioSocket === aws) stopAll('Audio connection error.');
       });
     }
+
+    // --- Live CW (Morse) decoder -- runs entirely client-side against the
+    // same demodulated PCM already flowing to the speaker, no server
+    // changes needed. A Goertzel filter tracks the tone's power at the
+    // CW passband's center frequency (narrower than a full FFT, and all
+    // that's needed for a single known tone); an adaptive on/off
+    // threshold and a self-adjusting dit-length estimate mean it doesn't
+    // need a WPM setting -- same "read the actual signal instead of
+    // trusting a fixed assumption" spirit as the waterfall's own
+    // per-receiver contrast stretch. ---
+    const cwEnabledCheckbox = document.getElementById('kiwi-cw-enabled') as HTMLInputElement;
+    const cwStatus = document.getElementById('kiwi-cw-status')!;
+    const cwOutput = document.getElementById('kiwi-cw-output')!;
+    const cwClearBtn = document.getElementById('kiwi-cw-clear') as HTMLButtonElement;
+
+    function goertzelMagnitude(samples: Int16Array, sampleRate: number, targetFreqHz: number): number {
+      const n = samples.length;
+      const k = Math.round((n * targetFreqHz) / sampleRate);
+      const omega = (2 * Math.PI * k) / n;
+      const coeff = 2 * Math.cos(omega);
+      let s1 = 0;
+      let s2 = 0;
+      for (let i = 0; i < n; i++) {
+        const s0 = samples[i] / 32768 + coeff * s1 - s2;
+        s2 = s1;
+        s1 = s0;
+      }
+      const real = s1 - s2 * Math.cos(omega);
+      const imag = s2 * Math.sin(omega);
+      return Math.sqrt(real * real + imag * imag);
+    }
+
+    let cwIsOn = false;
+    let cwStateElapsedMs = 0;
+    let cwDitLenMs = 60; // ~20 WPM starting guess, adapts from real dit durations as they're observed
+    let cwNoiseLevel = 0;
+    let cwSignalLevel = 1;
+    let cwPattern = '';
+    let cwCharGapFlushed = false;
+    let cwWordGapFlushed = false;
+    const CW_MAX_LINE_CHARS = 400; // scrolling transcript, not an unbounded log
+    // Roughly 4-60 WPM -- covers real hand-sent through very fast machine-
+    // sent CW with margin either side. Without this floor, band noise (no
+    // clean tone at all, confirmed live tuning to an NCDXF beacon
+    // frequency with no beacon in its active slot at that moment) can
+    // trigger rapid spurious on/off transitions that shrink the estimate
+    // every time, in an unbounded feedback loop -- each shrink makes the
+    // classification threshold shorter, which makes the NEXT noise blip
+    // more likely to also read as a "dit", confirmed live to run away
+    // toward a WPM reading in the sextillions within seconds.
+    const CW_MIN_DIT_MS = 20;
+    const CW_MAX_DIT_MS = 300;
+
+    function cwResetDecoder() {
+      cwIsOn = false;
+      cwStateElapsedMs = 0;
+      cwDitLenMs = 60;
+      cwNoiseLevel = 0;
+      cwSignalLevel = 1;
+      cwPattern = '';
+      cwCharGapFlushed = false;
+      cwWordGapFlushed = false;
+    }
+
+    function cwAppend(text: string) {
+      cwOutput.textContent = (cwOutput.textContent + text).slice(-CW_MAX_LINE_CHARS);
+      cwOutput.scrollTop = cwOutput.scrollHeight;
+    }
+
+    function cwFlushCharacter() {
+      if (!cwPattern) return;
+      cwAppend(MORSE_DECODE[cwPattern] ?? '·');
+      cwPattern = '';
+    }
+
+// A real Kiwi audio frame arrives roughly every ~45ms (confirmed live:
+    // 87 frames over 4s against this station's own receiver) -- fine for
+    // playback, but coarse next to a dit length (66ms at 18 WPM, down to
+    // ~34ms at 35 WPM): timing a whole incoming frame as one on/off
+    // sample rounds every element's duration to the nearest frame
+    // boundary, which is a large relative error on short elements.
+    // Subdividing each frame into smaller windows for the Goertzel/timing
+    // analysis costs nothing extra over the network (still one frame per
+    // ~45ms) since the full-resolution samples are already in hand --
+    // just more (cheap) analysis passes over data already received.
+    const CW_WINDOW_SAMPLES = 128; // ~10.7ms at 12kHz, ~4x finer than one frame
+
+    /** One on/off timing sample -- called once per CW_WINDOW_SAMPLES-sized
+     * slice with that slice's own duration (derived from its real sample
+     * count/rate, not wall-clock arrival time, which would be thrown off
+     * by network jitter) -- same "trust the audio's own clock" approach
+     * nextPlayTime already uses for gapless playback scheduling. */
+    function cwProcessWindow(magnitude: number, windowMs: number) {
+      // Hysteresis around the midpoint between the tracked noise and
+      // signal levels -- using the SAME threshold both directions would
+      // let magnitude readings right at that line chatter rapidly.
+      const onThreshold = cwNoiseLevel + (cwSignalLevel - cwNoiseLevel) * 0.55;
+      const offThreshold = cwNoiseLevel + (cwSignalLevel - cwNoiseLevel) * 0.35;
+      const nowOn = cwIsOn ? magnitude > offThreshold : magnitude > onThreshold;
+
+      // Each reading nudges whichever level it's currently classified
+      // under -- lets both track a moving target (band noise changing,
+      // AGC adjusting, a different receiver entirely after a switch)
+      // rather than freezing at whatever they started at.
+      if (nowOn) cwSignalLevel = cwSignalLevel * 0.95 + magnitude * 0.05;
+      else cwNoiseLevel = cwNoiseLevel * 0.95 + magnitude * 0.05;
+
+      if (nowOn !== cwIsOn) {
+        const finishedMs = cwStateElapsedMs;
+        if (cwIsOn) {
+          // A tone just ended -- classify it as a dit or dah by comparing
+          // against the current estimate, then let genuine dits (not
+          // dahs, which would drag the estimate long) adjust that
+          // estimate for next time.
+          if (finishedMs < cwDitLenMs * 1.7) {
+            cwPattern += '.';
+            cwDitLenMs = Math.min(CW_MAX_DIT_MS, Math.max(CW_MIN_DIT_MS, cwDitLenMs * 0.8 + finishedMs * 0.2));
+          } else {
+            cwPattern += '-';
+          }
+        }
+        // A gap just ended (tone starting again) -- nothing to do beyond
+        // resetting the per-gap flush flags; cwFlushCharacter() already
+        // ran proactively below while the gap was still ongoing, if it
+        // was long enough to warrant it.
+        cwIsOn = nowOn;
+        cwStateElapsedMs = 0;
+        cwCharGapFlushed = false;
+        cwWordGapFlushed = false;
+      } else {
+        cwStateElapsedMs += windowMs;
+      }
+
+      // Flush proactively on a long-enough gap rather than waiting for
+      // the NEXT tone to start -- otherwise the last character/word of a
+      // transmission would sit buffered and invisible until someone
+      // keyed again.
+      if (!cwIsOn) {
+        if (!cwCharGapFlushed && cwStateElapsedMs > cwDitLenMs * 2.5) {
+          cwFlushCharacter();
+          cwCharGapFlushed = true;
+        }
+        if (!cwWordGapFlushed && cwStateElapsedMs > cwDitLenMs * 6) {
+          cwAppend(' ');
+          cwWordGapFlushed = true;
+        }
+      }
+    }
+
+    function cwProcessFrame(pcm: Int16Array, sampleRate: number) {
+      const targetFreq = lastStatus ? (lastStatus.lowCutHz + lastStatus.highCutHz) / 2 || 500 : 500;
+      const windowMs = (CW_WINDOW_SAMPLES / sampleRate) * 1000;
+      for (let i = 0; i < pcm.length; i += CW_WINDOW_SAMPLES) {
+        const window = pcm.subarray(i, Math.min(i + CW_WINDOW_SAMPLES, pcm.length));
+        if (window.length === 0) continue;
+        const magnitude = goertzelMagnitude(window, sampleRate, Math.abs(targetFreq));
+        // The last window in a frame is often shorter than the others
+        // (pcm.length isn't guaranteed to divide evenly) -- time it by
+        // its own actual sample count rather than the full window
+        // duration, or the running elapsed-time clock would drift ahead.
+        cwProcessWindow(magnitude, (window.length / sampleRate) * 1000 || windowMs);
+      }
+    }
+
+    function cwSyncStatus() {
+      if (!cwEnabledCheckbox.checked) {
+        cwStatus.textContent = '';
+        cwOutput.hidden = true;
+        cwClearBtn.hidden = true;
+        return;
+      }
+      cwOutput.hidden = false;
+      cwClearBtn.hidden = false;
+      cwStatus.textContent = lastStatus?.mode === 'cw' ? `~${Math.round(1200 / cwDitLenMs)} WPM` : 'Switch to CW mode to decode';
+    }
+    cwEnabledCheckbox.addEventListener('change', () => {
+      cwResetDecoder();
+      cwSyncStatus();
+    });
+    cwClearBtn.addEventListener('click', () => {
+      cwOutput.textContent = '';
+    });
 
     startStopBtn.addEventListener('click', () => {
       if (running) stopAll('');

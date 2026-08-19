@@ -79,6 +79,25 @@
 .kiwi-audio-controls { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
 .kiwi-audio-controls input[type="range"] { width: 100px; }
 
+.kiwi-cw-decoder { display: flex; align-items: center; gap: 0.6rem 0.75rem; flex-wrap: wrap; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+.kiwi-cw-toggle { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--muted); }
+.kiwi-cw-toggle input { width: auto; }
+.kiwi-cw-output {
+  flex-basis: 100%;
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  letter-spacing: 0.03em;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  min-height: 2.6em;
+  max-height: 6em;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .kiwi-quick-tune { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
 #kiwi-startstop-btn.listening { background: var(--status-good); border-color: var(--status-good); color: #fff; }
 

@@ -140,6 +140,8 @@ import '../styles/reference.css';
   </div>
 
   <script>
+    import { MORSE } from '../lib/morse';
+
     // --- License exam question of the day -- loaded once (it's the same
     // question all UTC day, see examQuestion.ts), answer choices revealed
     // as correct/incorrect on click rather than shown up front. ---
@@ -191,15 +193,6 @@ import '../styles/reference.css';
       .catch(() => {
         document.getElementById('exam-qotd')!.innerHTML = '<p class="status-line">Could not load today\'s question.</p>';
       });
-
-    const MORSE: Record<string, string> = {
-      A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.', H: '....', I: '..', J: '.---',
-      K: '-.-', L: '.-..', M: '--', N: '-.', O: '---', P: '.--.', Q: '--.-', R: '.-.', S: '...', T: '-',
-      U: '..-', V: '...-', W: '.--', X: '-..-', Y: '-.--', Z: '--..',
-      '0': '-----', '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....',
-      '6': '-....', '7': '--...', '8': '---..', '9': '----.',
-      '.': '.-.-.-', ',': '--..--', '?': '..--..', '/': '-..-.', '=': '-...-', '+': '.-.-.',
-    };
 
     // Reference table
     const tableBody = document.getElementById('morse-table-body')!;
