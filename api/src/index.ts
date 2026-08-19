@@ -28,6 +28,7 @@ import { guestbookRoutes } from './routes/guestbook';
 import { lightningRoutes } from './routes/lightning';
 import { examQuestionRoutes } from './routes/examQuestion';
 import { siteSettingsRoutes } from './routes/siteSettings';
+import { auroraRoutes } from './routes/aurora';
 import { startLightningMonitoring } from './lightning';
 import { startFlexRadioClient, registerAudioListener, unregisterAudioListener } from './flexRadio';
 import {
@@ -47,6 +48,7 @@ app.route('/api/auth', authRoutes);
 app.route('/api/photos', photoRoutes);
 app.route('/api/qsos', qsoRoutes);
 app.route('/api/solar', solarRoutes);
+app.route('/api/aurora', auroraRoutes);
 app.route('/api/awards', awardsRoutes);
 app.route('/api/conditions', conditionsRoutes);
 app.route('/api/pota', potaRoutes);

@@ -13,6 +13,11 @@ import '../styles/map.css';
     <input type="checkbox" id="grayline-toggle" />
     Show day/night grayline
   </label>
+  <label style="display:inline-flex;align-items:center;gap:0.5rem;margin-top:1rem;margin-left:1.25rem;font-size:0.9rem;cursor:pointer;">
+    <input type="checkbox" id="aurora-toggle" />
+    Show aurora forecast
+  </label>
+  <span class="status-line" id="aurora-status" style="margin-left:0.5rem;"></span>
 
   <div id="qso-map"></div>
   <p id="map-status" class="status-line" style="margin-top:0.5rem;"></p>
@@ -113,6 +118,60 @@ import '../styles/map.css';
       } else {
         map.removeLayer(graylineLayer);
         clearInterval(graylineTimer);
+      }
+    });
+
+    // --- Real-time aurora forecast, from NOAA SWPC's own OVATION model
+    // output (server-side proxy in api/src/routes/aurora.ts) -- not a
+    // hand-derived oval from just the Kp index. Rendered on the same
+    // canvas renderer the grayline/QSO arcs already use rather than
+    // creating a second one, since Leaflet's canvas renderer batches
+    // everything drawn through it onto one shared <canvas> regardless of
+    // how many separate layers use it. ---
+    const auroraLayer = L.layerGroup();
+    let auroraTimer: ReturnType<typeof setInterval> | undefined;
+    const auroraStatus = document.getElementById('aurora-status')!;
+
+    async function drawAurora() {
+      try {
+        const res = await fetch('/api/aurora');
+        const body = await res.json();
+        if (!res.ok) {
+          auroraStatus.textContent = body.error ?? 'Could not load aurora data.';
+          return;
+        }
+        const { points, kp }: { points: [number, number, number][]; kp: number | null } = body;
+        auroraLayer.clearLayers();
+        for (const [lon, lat, aurora] of points) {
+          // 3 (the server's own cutoff) to ~100 mapped onto a modest
+          // opacity range -- low-probability edges of the oval fade in
+          // rather than looking identical to its bright core.
+          const opacity = Math.min(0.75, 0.12 + (aurora / 100) * 0.7);
+          L.circleMarker([lat, lon], {
+            radius: 3,
+            stroke: false,
+            fillColor: '#4ade80',
+            fillOpacity: opacity,
+            renderer,
+          }).addTo(auroraLayer);
+        }
+        auroraStatus.textContent = kp != null ? `Planetary K-index: ${kp.toFixed(1)}` : '';
+      } catch {
+        auroraStatus.textContent = 'Could not load aurora data.';
+      }
+    }
+
+    document.getElementById('aurora-toggle')!.addEventListener('change', (e) => {
+      const on = (e.target as HTMLInputElement).checked;
+      if (on) {
+        auroraStatus.textContent = 'Loading…';
+        drawAurora();
+        auroraLayer.addTo(map);
+        auroraTimer = setInterval(drawAurora, 5 * 60 * 1000);
+      } else {
+        map.removeLayer(auroraLayer);
+        clearInterval(auroraTimer);
+        auroraStatus.textContent = '';
       }
     });
 
