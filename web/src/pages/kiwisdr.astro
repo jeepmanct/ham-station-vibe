@@ -17,7 +17,12 @@ import '../styles/kiwisdr.css';
       <button type="button" id="kiwi-public-modal-close" class="btn secondary eqsl-modal-close">&times;</button>
       <h2 style="margin-top:0;">Public KiwiSDR Receivers</h2>
       <p class="chart-desc" style="margin:0 0 0.75rem;">Sorted by distance from this station. Only receivers currently online and accepting connections are listed.</p>
-      <input type="text" id="kiwi-public-search" placeholder="Search by name or location&hellip;" style="margin-bottom:0.75rem;" />
+      <div class="kiwi-public-search-row">
+        <input type="text" id="kiwi-public-search" placeholder="Search by name or location&hellip;" />
+        <label class="kiwi-public-fav-filter">
+          <input type="checkbox" id="kiwi-public-fav-only" /> &starf; Favorites only
+        </label>
+      </div>
       <p class="status-line" id="kiwi-public-status">Loading&hellip;</p>
       <div id="kiwi-public-rows" class="kiwi-public-list"></div>
     </div>
@@ -347,9 +352,31 @@ import '../styles/kiwisdr.css';
     // fetch, not trusted as a raw host/port).
     const publicModalBackdrop = document.getElementById('kiwi-public-modal-backdrop')!;
     const publicSearchInput = document.getElementById('kiwi-public-search') as HTMLInputElement;
+    const publicFavOnlyCheckbox = document.getElementById('kiwi-public-fav-only') as HTMLInputElement;
     const publicStatus = document.getElementById('kiwi-public-status')!;
     const publicRows = document.getElementById('kiwi-public-rows')!;
     let publicEntries: PublicKiwiEntry[] = [];
+
+    // Favorited receivers, by id (hostname:port) -- just the id set, not a
+    // copy of the entry's data, since that data (users/SNR/online-ness)
+    // only means anything as of the CURRENT directory fetch. A favorited
+    // receiver that's gone offline or dropped out of the live list (full,
+    // now proxy-relayed, etc.) simply won't appear, same as any other
+    // entry -- no separate "stale favorite" state to reconcile.
+    const FAVORITES_KEY = 'kiwi_public_favorites';
+    function getFavorites(): Set<string> {
+      try {
+        return new Set(JSON.parse(localStorage.getItem(FAVORITES_KEY) ?? '[]'));
+      } catch {
+        return new Set();
+      }
+    }
+    function toggleFavorite(id: string) {
+      const favs = getFavorites();
+      if (favs.has(id)) favs.delete(id);
+      else favs.add(id);
+      localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favs]));
+    }
 
     function closePublicModal() {
       publicModalBackdrop.setAttribute('hidden', '');
@@ -361,18 +388,40 @@ import '../styles/kiwisdr.css';
 
     function renderPublicRows() {
       const query = publicSearchInput.value.trim().toLowerCase();
-      const filtered = query
+      const favs = getFavorites();
+      let filtered = query
         ? publicEntries.filter((e) => `${e.name} ${e.location}`.toLowerCase().includes(query))
         : publicEntries;
+      if (publicFavOnlyCheckbox.checked) filtered = filtered.filter((e) => favs.has(e.id));
+      // Stable sort -- favorites first, otherwise keep the server's
+      // distance order (Array.prototype.sort is guaranteed stable, so
+      // this doesn't reshuffle within each group).
+      filtered = [...filtered].sort((a, b) => Number(favs.has(b.id)) - Number(favs.has(a.id)));
       publicRows.innerHTML = '';
       if (filtered.length === 0) {
-        publicStatus.textContent = publicEntries.length === 0 ? 'No public receivers available right now.' : 'No receivers match that search.';
+        publicStatus.textContent = publicFavOnlyCheckbox.checked
+          ? 'No favorites yet -- click the star on a receiver to save it here.'
+          : publicEntries.length === 0
+            ? 'No public receivers available right now.'
+            : 'No receivers match that search.';
         return;
       }
       publicStatus.textContent = '';
       for (const entry of filtered) {
         const row = document.createElement('div');
         row.className = 'kiwi-public-row';
+
+        const favBtn = document.createElement('button');
+        favBtn.type = 'button';
+        favBtn.className = 'kiwi-public-row-fav';
+        const isFav = favs.has(entry.id);
+        favBtn.textContent = isFav ? '★' : '☆'; // ★ / ☆
+        favBtn.classList.toggle('is-favorite', isFav);
+        favBtn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+        favBtn.addEventListener('click', () => {
+          toggleFavorite(entry.id);
+          renderPublicRows();
+        });
 
         const info = document.createElement('div');
         info.className = 'kiwi-public-row-info';
@@ -396,11 +445,12 @@ import '../styles/kiwisdr.css';
         listenBtn.textContent = 'Listen';
         listenBtn.addEventListener('click', () => switchToPublicEntry(entry.id, listenBtn));
 
-        row.append(info, listenBtn);
+        row.append(favBtn, info, listenBtn);
         publicRows.appendChild(row);
       }
     }
     publicSearchInput.addEventListener('input', renderPublicRows);
+    publicFavOnlyCheckbox.addEventListener('change', renderPublicRows);
 
     async function loadPublicDirectory() {
       publicStatus.textContent = 'Loading…';

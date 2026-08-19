@@ -152,6 +152,28 @@
 .kiwi-public-row-name { font-size: 0.92rem; }
 .kiwi-public-row-meta { color: var(--muted); font-size: 0.8rem; margin-top: 0.15rem; }
 .kiwi-public-row-listen { flex-shrink: 0; padding: 0.35rem 0.75rem; font-size: 0.8rem; }
+.kiwi-public-row-fav {
+  flex-shrink: 0;
+  background: none;
+  border: 0;
+  padding: 0.2rem;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--muted);
+}
+.kiwi-public-row-fav.is-favorite { color: var(--accent-2, #f5a962); }
+
+.kiwi-public-search-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.kiwi-public-search-row input[type="text"] { flex: 1 1 220px; margin-bottom: 0; }
+.kiwi-public-fav-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
 
 /* Scrolls on its own (capped height) so the heading/search stay put above
    it instead of scrolling away with 300+ receivers below them. */
