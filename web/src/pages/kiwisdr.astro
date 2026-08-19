@@ -286,10 +286,23 @@ import '../styles/kiwisdr.css';
       return `S${Math.max(1, Math.round(sUnits))}`;
     }
 
+    // Every loadStatus() call gets a ticket; a response only gets applied
+    // if no NEWER call has been made since it went out. Without this, the
+    // 3s poll interval and an explicit post-action refresh (e.g. right
+    // after clicking "Switch back to my station") can have two requests
+    // in flight at once, and network timing gives no guarantee the older
+    // one's response arrives first -- a stale response landing after the
+    // fresh one would silently revert the UI back to the previous
+    // receiver until the next poll tick caught up.
+    let statusRequestTicket = 0;
+
     async function loadStatus() {
+      const ticket = ++statusRequestTicket;
       const res = await fetch('/api/kiwisdr/status');
+      if (ticket !== statusRequestTicket) return;
       if (!res.ok) return;
       const s: KiwiSdrStatus = await res.json();
+      if (ticket !== statusRequestTicket) return;
       lastStatus = s;
       unconfiguredEl.hidden = s.configured;
       disabledEl.hidden = !s.configured || s.enabled;

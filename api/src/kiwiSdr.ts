@@ -286,6 +286,11 @@ function forceReconnect() {
   }
   wfLo = null;
   wfHi = null;
+  // Also scoped to the PREVIOUS receiver (see fetchListenerCount's
+  // comment below) -- without clearing it here, /status can keep
+  // reporting the old receiver's channel usage for up to
+  // LISTENER_COUNT_TTL_MS after a switch.
+  listenerCountCache = null;
   if (audioListeners.size > 0) connectSnd();
   if (wfListeners.size > 0) connectWf();
 }
@@ -323,6 +328,10 @@ export function switchToOwnReceiver(): ConnectResult {
 // operator PII (an email address, GPS coordinates) -- only users/users_max
 // are ever extracted here, nothing else from that response is kept or
 // exposed through this app's own API.
+// Not host-scoped -- there's only ever one active receiver at a time, so a
+// single cache slot is enough as long as forceReconnect() clears it on
+// every switch (otherwise this would keep answering with the PREVIOUS
+// receiver's numbers for up to LISTENER_COUNT_TTL_MS after switching).
 let listenerCountCache: { users: number; usersMax: number; fetchedAt: number } | null = null;
 const LISTENER_COUNT_TTL_MS = 4000;
 
