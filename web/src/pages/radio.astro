@@ -25,11 +25,13 @@ import '../styles/radio.css';
   <div id="radio-dashboard" hidden>
     <p class="status-line" id="radio-conn-status"></p>
 
-    <div class="card radio-onair-card" id="radio-onair-card">
+    <div id="radio-tile-onair">
+    <div class="card radio-onair-card" id="radio-onair-card" data-tile-id="on-the-air">
       <h2>On the Air</h2>
       <div id="radio-slice-info">
         <p class="status-line" style="margin:0;">No active slice &mdash; radio online, not currently receiving or transmitting.</p>
       </div>
+    </div>
     </div>
 
     <div class="card" style="margin-top:1.5rem;" id="radio-control-card" hidden>
@@ -142,16 +144,24 @@ import '../styles/radio.css';
       </div>
     </div>
 
-    <div class="card" style="margin-top:1.5rem;">
+    <div id="radio-tile-sessions">
+    <div class="card" style="margin-top:1.5rem;" data-tile-id="recent-sessions">
       <h2>Recent Sessions</h2>
       <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Every time the radio has keyed up, so &ldquo;last on the air&rdquo; is still here even if nobody was watching live.</p>
       <div class="radio-session-list" id="radio-sessions">
         <p class="status-line">Loading&hellip;</p>
       </div>
     </div>
+    </div>
   </div>
 
   <script>
+    import { applyTileLayout } from '../lib/tileLayout';
+
+    for (const id of ['radio-tile-onair', 'radio-tile-sessions']) {
+      applyTileLayout('radio', document.getElementById(id)!);
+    }
+
     type SliceStatus = { index: number; frequencyMhz: number | null; mode: string | null; txActive: boolean; active: boolean; clientHandle: string | null; signalDbm: number | null };
     type RadioStatus = {
       configured: boolean;

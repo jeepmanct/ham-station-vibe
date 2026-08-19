@@ -14,7 +14,8 @@ import '../styles/stats.css';
     <div class="stat-tile"><div class="label">Longest DX</div><div class="value" id="stat-dx">&mdash;</div><div class="sub" id="stat-dx-sub"></div></div>
   </div>
 
-  <div class="chart-section">
+  <div id="stats-tiles">
+  <div class="chart-section" data-tile-id="activity">
     <h2>Activity</h2>
     <p class="chart-desc">Days with at least one logged QSO, roughly the last year (53-week grid).</p>
     <div class="stats-grid" style="margin-top:0;">
@@ -40,24 +41,24 @@ import '../styles/stats.css';
     </div>
   </div>
 
-  <div class="card" style="margin-top:1.5rem;">
+  <div class="card" style="margin-top:1.5rem;" data-tile-id="operating-pattern">
     <h2>Operating Pattern</h2>
     <p class="chart-desc">When QSOs happen, by UTC hour and day of week &mdash; propagation and band conditions are a UTC-time question, not a local-clock one.</p>
     <div id="operating-heatmap"></div>
   </div>
 
-  <div class="card" style="margin-top:1.5rem;">
+  <div class="card" style="margin-top:1.5rem;" data-tile-id="best-time-by-band">
     <h2>Best Time by Band</h2>
     <p class="chart-desc">UTC hour of day, top bands by QSO count &mdash; each row is scaled to its own busiest hour, since band volumes aren't comparable to each other. A dark cell means that hour is quiet <em>for that band specifically</em>, not overall.</p>
     <div id="band-hour-heatmap"></div>
   </div>
 
-  <div class="chart-section">
+  <div class="chart-section" data-tile-id="qsos-per-year">
     <h2>QSOs Per Year</h2>
     <div class="chart-svg-wrap" id="chart-by-year"></div>
   </div>
 
-  <div class="chart-row" style="margin-top:2rem;">
+  <div class="chart-row" style="margin-top:2rem;" data-tile-id="by-band-mode">
     <div class="chart-section" style="margin-top:0;">
       <h2>By Band</h2>
       <div class="chart-svg-wrap" id="chart-by-band"></div>
@@ -68,7 +69,7 @@ import '../styles/stats.css';
     </div>
   </div>
 
-  <div class="chart-section">
+  <div class="chart-section" data-tile-id="qsl-confirmation">
     <h2>QSL Confirmation</h2>
     <p class="chart-desc">Coverage across LoTW and eQSL &mdash; not paper cards, which this site has no way to track. Looking for who to follow up with? See <a href="/tools#confirmed-nowhere">Confirmed Nowhere</a> on Tools.</p>
     <div class="stats-grid" id="qsl-confirmation-tiles">
@@ -82,7 +83,7 @@ import '../styles/stats.css';
     <p class="chart-desc" id="qsl-velocity-note" style="margin-top:0.75rem;"></p>
   </div>
 
-  <div class="chart-section">
+  <div class="chart-section" data-tile-id="distance">
     <h2>Distance</h2>
     <p class="chart-desc">Great-circle distance from home to each contact.</p>
     <div class="chart-row">
@@ -97,7 +98,7 @@ import '../styles/stats.css';
     </div>
   </div>
 
-  <div class="chart-section">
+  <div class="chart-section" data-tile-id="solar-cycle-history">
     <h2>Solar Cycle History</h2>
     <p class="chart-desc">Yearly averages, 1947&ndash;present (Solar Flux Index has been recorded since 1947; K-index since 1932).</p>
     <div class="chart-row">
@@ -113,10 +114,14 @@ import '../styles/stats.css';
     <p class="chart-desc" style="margin:1.25rem 0 0.4rem;">This Cycle vs. the Previous One (Solar Flux Index, aligned by year-into-cycle)</p>
     <div class="chart-svg-wrap" id="chart-cycle-compare"></div>
   </div>
+  </div>
 
   <script>
     import { renderBarChart, renderLineChart, renderMultiLineChart } from '../lib/charts';
     import { fetchDistanceUnit, formatDistance } from '../lib/units';
+    import { applyTileLayout } from '../lib/tileLayout';
+
+    applyTileLayout('stats', document.getElementById('stats-tiles')!);
 
     const style = getComputedStyle(document.documentElement);
     const ACCENT = style.getPropertyValue('--accent').trim();

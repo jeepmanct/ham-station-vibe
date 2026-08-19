@@ -6,7 +6,8 @@ import '../styles/reference.css';
   <h1>Reference</h1>
   <p class="lede">Morse code practice, the US band plan, Q-codes, prosigns, and curated external resources.</p>
 
-  <div class="card">
+  <div id="reference-tiles-top">
+  <div class="card" data-tile-id="exam-question">
     <h2>License Exam Question of the Day</h2>
     <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
       From the FCC Technician (Element 2) pool, effective July 2026&ndash;2030, via <a href="https://github.com/russolsen/ham_radio_question_pool" target="_blank" rel="noopener">russolsen/ham_radio_question_pool</a> (NCVEC's official release). Same question for everyone each UTC day.
@@ -16,7 +17,7 @@ import '../styles/reference.css';
     </div>
   </div>
 
-  <div class="card">
+  <div class="card" data-tile-id="morse-trainer">
     <h2>Morse Code Trainer</h2>
     <p style="margin:0;color:var(--muted);font-size:0.85rem;">Type text and play it as Morse code, or test yourself in quiz mode.</p>
 
@@ -62,7 +63,7 @@ import '../styles/reference.css';
     </div>
   </div>
 
-  <div class="card">
+  <div class="card" data-tile-id="band-plan">
     <h2>US Amateur Band Plan</h2>
     <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
       Per the <a href="https://www.arrl.org/graphical-frequency-allocations" target="_blank" rel="noopener">ARRL band chart</a> (rev. 1/16/2026). <strong>N</strong> = Novice, <strong>T</strong> = Technician, <strong>G</strong> = General, <strong>A</strong> = Advanced, <strong>E</strong> = Extra (N/A legacy, grandfathered only). Max power 1.5kW PEP, always the minimum needed. See <a href="https://www.arrl.org/band-plan" target="_blank" rel="noopener">arrl.org/band-plan</a> for full detail.
@@ -91,9 +92,10 @@ import '../styles/reference.css';
       </table>
     </div>
   </div>
+  </div>
 
-  <div class="qcode-grid">
-    <div class="card">
+  <div class="qcode-grid" id="reference-tiles-grid">
+    <div class="card" data-tile-id="q-codes">
       <h2>Q-Codes</h2>
       <table>
         <thead><tr><th>Code</th><th>Meaning</th></tr></thead>
@@ -121,7 +123,7 @@ import '../styles/reference.css';
       </table>
     </div>
 
-    <div class="card">
+    <div class="card" data-tile-id="prosigns">
       <h2>Prosigns</h2>
       <table>
         <thead><tr><th>Prosign</th><th>Meaning</th></tr></thead>
@@ -141,6 +143,11 @@ import '../styles/reference.css';
 
   <script>
     import { MORSE } from '../lib/morse';
+    import { applyTileLayout } from '../lib/tileLayout';
+
+    for (const id of ['reference-tiles-top', 'reference-tiles-grid', 'reference-tiles-resources']) {
+      applyTileLayout('reference', document.getElementById(id)!);
+    }
 
     // --- License exam question of the day -- loaded once (it's the same
     // question all UTC day, see examQuestion.ts), answer choices revealed
@@ -341,6 +348,8 @@ import '../styles/reference.css';
     });
   </script>
 
+  <div id="reference-tiles-resources">
+  <div data-tile-id="external-resources">
   <h2 style="margin-top:2.5rem;">External Resources</h2>
   <div class="links-grid">
     <div class="link-group">
@@ -378,5 +387,7 @@ import '../styles/reference.css';
         <li><a href="https://www.fcc.gov/wireless/bureau-divisions/mobility-division/amateur-radio-service" target="_blank" rel="noopener">FCC Amateur Radio Service</a><span class="desc">Rules & licensing</span></li>
       </ul>
     </div>
+  </div>
+  </div>
   </div>
 </Base>

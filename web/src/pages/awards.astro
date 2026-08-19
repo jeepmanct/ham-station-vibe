@@ -29,7 +29,8 @@ import '../styles/awards.css';
     </div>
   </div>
 
-  <div class="award-card" style="margin-bottom:1.25rem;">
+  <div id="awards-tiles-top">
+  <div class="award-card" style="margin-bottom:1.25rem;" data-tile-id="awards-by-band">
     <h2>Awards by Band</h2>
     <p class="award-substat">Single-band DXCC needs 100 confirmed entities, WAS needs 50 confirmed states. VUCC thresholds vary by band, so shown as counts only.</p>
     <div class="table-scroll">
@@ -40,7 +41,7 @@ import '../styles/awards.css';
     </div>
   </div>
 
-  <div class="award-card" style="margin-bottom:1.25rem;">
+  <div class="award-card" style="margin-bottom:1.25rem;" data-tile-id="dxcc-map">
     <h2>DXCC Coverage Map</h2>
     <p class="award-substat">Worked entities sit at the average location of their own QSOs, not an official boundary; never-worked entities sit at a reference point instead.</p>
     <div id="dxcc-map"></div>
@@ -51,15 +52,16 @@ import '../styles/awards.css';
     </div>
   </div>
 
-  <div class="award-card" style="margin-bottom:1.25rem;">
+  <div class="award-card" style="margin-bottom:1.25rem;" data-tile-id="most-wanted-dxcc">
     <h2>Most-Wanted DXCC</h2>
     <p class="award-substat">Entities not yet logged, from a <a href="https://www.country-files.com/cty/" target="_blank" rel="noopener">community reference list</a> &mdash; may not track ARRL's current/deleted status. Sorted by <a href="https://clublog.org/mostwanted.php" target="_blank" rel="noopener">Club Log's most-wanted ranking</a> where available.</p>
     <input type="text" id="wanted-search" class="entity-search" placeholder="Search entities…" />
     <div class="entity-list" id="wanted-list"></div>
   </div>
+  </div>
 
-  <div class="award-grid">
-    <div class="award-card">
+  <div class="award-grid" id="awards-tiles-grid">
+    <div class="award-card" data-tile-id="dxcc">
       <h2>DXCC</h2>
       <div class="award-stat"><span class="n" id="dxcc-worked">&mdash;</span><span class="of">entities worked</span></div>
       <p class="award-substat"><span class="good" id="dxcc-confirmed">&mdash;</span> confirmed via LoTW</p>
@@ -68,7 +70,7 @@ import '../styles/awards.css';
       <button type="button" class="btn secondary cert-btn" id="dxcc-cert-btn" hidden>Download Certificate</button>
     </div>
 
-    <div class="award-card">
+    <div class="award-card" data-tile-id="was">
       <h2>Worked All States</h2>
       <div class="award-stat"><span class="n" id="was-worked">&mdash;</span><span class="of">of 50</span></div>
       <div class="progress-bar"><div class="progress-fill" id="was-bar"></div></div>
@@ -77,7 +79,7 @@ import '../styles/awards.css';
       <button type="button" class="btn secondary cert-btn" id="was-cert-btn" hidden>Download Certificate</button>
     </div>
 
-    <div class="award-card">
+    <div class="award-card" data-tile-id="wac">
       <h2>Worked All Continents</h2>
       <div class="award-stat"><span class="n" id="wac-worked">&mdash;</span><span class="of">of 6</span></div>
       <div class="progress-bar"><div class="progress-fill" id="wac-bar"></div></div>
@@ -87,7 +89,7 @@ import '../styles/awards.css';
       <button type="button" class="btn secondary cert-btn" id="wac-cert-btn" hidden>Download Certificate</button>
     </div>
 
-    <div class="award-card">
+    <div class="award-card" data-tile-id="vucc">
       <h2>VUCC (Grid Squares)</h2>
       <div class="award-stat"><span class="n" id="vucc-worked">&mdash;</span><span class="of">grids worked</span></div>
       <p class="award-substat"><span class="good" id="vucc-confirmed">&mdash;</span> confirmed via LoTW</p>
@@ -96,7 +98,7 @@ import '../styles/awards.css';
       <button type="button" class="btn secondary cert-btn" id="vucc-cert-btn" hidden>Download Certificate</button>
     </div>
 
-    <div class="award-card">
+    <div class="award-card" data-tile-id="waz">
       <h2>Worked All Zones</h2>
       <div class="award-stat"><span class="n" id="waz-worked">&mdash;</span><span class="of">of 40 CQ zones</span></div>
       <div class="progress-bar"><div class="progress-fill" id="waz-bar"></div></div>
@@ -105,7 +107,7 @@ import '../styles/awards.css';
       <button type="button" class="btn secondary cert-btn" id="waz-cert-btn" hidden>Download Certificate</button>
     </div>
 
-    <div class="award-card">
+    <div class="award-card" data-tile-id="dxcc-by-mode">
       <h2>DXCC by Mode</h2>
       <p class="award-substat" style="margin-bottom:0.75rem;">Not an official award name &mdash; just DXCC progress split by mode category.</p>
       <div class="table-scroll">
@@ -116,7 +118,7 @@ import '../styles/awards.css';
       </div>
     </div>
 
-    <div class="award-card">
+    <div class="award-card" data-tile-id="wpx">
       <h2>WPX (Worked All Prefixes)</h2>
       <div class="award-stat"><span class="n" id="wpx-worked">&mdash;</span><span class="of">prefixes worked</span></div>
       <p class="award-substat"><span class="good" id="wpx-confirmed">&mdash;</span> confirmed via LoTW <span id="wpx-tier"></span></p>
@@ -126,14 +128,14 @@ import '../styles/awards.css';
       <button type="button" class="btn secondary cert-btn" id="wpx-cert-btn" hidden>Download Certificate</button>
     </div>
 
-    <div class="award-card">
+    <div class="award-card" data-tile-id="triple-play-was">
       <h2>Triple Play WAS</h2>
       <p class="award-substat">Confirm all 50 states on Phone, CW, <em>and</em> Digital &mdash; the real ARRL award, not the informal DXCC-by-mode split above.</p>
       <div id="triple-play-body"></div>
       <button type="button" class="btn secondary cert-btn" id="triple-play-cert-btn" hidden>Download Certificate</button>
     </div>
 
-    <div class="award-card">
+    <div class="award-card" data-tile-id="usa-counties">
       <h2>USA Counties (USA-CA)</h2>
       <div class="award-stat"><span class="n" id="cnty-worked">&mdash;</span><span class="of">counties worked</span></div>
       <p class="award-substat"><span class="good" id="cnty-confirmed">&mdash;</span> confirmed via LoTW <span id="cnty-tier"></span></p>
@@ -142,7 +144,7 @@ import '../styles/awards.css';
       <button type="button" class="btn secondary cert-btn" id="cnty-cert-btn" hidden>Download Certificate</button>
     </div>
 
-    <div class="award-card">
+    <div class="award-card" data-tile-id="iota">
       <h2>IOTA (Islands on the Air)</h2>
       <div class="award-stat"><span class="n" id="iota-worked">&mdash;</span><span class="of">island groups worked</span></div>
       <p class="award-substat"><span class="good" id="iota-confirmed">&mdash;</span> confirmed via LoTW <span id="iota-tier"></span></p>
@@ -156,6 +158,11 @@ import '../styles/awards.css';
     import 'leaflet/dist/leaflet.css';
     import L from 'leaflet';
     import { downloadOrShareImage } from '../lib/downloadImage';
+    import { applyTileLayout } from '../lib/tileLayout';
+
+    for (const id of ['awards-tiles-top', 'awards-tiles-grid']) {
+      applyTileLayout('awards', document.getElementById(id)!);
+    }
 
     // Fetched once up front for use in certificate rendering/filenames --
     // see log.astro's identical pattern for why a one-shot fetch is enough.

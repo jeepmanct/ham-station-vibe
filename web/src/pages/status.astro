@@ -16,22 +16,30 @@ import '../styles/syncStatus.css';
     <div class="stat-tile"><div class="label">Load Avg (1 / 5 / 15m)</div><div class="value" id="ds-load" style="font-size:1.2rem;">&mdash;</div></div>
   </div>
 
+  <div id="status-tiles">
+  <div data-tile-id="memory">
   <h2 style="margin-top:2.5rem;">Memory</h2>
   <div class="card">
     <div class="ds-progress-bar"><div class="ds-progress-fill" id="ds-mem-bar" style="width:0%;"></div></div>
     <p class="ds-substat" id="ds-mem-sub">&mdash;</p>
   </div>
+  </div>
 
+  <div data-tile-id="disk">
   <h2 style="margin-top:2.5rem;">Disk</h2>
   <div class="card" id="ds-disks">
     <p class="ds-substat">&mdash;</p>
   </div>
+  </div>
 
+  <div data-tile-id="cpu">
   <h2 style="margin-top:2.5rem;">CPU</h2>
   <div class="card">
     <p class="ds-substat" id="ds-cpu-info">&mdash;</p>
   </div>
+  </div>
 
+  <div data-tile-id="data-sync">
   <h2 class="page-group-heading">Data Sync</h2>
   <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">When each external data source last actually pulled in fresh data.</p>
   <div class="card">
@@ -43,6 +51,8 @@ import '../styles/syncStatus.css';
         <tbody id="sync-status-rows"></tbody>
       </table>
     </div>
+  </div>
+  </div>
   </div>
 
   <section style="margin-top:2.5rem;">
@@ -65,6 +75,10 @@ import '../styles/syncStatus.css';
   </section>
 
   <script>
+    import { applyTileLayout } from '../lib/tileLayout';
+
+    applyTileLayout('status', document.getElementById('status-tiles')!);
+
     const TOKEN_KEY = 'hamstation_admin_token';
 
     type SystemStats = {

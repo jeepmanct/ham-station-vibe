@@ -40,7 +40,8 @@ import '../styles/lastHeardTable.css';
   <p id="cond-solar-sync-status" class="status-line"></p>
 
   <h2 class="page-group-heading">Propagation &amp; Solar</h2>
-  <div class="card" style="margin-top:1.5rem;">
+  <div id="conditions-tiles-propagation">
+  <div class="card" style="margin-top:1.5rem;" data-tile-id="propagation-trend">
     <h2>Propagation Trend</h2>
     <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Last 90 days, from the same daily solar data behind the numbers above.</p>
     <select id="trend-metric" style="margin-bottom:0.75rem;">
@@ -52,7 +53,7 @@ import '../styles/lastHeardTable.css';
     <div class="chart-svg-wrap" id="trend-chart"></div>
   </div>
 
-  <div class="card" style="margin-top:1.5rem;">
+  <div class="card" style="margin-top:1.5rem;" data-tile-id="forecast-27day">
     <h2>27-Day Forecast</h2>
     <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">NOAA's predicted SFI/A/Kp for the next 27 days &mdash; what's coming, not what's happened.</p>
     <select id="forecast-metric" style="margin-bottom:0.75rem;">
@@ -63,19 +64,19 @@ import '../styles/lastHeardTable.css';
     <div class="chart-svg-wrap" id="forecast-chart"></div>
   </div>
 
-  <div class="card" style="margin-top:1.5rem;">
+  <div class="card" style="margin-top:1.5rem;" data-tile-id="muf-map">
     <h2>Real-Time MUF Map</h2>
     <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Maximum Usable Frequency for a 3000km hop, via <a href="https://prop.kc2g.com" target="_blank" rel="noopener">prop.kc2g.com</a>. A "16" contour means a long-hop 20m path may be open there; higher numbers mean higher bands are open.</p>
     <img id="muf-map" alt="Live worldwide MUF map" style="width:100%;border-radius:var(--radius);border:1px solid var(--border);display:block;" />
   </div>
 
-  <div class="card" style="margin-top:1.5rem;">
+  <div class="card" style="margin-top:1.5rem;" data-tile-id="ncdxf-beacons">
     <h2>NCDXF/IARU Beacons</h2>
     <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Which of the 18 <a href="https://www.ncdxf.org/beacon/" target="_blank" rel="noopener">NCDXF/IARU beacons</a> is on each band right now &mdash; computed client-side from the fixed schedule, no live data pulled.</p>
     <div class="beacon-table" id="beacon-table"></div>
   </div>
 
-  <div class="card" style="margin-top:1.5rem;">
+  <div class="card" style="margin-top:1.5rem;" data-tile-id="band-noise-floor">
     <h2>Band Noise Floor <span style="color:var(--muted);font-weight:400;font-size:0.85rem;">(KiwiSDR)</span></h2>
     <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
       A one-shot spot-check on whatever the <a href="/kiwisdr">KiwiSDR</a> is tuned to &mdash; that one frequency, not the whole band. Doesn't poll continuously, so it won't hold the receiver open.
@@ -86,9 +87,11 @@ import '../styles/lastHeardTable.css';
     </div>
     <button type="button" class="btn secondary" id="noise-floor-refresh" style="margin-top:0.5rem;">Check again</button>
   </div>
+  </div>
 
   <h2 class="page-group-heading">Sky &amp; Weather</h2>
-  <div class="card" style="margin-top:1.5rem;">
+  <div id="conditions-tiles-sky">
+  <div class="card" style="margin-top:1.5rem;" data-tile-id="lightning">
     <h2>Lightning</h2>
     <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
       Strikes within <span id="lightning-display-radius">100km</span> of the QTH, last 2 hours, via <a href="https://www.blitzortung.org/" target="_blank" rel="noopener">Blitzortung.org</a>. Solid circle is the <span id="lightning-alert-radius">20km</span> "consider disconnecting antennas" radius.
@@ -100,7 +103,7 @@ import '../styles/lastHeardTable.css';
     </div>
   </div>
 
-  <div class="card" style="margin-top:1.5rem;">
+  <div class="card" style="margin-top:1.5rem;" data-tile-id="sun-grayline">
     <h2>Sun &amp; Grayline</h2>
     <p style="margin:0;color:var(--muted);font-size:0.85rem;">For the station QTH<span id="sun-grid"></span>, computed client-side when the page loads &mdash; reload for a new day's times.</p>
     <div class="stat-grid" style="margin-top:1rem;">
@@ -123,34 +126,36 @@ import '../styles/lastHeardTable.css';
     </div>
     <p class="status-line" id="sun-status"></p>
   </div>
+  </div>
 
   <h2 class="page-group-heading">Live Activity</h2>
-  <div class="card" style="margin-top:1.5rem;">
+  <div id="conditions-tiles-activity">
+  <div class="card" style="margin-top:1.5rem;" data-tile-id="live-dx-spots">
     <h2>Live DX Spots</h2>
     <p style="margin:0;color:var(--muted);font-size:0.85rem;">Via <a href="https://dxheat.com" target="_blank" rel="noopener">dxheat.com</a>. <strong style="color:var(--status-warning);">Needed</strong> flags a DXCC entity not yet worked &mdash; a convenience list, not a certified award tracker.</p>
     <p style="margin:0.15rem 0 0;color:var(--muted);font-size:0.78rem;" id="spot-updated-at"></p>
     <div class="spot-table" id="spot-table"></div>
   </div>
 
-  <div class="card" style="margin-top:1.5rem;">
+  <div class="card" style="margin-top:1.5rem;" data-tile-id="band-activity">
     <h2>Band Activity</h2>
     <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">How much of the live spot feed above is on each band right now &mdash; a rough proxy for which bands are actually open, not a real propagation prediction.</p>
     <div id="band-activity-bars"></div>
   </div>
 
-  <div class="card" style="margin-top:1.5rem;">
+  <div class="card" style="margin-top:1.5rem;" data-tile-id="dx-operations">
     <h2>Announced DX Operations</h2>
     <p style="margin:0;color:var(--muted);font-size:0.85rem;">Via <a href="https://www.ng3k.com/Misc/adxo.html" target="_blank" rel="noopener">NG3K's ADXO list</a>. <strong style="color:var(--status-warning);">Needed</strong> flags an entity not yet worked.</p>
     <div class="dxpedition-list" id="dxpedition-list"></div>
   </div>
 
-  <div class="card" style="margin-top:1.5rem;">
+  <div class="card" style="margin-top:1.5rem;" data-tile-id="upcoming-contests">
     <h2>Upcoming Contests</h2>
     <p style="margin:0;color:var(--muted);font-size:0.85rem;">Via the <a href="https://www.contestcalendar.com" target="_blank" rel="noopener">WA7BNM Contest Calendar</a>.</p>
     <div class="contest-list" id="contest-list"></div>
   </div>
 
-  <div class="card" style="margin-top:1.5rem;">
+  <div class="card" style="margin-top:1.5rem;" data-tile-id="psk-reporter">
     <h2>Recently Heard (PSK Reporter)</h2>
     <p style="margin:0;color:var(--muted);font-size:0.85rem;">Who's decoding this station's signal, via <a href="https://pskreporter.info" target="_blank" rel="noopener">PSK Reporter</a> &mdash; FT8/FT4/digital, last hour.</p>
     <p style="margin:0.15rem 0 0;color:var(--muted);font-size:0.78rem;" id="psk-updated-at"></p>
@@ -158,7 +163,7 @@ import '../styles/lastHeardTable.css';
     <div class="psk-table" id="psk-table"></div>
   </div>
 
-  <div class="card" style="margin-top:1.5rem;">
+  <div class="card" style="margin-top:1.5rem;" data-tile-id="wspr-reports">
     <h2>WSPR Reception Reports</h2>
     <p style="margin:0;color:var(--muted);font-size:0.85rem;">Who's decoding this station's WSPR beacon, via <a href="https://wspr.live" target="_blank" rel="noopener">wspr.live</a>. Empty unless actively beaconing WSPR.</p>
     <p style="margin:0.15rem 0 0;color:var(--muted);font-size:0.78rem;" id="wspr-updated-at"></p>
@@ -166,12 +171,13 @@ import '../styles/lastHeardTable.css';
     <div class="psk-table" id="wspr-table"></div>
   </div>
 
-  <div class="card" style="margin-top:1.5rem;">
+  <div class="card" style="margin-top:1.5rem;" data-tile-id="rbn-reports">
     <h2>CW/RTTY Skimmer Reports (Reverse Beacon Network)</h2>
     <p style="margin:0;color:var(--muted);font-size:0.85rem;">Who's decoding this station's CW/RTTY signal, via the <a href="https://www.reversebeacon.net" target="_blank" rel="noopener">Reverse Beacon Network</a>. Empty unless currently on CW or RTTY.</p>
     <p style="margin:0.15rem 0 0;color:var(--muted);font-size:0.78rem;" id="rbn-updated-at"></p>
     <div id="rbn-map"></div>
     <div class="psk-table" id="rbn-table"></div>
+  </div>
   </div>
 
   <script>
@@ -183,6 +189,11 @@ import '../styles/lastHeardTable.css';
     import { fetchDistanceUnit, formatDistance, type DistanceUnit } from '../lib/units';
     import { greatCircleArc } from '../lib/geo';
     import { gridToLatLon } from '../lib/maidenhead';
+    import { applyTileLayout } from '../lib/tileLayout';
+
+    for (const id of ['conditions-tiles-propagation', 'conditions-tiles-sky', 'conditions-tiles-activity']) {
+      applyTileLayout('conditions', document.getElementById(id)!);
+    }
 
     const TOKEN_KEY = 'hamstation_admin_token';
 

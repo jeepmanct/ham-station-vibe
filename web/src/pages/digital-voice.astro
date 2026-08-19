@@ -7,13 +7,14 @@ import '../styles/lastHeardTable.css';
   <h1>Digital Voice</h1>
   <p class="lede">DMR and D-STAR network activity, plus a repeater offset lookup &mdash; independent of this station's own radio.</p>
 
-  <div class="card">
+  <div id="digital-voice-tiles">
+  <div class="card" data-tile-id="dmr-last-heard">
     <h2>DMR Last Heard (BrandMeister)</h2>
     <p style="margin:0;color:var(--muted);font-size:0.85rem;">Recent activity on this site's configured DMR talkgroup(s), via <a href="https://brandmeister.network" target="_blank" rel="noopener">BrandMeister</a> &mdash; not specific to this station's own reception.</p>
     <div class="psk-table" id="dmr-table"></div>
   </div>
 
-  <div class="card" style="margin-top:1.5rem;">
+  <div class="card" style="margin-top:1.5rem;" data-tile-id="dstar-last-heard">
     <h2>D-STAR Last Heard (REF069)</h2>
     <p style="margin:0;color:var(--muted);font-size:0.85rem;">Recent activity on the Connecticut D-STAR Group's REF069 reflector, via <a href="https://ctdstar.org/reflector.html" target="_blank" rel="noopener">ctdstar.org</a> &mdash; not specific to this station's own reception. Times are the reflector's own clock.</p>
     <p style="margin:0.15rem 0 0;color:var(--muted);font-size:0.78rem;" id="dstar-updated-at"></p>
@@ -46,9 +47,13 @@ import '../styles/lastHeardTable.css';
     <p style="margin:1rem 0 0.4rem;color:var(--muted);font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;">Standard CTCSS Tones (Hz)</p>
     <p class="ctcss-tones">67.0, 69.3, 71.9, 74.4, 77.0, 79.7, 82.5, 85.4, 88.5, 91.5, 94.8, 97.4, 100.0, 103.5, 107.2, 110.9, 114.8, 118.8, 123.0, 127.3, 131.8, 136.5, 141.3, 146.2, 151.4, 156.7, 159.8, 162.2, 165.5, 167.9, 171.3, 173.8, 177.3, 179.9, 183.5, 186.2, 189.9, 192.8, 196.6, 199.5, 203.5, 206.5, 210.7, 218.1, 225.7, 229.1, 233.6, 241.8, 250.3, 254.1</p>
   </div>
+  </div>
 
   <script>
     import { escapeHtml } from '../lib/escapeHtml';
+    import { applyTileLayout } from '../lib/tileLayout';
+
+    applyTileLayout('digital-voice', document.getElementById('digital-voice-tiles')!);
 
     function formatTimeAgo(unixSeconds: number | null): string {
       if (!unixSeconds) return '';
