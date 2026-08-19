@@ -155,6 +155,14 @@ export type KiwiSdrStatus = {
   listenerCount: number | null;
   listenerMax: number | null;
   source: { isPublic: boolean; label: string };
+  /** How many browsers on THIS site currently have audio open against the
+   * shared receiver -- distinct from listenerCount/listenerMax above,
+   * which are the Kiwi's OWN /status numbers and can include listeners
+   * who reached it some other way entirely (its own web UI, another
+   * site). audioListeners' size already tracks exactly this, one entry
+   * per connected /ws/kiwisdr-audio socket -- no separate presence
+   * tracking needed. */
+  siteListeners: number;
 };
 
 export async function getKiwiSdrStatus(): Promise<KiwiSdrStatus> {
@@ -178,6 +186,7 @@ export async function getKiwiSdrStatus(): Promise<KiwiSdrStatus> {
     maxWfZoom: MAX_WF_ZOOM,
     listenerCount: listeners?.users ?? null,
     listenerMax: listeners?.usersMax ?? null,
+    siteListeners: audioListeners.size,
   };
 }
 

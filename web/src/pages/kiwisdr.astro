@@ -116,6 +116,7 @@ import '../styles/kiwisdr.css';
           <input type="checkbox" id="kiwi-agc-enabled" checked /> AGC
         </label>
         <span class="status-line" id="kiwi-listener-count" style="margin:0;"></span>
+        <span class="kiwi-site-listeners" id="kiwi-site-listeners" title="How many browsers on this site currently have audio open to this receiver"></span>
       </div>
 
       <!-- Only picks which step size the slider below nudges by -- the
@@ -211,6 +212,7 @@ import '../styles/kiwisdr.css';
       listenerCount: number | null;
       listenerMax: number | null;
       source: { isPublic: boolean; label: string };
+      siteListeners: number;
     };
 
     type PublicKiwiEntry = {
@@ -259,6 +261,7 @@ import '../styles/kiwisdr.css';
     const bandwidthSelect = document.getElementById('kiwi-bandwidth') as HTMLSelectElement;
     const agcCheckbox = document.getElementById('kiwi-agc-enabled') as HTMLInputElement;
     const listenerCountEl = document.getElementById('kiwi-listener-count')!;
+    const siteListenersEl = document.getElementById('kiwi-site-listeners')!;
     const wfZoomSelect = document.getElementById('kiwi-wf-zoom') as HTMLSelectElement;
     const bandSelect = document.getElementById('kiwi-band-select') as HTMLSelectElement;
     const timeSelect = document.getElementById('kiwi-time-select') as HTMLSelectElement;
@@ -332,6 +335,7 @@ import '../styles/kiwisdr.css';
         s.listenerCount != null && s.listenerMax != null
           ? `${s.listenerCount} of ${s.listenerMax} receive channel${s.listenerMax === 1 ? '' : 's'} in use`
           : '';
+      siteListenersEl.textContent = `🎧 ${s.siteListeners} listening on this site now`;
 
       if (s.smeterDbm == null) {
         smeterFill.style.width = '0%';

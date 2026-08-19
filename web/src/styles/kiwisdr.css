@@ -27,6 +27,14 @@
 .kiwi-radio-controls label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--muted); }
 .kiwi-agc-toggle input { width: auto; }
 #kiwi-listener-count { color: var(--muted); font-size: 0.82rem; }
+.kiwi-site-listeners {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+}
 
 .kiwi-step-group { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.6rem; }
 .kiwi-step-group .btn { padding: 0.35rem 0.55rem; font-size: 0.78rem; }
