@@ -19,7 +19,16 @@ import '../styles/map.css';
   </label>
   <span class="status-line" id="aurora-status" style="margin-left:0.5rem;"></span>
 
+  <div class="map-view-toggle" style="margin-top:1rem;">
+    <button type="button" class="btn secondary active" id="view-2d-btn">2D Map</button>
+    <button type="button" class="btn secondary" id="view-3d-btn">3D Globe</button>
+  </div>
+
   <div id="qso-map"></div>
+  <div id="qso-globe-wrap" hidden>
+    <canvas id="qso-globe" width="900" height="900"></canvas>
+    <p class="chart-desc" style="margin-top:0.5rem;">Drag to rotate &mdash; spins on its own when you let go.</p>
+  </div>
   <p id="map-status" class="status-line" style="margin-top:0.5rem;"></p>
 
   <script>
@@ -29,6 +38,7 @@ import '../styles/map.css';
     import { initQsoFilters } from '../lib/qsoFilters';
     import { terminatorPoints, subsolarPoint } from '../lib/grayline';
     import { escapeHtml } from '../lib/escapeHtml';
+    import { projectPoint, loadLandPolygons } from '../lib/globe';
 
     type Point = {
       call: string;
@@ -175,6 +185,242 @@ import '../styles/map.css';
       }
     });
 
+    // --- 3D globe view -- an orthographic projection (see lib/globe.ts)
+    // rendered in a plain <canvas>, no WebGL/3D library. Reuses the same
+    // QSO arc data the 2D map already fetches/computes rather than
+    // running its own separate query. ---
+    type GlobeArc = { points: [number, number][]; color: string; destLat: number; destLon: number };
+    let lastGlobeData: { home: { lat: number; lon: number }; arcs: GlobeArc[] } | null = null;
+    let globeActive = false;
+    let landPolygons: [number, number][][] | null = null;
+
+    const globeStyle = getComputedStyle(document.documentElement);
+    const GLOBE_OCEAN = globeStyle.getPropertyValue('--globe-ocean').trim();
+    const GLOBE_LAND = globeStyle.getPropertyValue('--globe-land').trim();
+    const GLOBE_GRATICULE = globeStyle.getPropertyValue('--globe-graticule').trim();
+
+    const globeCanvas = document.getElementById('qso-globe') as HTMLCanvasElement;
+    const globeCtx = globeCanvas.getContext('2d')!;
+    let centerLat = 15;
+    let centerLon = -40;
+    let rotateSpeedDegPerSec = 6;
+    let lastFrameTime: number | null = null;
+    let globeRafId: number | null = null;
+
+    function toScreen(lat: number, lon: number, R: number, cx: number, cy: number) {
+      const p = projectPoint(lat, lon, centerLat, centerLon);
+      // Canvas y grows downward; the projection's y grows "up" (toward the
+      // north pole when centered on the equator), so it's flipped here
+      // rather than baked into the shared projection helper.
+      return { x: cx + p.x * R, y: cy - p.y * R, z: p.z };
+    }
+
+    function renderGlobeFrame() {
+      const w = globeCanvas.width;
+      const h = globeCanvas.height;
+      const cx = w / 2;
+      const cy = h / 2;
+      const R = Math.min(w, h) * 0.46;
+      globeCtx.clearRect(0, 0, w, h);
+
+      const grad = globeCtx.createRadialGradient(cx - R * 0.3, cy - R * 0.35, R * 0.05, cx, cy, R);
+      grad.addColorStop(0, GLOBE_OCEAN);
+      grad.addColorStop(1, GLOBE_LAND === GLOBE_OCEAN ? GLOBE_OCEAN : GLOBE_OCEAN);
+      globeCtx.beginPath();
+      globeCtx.arc(cx, cy, R, 0, Math.PI * 2);
+      globeCtx.fillStyle = grad;
+      globeCtx.fill();
+
+      // Graticule -- meridians every 30°, parallels at ±30/±60, drawn as
+      // separate visible-only subpaths (see the module comment above) so
+      // a line doesn't zigzag across the disc when it crosses the horizon.
+      globeCtx.strokeStyle = GLOBE_GRATICULE;
+      globeCtx.lineWidth = 1;
+      for (let lon = -180; lon < 180; lon += 30) {
+        globeCtx.beginPath();
+        let drawing = false;
+        for (let lat = -90; lat <= 90; lat += 3) {
+          const pt = toScreen(lat, lon, R, cx, cy);
+          if (pt.z > 0) {
+            if (drawing) globeCtx.lineTo(pt.x, pt.y);
+            else {
+              globeCtx.moveTo(pt.x, pt.y);
+              drawing = true;
+            }
+          } else {
+            drawing = false;
+          }
+        }
+        globeCtx.stroke();
+      }
+      for (let lat = -60; lat <= 60; lat += 30) {
+        globeCtx.beginPath();
+        let drawing = false;
+        for (let lon = -180; lon <= 180; lon += 3) {
+          const pt = toScreen(lat, lon, R, cx, cy);
+          if (pt.z > 0) {
+            if (drawing) globeCtx.lineTo(pt.x, pt.y);
+            else {
+              globeCtx.moveTo(pt.x, pt.y);
+              drawing = true;
+            }
+          } else {
+            drawing = false;
+          }
+        }
+        globeCtx.stroke();
+      }
+
+      // Land -- only fills a ring when every one of its points is
+      // currently on the visible hemisphere. A ring straddling the
+      // horizon just doesn't render THIS frame rather than risking a
+      // wrong fill shape from naively closing a path across the back of
+      // the globe; it rotates into (or stays in) view a few frames
+      // later, same as it left.
+      if (landPolygons) {
+        globeCtx.fillStyle = GLOBE_LAND;
+        for (const ring of landPolygons) {
+          let visible = true;
+          const screenPts: { x: number; y: number }[] = [];
+          for (const [lon, lat] of ring) {
+            const pt = toScreen(lat, lon, R, cx, cy);
+            if (pt.z <= 0) {
+              visible = false;
+              break;
+            }
+            screenPts.push(pt);
+          }
+          if (!visible || screenPts.length < 3) continue;
+          globeCtx.beginPath();
+          globeCtx.moveTo(screenPts[0].x, screenPts[0].y);
+          for (let i = 1; i < screenPts.length; i++) globeCtx.lineTo(screenPts[i].x, screenPts[i].y);
+          globeCtx.closePath();
+          globeCtx.fill();
+        }
+      }
+
+      // QSO arcs + destination dots + home marker.
+      if (lastGlobeData) {
+        for (const arc of lastGlobeData.arcs) {
+          globeCtx.strokeStyle = arc.color;
+          globeCtx.lineWidth = 1.2;
+          globeCtx.beginPath();
+          let prev: { x: number; y: number; z: number } | null = null;
+          for (const [lat, lon] of arc.points) {
+            const pt = toScreen(lat, lon, R, cx, cy);
+            if (prev && prev.z > 0 && pt.z > 0) {
+              globeCtx.moveTo(prev.x, prev.y);
+              globeCtx.lineTo(pt.x, pt.y);
+            }
+            prev = pt;
+          }
+          globeCtx.stroke();
+
+          const dest = toScreen(arc.destLat, arc.destLon, R, cx, cy);
+          if (dest.z > 0) {
+            globeCtx.beginPath();
+            globeCtx.arc(dest.x, dest.y, 2.5, 0, Math.PI * 2);
+            globeCtx.fillStyle = arc.color;
+            globeCtx.fill();
+          }
+        }
+
+        const homePt = toScreen(lastGlobeData.home.lat, lastGlobeData.home.lon, R, cx, cy);
+        if (homePt.z > 0) {
+          globeCtx.beginPath();
+          globeCtx.arc(homePt.x, homePt.y, 5, 0, Math.PI * 2);
+          globeCtx.fillStyle = ACCENT_COLOR;
+          globeCtx.fill();
+          globeCtx.lineWidth = 1.5;
+          globeCtx.strokeStyle = '#fff';
+          globeCtx.stroke();
+        }
+      }
+    }
+
+    function globeAnimationStep(t: number) {
+      if (!globeActive) {
+        globeRafId = null;
+        lastFrameTime = null;
+        return;
+      }
+      const dt = lastFrameTime == null ? 0 : (t - lastFrameTime) / 1000;
+      lastFrameTime = t;
+      if (!dragging) {
+        centerLon += rotateSpeedDegPerSec * dt;
+        if (centerLon > 180) centerLon -= 360;
+      }
+      renderGlobeFrame();
+      globeRafId = requestAnimationFrame(globeAnimationStep);
+    }
+
+    function requestGlobeRedraw() {
+      if (!globeActive || globeRafId != null) return;
+      globeRafId = requestAnimationFrame(globeAnimationStep);
+    }
+
+    // Drag-to-rotate -- pointer events cover mouse and touch in one
+    // handler set rather than separate mouse/touchstart listeners.
+    let dragging = false;
+    let dragLastX = 0;
+    let dragLastY = 0;
+    globeCanvas.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      dragLastX = e.clientX;
+      dragLastY = e.clientY;
+      globeCanvas.setPointerCapture(e.pointerId);
+    });
+    globeCanvas.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - dragLastX;
+      const dy = e.clientY - dragLastY;
+      dragLastX = e.clientX;
+      dragLastY = e.clientY;
+      // 0.35 deg/px -- tuned so a full canvas-width drag rotates a bit
+      // more than halfway around, a comfortable one-swipe amount rather
+      // than needing several drags to spin the globe around.
+      centerLon += dx * 0.35;
+      centerLat = Math.max(-85, Math.min(85, centerLat + dy * 0.35));
+      if (centerLon > 180) centerLon -= 360;
+      if (centerLon < -180) centerLon += 360;
+    });
+    const endDrag = () => {
+      dragging = false;
+    };
+    globeCanvas.addEventListener('pointerup', endDrag);
+    globeCanvas.addEventListener('pointercancel', endDrag);
+
+    const view2dBtn = document.getElementById('view-2d-btn')!;
+    const view3dBtn = document.getElementById('view-3d-btn')!;
+    const globeWrap = document.getElementById('qso-globe-wrap')!;
+    const mapDiv = document.getElementById('qso-map')!;
+
+    async function activateGlobeView() {
+      globeActive = true;
+      view3dBtn.classList.add('active');
+      view2dBtn.classList.remove('active');
+      mapDiv.style.display = 'none';
+      globeWrap.hidden = false;
+      if (!landPolygons) {
+        try {
+          landPolygons = await loadLandPolygons();
+        } catch {
+          landPolygons = [];
+        }
+      }
+      requestGlobeRedraw();
+    }
+    function activate2dView() {
+      globeActive = false;
+      view2dBtn.classList.add('active');
+      view3dBtn.classList.remove('active');
+      globeWrap.hidden = true;
+      mapDiv.style.display = '';
+      map.invalidateSize();
+    }
+    view3dBtn.addEventListener('click', activateGlobeView);
+    view2dBtn.addEventListener('click', activate2dView);
+
     // The home marker is a fixed reference point, not "QSO data" — shown
     // immediately regardless of the filter state below, via its own fetch
     // rather than piggybacking on the (possibly-skipped) filtered one.
@@ -211,9 +457,16 @@ import '../styles/map.css';
         return;
       }
 
+      // Reused by the 3D globe view below -- same arc points already
+      // being computed for the 2D map's polylines, just kept around
+      // instead of thrown away, so switching views doesn't mean
+      // re-running greatCircleArc's spherical-slerp math a second time.
+      const globeArcs: { points: [number, number][]; color: string; destLat: number; destLon: number }[] = [];
+
       for (const p of data.points) {
         const arc = greatCircleArc(data.home.lat, data.home.lon, p.lat, p.lon, 16);
         const color = colorForBand(p.band);
+        globeArcs.push({ points: arc, color, destLat: p.lat, destLon: p.lon });
         const tooltipText = `${escapeHtml(p.call)} · ${escapeHtml(p.band ?? '—')} · ${escapeHtml(p.mode ?? '—')}`;
         const popupHtml = `<div class="qso-popup">
             <strong>${escapeHtml(p.call)}</strong><br/>
@@ -243,6 +496,8 @@ import '../styles/map.css';
       }
 
       mapStatus.textContent = `Showing ${data.points.length} contacts`;
+      lastGlobeData = { home: data.home, arcs: globeArcs };
+      if (globeActive) requestGlobeRedraw();
     }
 
     initQsoFilters(loadData, { colorForBand, startUnselected: true });
