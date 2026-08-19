@@ -189,11 +189,15 @@ import '../styles/lastHeardTable.css';
     import { fetchDistanceUnit, formatDistance, type DistanceUnit } from '../lib/units';
     import { greatCircleArc } from '../lib/geo';
     import { gridToLatLon } from '../lib/maidenhead';
-    import { applyTileLayout } from '../lib/tileLayout';
+    import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
 
-    for (const id of ['conditions-tiles-propagation', 'conditions-tiles-sky', 'conditions-tiles-activity']) {
-      applyTileLayout('conditions', document.getElementById(id)!);
+    const conditionsTileContainers = ['conditions-tiles-propagation', 'conditions-tiles-sky', 'conditions-tiles-activity'].map(
+      (id) => document.getElementById(id)!,
+    );
+    for (const container of conditionsTileContainers) {
+      applyTileLayout('conditions', container);
     }
+    enableInlineTileEditing('conditions', conditionsTileContainers);
 
     const TOKEN_KEY = 'hamstation_admin_token';
 

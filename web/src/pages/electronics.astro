@@ -213,9 +213,10 @@ import Base from '../layouts/Base.astro';
   </div>
 
   <script>
-    import { applyTileLayout } from '../lib/tileLayout';
+    import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
 
     applyTileLayout('electronics', document.getElementById('electronics-tiles')!);
+    enableInlineTileEditing('electronics', [document.getElementById('electronics-tiles')!]);
 
     // --- Resistor color code ---
     type ResColor = { name: string; digit?: number; mult?: number; tol?: number };

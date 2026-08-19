@@ -902,3 +902,69 @@ footer a:hover { text-decoration: underline; }
   font-size: 1.1rem;
   line-height: 1;
 }
+
+/* Inline tile editing (drag/hide directly on live pages) -- injected only
+   when an admin session already exists, see lib/tileLayout.ts's
+   enableInlineTileEditing(). */
+.tile-edit-toggle {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: 500;
+  box-shadow: var(--shadow);
+}
+.tile-edit-toggle.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.tile-edit-status {
+  position: fixed;
+  bottom: 1.35rem;
+  right: 8.5rem;
+  z-index: 500;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.4rem 0.75rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  box-shadow: var(--shadow);
+}
+.tile-edit-status[hidden] { display: none; }
+.tile-editing {
+  position: relative;
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+}
+.tile-edit-hidden { opacity: 0.45; }
+.tile-dragging { opacity: 0.6; }
+.tile-edit-controls {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.2rem 0.4rem;
+  box-shadow: var(--shadow);
+}
+.tile-edit-handle {
+  cursor: grab;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--muted);
+  padding: 0 0.2rem;
+  touch-action: none;
+}
+.tile-edit-handle:active { cursor: grabbing; }
+.tile-edit-hide-btn {
+  border: none;
+  background: var(--bg-2);
+  color: var(--fg);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  cursor: pointer;
+}

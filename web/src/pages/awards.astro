@@ -158,11 +158,13 @@ import '../styles/awards.css';
     import 'leaflet/dist/leaflet.css';
     import L from 'leaflet';
     import { downloadOrShareImage } from '../lib/downloadImage';
-    import { applyTileLayout } from '../lib/tileLayout';
+    import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
 
-    for (const id of ['awards-tiles-top', 'awards-tiles-grid']) {
-      applyTileLayout('awards', document.getElementById(id)!);
+    const awardsTileContainers = ['awards-tiles-top', 'awards-tiles-grid'].map((id) => document.getElementById(id)!);
+    for (const container of awardsTileContainers) {
+      applyTileLayout('awards', container);
     }
+    enableInlineTileEditing('awards', awardsTileContainers);
 
     // Fetched once up front for use in certificate rendering/filenames --
     // see log.astro's identical pattern for why a one-shot fetch is enough.

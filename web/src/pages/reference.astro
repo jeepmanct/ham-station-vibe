@@ -143,11 +143,15 @@ import '../styles/reference.css';
 
   <script>
     import { MORSE } from '../lib/morse';
-    import { applyTileLayout } from '../lib/tileLayout';
+    import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
 
-    for (const id of ['reference-tiles-top', 'reference-tiles-grid', 'reference-tiles-resources']) {
-      applyTileLayout('reference', document.getElementById(id)!);
+    const referenceTileContainers = ['reference-tiles-top', 'reference-tiles-grid', 'reference-tiles-resources'].map(
+      (id) => document.getElementById(id)!,
+    );
+    for (const container of referenceTileContainers) {
+      applyTileLayout('reference', container);
     }
+    enableInlineTileEditing('reference', referenceTileContainers);
 
     // --- License exam question of the day -- loaded once (it's the same
     // question all UTC day, see examQuestion.ts), answer choices revealed

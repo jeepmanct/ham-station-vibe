@@ -75,9 +75,10 @@ import '../styles/syncStatus.css';
   </section>
 
   <script>
-    import { applyTileLayout } from '../lib/tileLayout';
+    import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
 
     applyTileLayout('status', document.getElementById('status-tiles')!);
+    enableInlineTileEditing('status', [document.getElementById('status-tiles')!]);
 
     const TOKEN_KEY = 'hamstation_admin_token';
 

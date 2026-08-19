@@ -156,11 +156,13 @@ import '../styles/radio.css';
   </div>
 
   <script>
-    import { applyTileLayout } from '../lib/tileLayout';
+    import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
 
-    for (const id of ['radio-tile-onair', 'radio-tile-sessions']) {
-      applyTileLayout('radio', document.getElementById(id)!);
+    const radioTileContainers = ['radio-tile-onair', 'radio-tile-sessions'].map((id) => document.getElementById(id)!);
+    for (const container of radioTileContainers) {
+      applyTileLayout('radio', container);
     }
+    enableInlineTileEditing('radio', radioTileContainers);
 
     type SliceStatus = { index: number; frequencyMhz: number | null; mode: string | null; txActive: boolean; active: boolean; clientHandle: string | null; signalDbm: number | null };
     type RadioStatus = {

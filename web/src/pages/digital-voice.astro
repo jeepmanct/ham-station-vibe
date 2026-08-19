@@ -51,9 +51,10 @@ import '../styles/lastHeardTable.css';
 
   <script>
     import { escapeHtml } from '../lib/escapeHtml';
-    import { applyTileLayout } from '../lib/tileLayout';
+    import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
 
     applyTileLayout('digital-voice', document.getElementById('digital-voice-tiles')!);
+    enableInlineTileEditing('digital-voice', [document.getElementById('digital-voice-tiles')!]);
 
     function formatTimeAgo(unixSeconds: number | null): string {
       if (!unixSeconds) return '';

@@ -85,9 +85,10 @@ import Base from '../layouts/Base.astro';
   </section>
 
   <script>
-    import { applyTileLayout } from '../lib/tileLayout';
+    import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
 
     applyTileLayout('home', document.getElementById('home-tiles')!);
+    enableInlineTileEditing('home', [document.getElementById('home-tiles')!]);
 
     fetch('/api/station-location')
       .then((r) => r.json())

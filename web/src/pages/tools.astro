@@ -394,7 +394,7 @@ import '../styles/tools.css';
 
   <script>
     import { gridToLatLon, latLonToGrid, distanceKm, bearingDeg } from '../lib/maidenhead';
-    import { applyTileLayout } from '../lib/tileLayout';
+    import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
 
     // Split into 3 grids (Location & Distance / Antenna & RF / Time & Log
     // Lookups) for scannability now that there are 20 cards, but all three
@@ -402,9 +402,13 @@ import '../styles/tools.css';
     // ever touches a container's own [data-tile-id] children, so calling it
     // once per grid with the same page key is safe and keeps Admin's
     // existing Page Layout reorder/hide controls working unchanged.
-    for (const id of ['tools-tiles-location', 'tools-tiles-rf', 'tools-tiles-lookup']) {
-      applyTileLayout('tools', document.getElementById(id)!);
+    const toolsTileContainers = ['tools-tiles-location', 'tools-tiles-rf', 'tools-tiles-lookup'].map(
+      (id) => document.getElementById(id)!,
+    );
+    for (const container of toolsTileContainers) {
+      applyTileLayout('tools', container);
     }
+    enableInlineTileEditing('tools', toolsTileContainers);
 
     // --- Grid <-> Lat/Lon ---
     const gridInput = document.getElementById('grid-input') as HTMLInputElement;

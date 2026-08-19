@@ -119,9 +119,10 @@ import '../styles/stats.css';
   <script>
     import { renderBarChart, renderLineChart, renderMultiLineChart } from '../lib/charts';
     import { fetchDistanceUnit, formatDistance } from '../lib/units';
-    import { applyTileLayout } from '../lib/tileLayout';
+    import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
 
     applyTileLayout('stats', document.getElementById('stats-tiles')!);
+    enableInlineTileEditing('stats', [document.getElementById('stats-tiles')!]);
 
     const style = getComputedStyle(document.documentElement);
     const ACCENT = style.getPropertyValue('--accent').trim();
