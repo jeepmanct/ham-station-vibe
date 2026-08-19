@@ -7,6 +7,7 @@
   border: 1px solid var(--border);
 }
 .qso-popup a.btn { display:inline-flex; margin-top:0.4rem; }
+.qso-popup a.btn + a.btn { margin-left:0.4rem; }
 
 .map-view-toggle { display: flex; gap: 0.5rem; }
 .map-view-toggle .btn.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }

@@ -474,6 +474,7 @@ import '../styles/map.css';
             ${p.country || p.state || p.gridsquare ? `${escapeHtml(p.country ?? '')}${p.state ? `, ${escapeHtml(p.state)}` : ''}${p.gridsquare ? ` (${escapeHtml(p.gridsquare)})` : ''}<br/>` : ''}
             ${formatSolar(p) ? `<span style="color:var(--muted);">${escapeHtml(formatSolar(p))}</span><br/>` : ''}
             <a class="btn" href="https://www.qrz.com/db/${encodeURIComponent(p.call)}" target="_blank" rel="noopener">View on QRZ.com ↗</a>
+            <a class="btn" href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${p.lat},${p.lon}" target="_blank" rel="noopener">Street View ↗</a>
           </div>`;
 
         const line = L.polyline(arc, { color, weight: 1.5, opacity: 0.65, renderer });
