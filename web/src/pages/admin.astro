@@ -549,6 +549,8 @@ import Base from '../layouts/Base.astro';
   </section>
 
   <script>
+    import { autoScrollWhileDragging } from '../lib/tileLayout';
+
     const TOKEN_KEY = 'hamstation_admin_token';
 
     const loginSection = document.getElementById('login-section')!;
@@ -569,10 +571,6 @@ import Base from '../layouts/Base.astro';
       loadKiwiVisibility();
       loadLightningMonitoring();
       loadDistanceUnit();
-    }
-
-    if (sessionStorage.getItem(TOKEN_KEY)) {
-      showAdmin();
     }
 
     document.getElementById('login-form')!.addEventListener('submit', async (e) => {
@@ -880,8 +878,12 @@ import Base from '../layouts/Base.astro';
         const draggingPointerId = ev.pointerId;
         row.classList.add('dragging');
 
+        let lastClientY = ev.clientY;
+        const stopAutoScroll = autoScrollWhileDragging(() => lastClientY);
+
         function onMove(moveEv: PointerEvent) {
           if (moveEv.pointerId !== draggingPointerId) return;
+          lastClientY = moveEv.clientY;
           const rows = Array.from(tlList.querySelectorAll<HTMLLIElement>('.tl-row:not(.dragging)'));
           const after = rows.find((r) => {
             const box = r.getBoundingClientRect();
@@ -893,6 +895,7 @@ import Base from '../layouts/Base.astro';
         function onEnd(endEv: PointerEvent) {
           if (endEv.pointerId !== draggingPointerId) return;
           row.classList.remove('dragging');
+          stopAutoScroll();
           document.removeEventListener('pointermove', onMove);
           document.removeEventListener('pointerup', onEnd);
           document.removeEventListener('pointercancel', onEnd);
@@ -2049,6 +2052,22 @@ import Base from '../layouts/Base.astro';
         alertDxFilterStatus.textContent = body.error ?? 'Save failed.';
       }
     });
+
+    // Moved here from right after showAdmin()'s own definition, near the top
+    // of this script -- showAdmin() calls into functions/reads consts (e.g.
+    // tlPageSelect, declared much further down for the Page Layout section)
+    // that don't exist yet that early in the file's top-level evaluation
+    // order. Calling it immediately on a page load where a session already
+    // exists hit that TDZ and threw -- which, since it's a synchronous
+    // top-level throw, silently aborted the rest of this script's own
+    // evaluation, including every event listener below the throw point
+    // (logout button included). Running this only after every other
+    // top-level declaration in the file has finished evaluating avoids it
+    // entirely, without having to hunt down or reorder every individual
+    // thing showAdmin() touches.
+    if (sessionStorage.getItem(TOKEN_KEY)) {
+      showAdmin();
+    }
   </script>
 
   <style is:global>

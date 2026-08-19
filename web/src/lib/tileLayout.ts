@@ -39,6 +39,43 @@ export async function applyTileLayout(page: string, container: HTMLElement): Pro
 
 const TOKEN_KEY = 'hamstation_admin_token';
 
+/**
+ * Auto-scrolls the page while a drag pointer sits near the top/bottom
+ * viewport edge -- without this, a drag target taller than the screen
+ * (routine on a phone, where a single tile or even a handful of admin list
+ * rows can be the whole viewport) can never reach a drop position that's
+ * currently off-screen, since the pointer physically can't go past the edge
+ * of the glass. Shared between this file's own tile dragging and
+ * admin.astro's list-row dragging, which hits the identical problem.
+ *
+ * `getY()` returns the drag pointer's current viewport-relative clientY --
+ * a getter rather than a plain value so the caller's own pointermove handler
+ * (which is what actually tracks the latest position) doesn't need to also
+ * reach back into this module to keep it updated. Returns a stop function;
+ * call it on pointerup/pointercancel.
+ */
+export function autoScrollWhileDragging(getY: () => number): () => void {
+  const EDGE_ZONE = 80;
+  const MAX_SPEED = 16;
+  let raf: number | null = null;
+
+  function step() {
+    const y = getY();
+    const fromTop = y;
+    const fromBottom = window.innerHeight - y;
+    let dy = 0;
+    if (fromTop < EDGE_ZONE) dy = -MAX_SPEED * (1 - fromTop / EDGE_ZONE);
+    else if (fromBottom < EDGE_ZONE) dy = MAX_SPEED * (1 - fromBottom / EDGE_ZONE);
+    if (dy !== 0) window.scrollBy(0, dy);
+    raf = requestAnimationFrame(step);
+  }
+  raf = requestAnimationFrame(step);
+
+  return () => {
+    if (raf != null) cancelAnimationFrame(raf);
+  };
+}
+
 function tileChildren(container: HTMLElement): HTMLElement[] {
   return Array.from(container.children).filter((el): el is HTMLElement => el instanceof HTMLElement && !!el.dataset.tileId);
 }
@@ -111,8 +148,12 @@ export function enableInlineTileEditing(page: string, containers: HTMLElement[])
       const draggingPointerId = ev.pointerId;
       tile.classList.add('tile-dragging');
 
+      let lastClientY = ev.clientY;
+      const stopAutoScroll = autoScrollWhileDragging(() => lastClientY);
+
       function onMove(moveEv: PointerEvent) {
         if (moveEv.pointerId !== draggingPointerId) return;
+        lastClientY = moveEv.clientY;
         const siblings = tileChildren(container).filter((el) => el !== tile);
         const after = siblings.find((el) => {
           const box = el.getBoundingClientRect();
@@ -124,6 +165,7 @@ export function enableInlineTileEditing(page: string, containers: HTMLElement[])
       function onEnd(endEv: PointerEvent) {
         if (endEv.pointerId !== draggingPointerId) return;
         tile.classList.remove('tile-dragging');
+        stopAutoScroll();
         document.removeEventListener('pointermove', onMove);
         document.removeEventListener('pointerup', onEnd);
         document.removeEventListener('pointercancel', onEnd);
