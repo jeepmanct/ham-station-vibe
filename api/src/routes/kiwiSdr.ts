@@ -8,7 +8,12 @@ import {
   setWfZoom,
   setKiwiSdrEnabled,
   sampleNoiseFloor,
+  switchToPublicReceiver,
+  switchToOwnReceiver,
 } from '../kiwiSdr';
+import { fetchPublicKiwiDirectory } from '../kiwiPublicDirectory';
+import { distanceKm } from '../maidenhead';
+import { getEffectiveHomeLocation } from '../stationLocation';
 
 export const kiwiSdrRoutes = new Hono();
 
@@ -62,6 +67,56 @@ kiwiSdrRoutes.post('/zoom', async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body || typeof body.zoom !== 'number') return c.json({ error: 'Invalid request body' }, 400);
   const result = setWfZoom(body.zoom);
+  if (!result.ok) return c.json({ error: result.error }, 400);
+  return c.json(await getKiwiSdrStatus());
+});
+
+// Read-only, open to everyone -- same access level as the status endpoint
+// above, just a list of other receivers rather than this one's state.
+kiwiSdrRoutes.get('/public-directory', async (c) => {
+  c.header('Cache-Control', 'no-store');
+  try {
+    const entries = await fetchPublicKiwiDirectory();
+    const home = getEffectiveHomeLocation();
+    const withDistance = entries.map((e) => ({
+      ...e,
+      distanceKm:
+        home && e.lat != null && e.lon != null
+          ? Math.round(distanceKm({ lat: home.lat, lon: home.lon }, { lat: e.lat, lon: e.lon }))
+          : null,
+    }));
+    withDistance.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+    return c.json({ entries: withDistance });
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : 'Could not load the public receiver directory' }, 502);
+  }
+});
+
+// Open to everyone -- same "shared showcase receiver" reasoning as /tune
+// above: picking a different (already-vetted) public receiver has no
+// remote-control/TX risk. `id` is looked up against the server's own
+// cached directory fetch below rather than trusted directly, so this can't
+// be used to point the backend's outbound connection at an arbitrary
+// host/port (which would otherwise make this an open relay, including to
+// this server's own LAN).
+kiwiSdrRoutes.post('/public/switch', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (!body || typeof body.id !== 'string') return c.json({ error: 'Invalid request body' }, 400);
+  let entries;
+  try {
+    entries = await fetchPublicKiwiDirectory();
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : 'Could not load the public receiver directory' }, 502);
+  }
+  const entry = entries.find((e) => e.id === body.id);
+  if (!entry) return c.json({ error: 'That receiver is no longer listed -- refresh the list and try again.' }, 404);
+  const result = switchToPublicReceiver(entry.hostname, entry.port, entry.name);
+  if (!result.ok) return c.json({ error: result.error }, 400);
+  return c.json(await getKiwiSdrStatus());
+});
+
+kiwiSdrRoutes.post('/public/reset', async (c) => {
+  const result = switchToOwnReceiver();
   if (!result.ok) return c.json({ error: result.error }, 400);
   return c.json(await getKiwiSdrStatus());
 });

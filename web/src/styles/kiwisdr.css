@@ -117,3 +117,13 @@
 
 .kiwi-unconfigured { color: var(--muted); font-size: 0.9rem; }
 
+.kiwi-public-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem 1rem;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+

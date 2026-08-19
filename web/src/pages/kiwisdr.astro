@@ -6,6 +6,30 @@ import '../styles/kiwisdr.css';
   <h1>KiwiSDR</h1>
   <p class="lede">Live audio from KiwiSDR at <span id="kiwi-lede-callsign">this station</span>.</p>
 
+  <div id="kiwi-public-banner" class="card kiwi-public-banner" hidden>
+    <span>Listening to a public receiver: <strong id="kiwi-public-banner-label"></strong></span>
+    <button type="button" class="btn secondary" id="kiwi-public-reset-btn">Switch back to my station</button>
+  </div>
+  <button type="button" class="btn secondary" id="kiwi-public-browse-btn" style="margin-bottom:1rem;">Browse Public Receivers&hellip;</button>
+
+  <div id="kiwi-public-modal-backdrop" class="eqsl-modal-backdrop" hidden>
+    <div class="eqsl-modal" style="max-width:min(720px,100%);">
+      <button type="button" id="kiwi-public-modal-close" class="btn secondary eqsl-modal-close">&times;</button>
+      <h2 style="margin-top:0;">Public KiwiSDR Receivers</h2>
+      <p class="chart-desc" style="margin:0 0 0.75rem;">Sorted by distance from this station. Only receivers currently online and accepting connections are listed.</p>
+      <input type="text" id="kiwi-public-search" placeholder="Search by name or location&hellip;" style="margin-bottom:0.75rem;" />
+      <p class="status-line" id="kiwi-public-status">Loading&hellip;</p>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>Receiver</th><th>Distance</th><th>Users</th><th>SNR</th><th></th></tr>
+          </thead>
+          <tbody id="kiwi-public-rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div id="kiwi-unconfigured" class="card kiwi-unconfigured" hidden>
     KiwiSDR isn't configured yet &mdash; an admin needs to set its address under Admin &rarr; KiwiSDR Configuration.
   </div>
@@ -188,12 +212,28 @@ import '../styles/kiwisdr.css';
       maxWfZoom: number;
       listenerCount: number | null;
       listenerMax: number | null;
+      source: { isPublic: boolean; label: string };
     };
 
+    type PublicKiwiEntry = {
+      id: string;
+      name: string;
+      location: string;
+      users: number;
+      usersMax: number;
+      bestSnr: number | null;
+      distanceKm: number | null;
+    };
+
+    let stationCallsign = 'this station';
+    const ledeCallsignEl = document.getElementById('kiwi-lede-callsign')!;
     fetch('/api/station-location')
       .then((r) => r.json())
       .then((d: { callsign: string | null }) => {
-        if (d.callsign) document.getElementById('kiwi-lede-callsign')!.textContent = d.callsign;
+        if (d.callsign) {
+          stationCallsign = d.callsign;
+          ledeCallsignEl.textContent = stationCallsign;
+        }
       })
       .catch(() => {});
 
@@ -228,6 +268,8 @@ import '../styles/kiwisdr.css';
     const tuneStatus = document.getElementById('kiwi-tune-status')!;
     const freqSlider = document.getElementById('kiwi-freq-slider') as HTMLInputElement;
     const sliderStepLabel = document.getElementById('kiwi-slider-step-label')!;
+    const publicBanner = document.getElementById('kiwi-public-banner')!;
+    const publicBannerLabel = document.getElementById('kiwi-public-banner-label')!;
 
     let lastStatus: KiwiSdrStatus | null = null;
     // Tracks the current frequency in MHz for the controls that need to read
@@ -252,6 +294,13 @@ import '../styles/kiwisdr.css';
       unconfiguredEl.hidden = s.configured;
       disabledEl.hidden = !s.configured || s.enabled;
       contentEl.hidden = !s.configured || !s.enabled;
+      publicBanner.hidden = !s.source.isPublic;
+      if (s.source.isPublic) {
+        publicBannerLabel.textContent = s.source.label;
+        ledeCallsignEl.textContent = s.source.label;
+      } else {
+        ledeCallsignEl.textContent = stationCallsign;
+      }
       if (!s.configured || !s.enabled) return;
 
       // Don't stomp on what the visitor is mid-selecting/dragging in the
@@ -283,6 +332,112 @@ import '../styles/kiwisdr.css';
     }
     loadStatus();
     setInterval(loadStatus, 3000);
+
+    // --- Public receiver picker ---
+    // Switching source is open to everyone, same as tuning -- see
+    // switchToPublicReceiver()'s comment in kiwiSdr.ts for why that's safe
+    // (the id is validated server-side against its own cached directory
+    // fetch, not trusted as a raw host/port).
+    const publicModalBackdrop = document.getElementById('kiwi-public-modal-backdrop')!;
+    const publicSearchInput = document.getElementById('kiwi-public-search') as HTMLInputElement;
+    const publicStatus = document.getElementById('kiwi-public-status')!;
+    const publicRows = document.getElementById('kiwi-public-rows')!;
+    let publicEntries: PublicKiwiEntry[] = [];
+
+    function closePublicModal() {
+      publicModalBackdrop.setAttribute('hidden', '');
+    }
+    document.getElementById('kiwi-public-modal-close')!.addEventListener('click', closePublicModal);
+    publicModalBackdrop.addEventListener('click', (e) => {
+      if (e.target === publicModalBackdrop) closePublicModal();
+    });
+
+    function renderPublicRows() {
+      const query = publicSearchInput.value.trim().toLowerCase();
+      const filtered = query
+        ? publicEntries.filter((e) => `${e.name} ${e.location}`.toLowerCase().includes(query))
+        : publicEntries;
+      publicRows.innerHTML = '';
+      if (filtered.length === 0) {
+        publicStatus.textContent = publicEntries.length === 0 ? 'No public receivers available right now.' : 'No receivers match that search.';
+        return;
+      }
+      publicStatus.textContent = '';
+      for (const entry of filtered) {
+        const tr = document.createElement('tr');
+        const nameTd = document.createElement('td');
+        nameTd.innerHTML = `${entry.name}${entry.location ? `<br><span style="color:var(--muted);font-size:0.82rem;">${entry.location}</span>` : ''}`;
+        const distTd = document.createElement('td');
+        distTd.textContent = entry.distanceKm != null ? `${entry.distanceKm.toLocaleString()} km` : '—';
+        const usersTd = document.createElement('td');
+        usersTd.textContent = `${entry.users} / ${entry.usersMax}`;
+        const snrTd = document.createElement('td');
+        snrTd.textContent = entry.bestSnr != null ? `${entry.bestSnr} dB` : '—';
+        const actionTd = document.createElement('td');
+        const listenBtn = document.createElement('button');
+        listenBtn.type = 'button';
+        listenBtn.className = 'btn secondary';
+        listenBtn.style.cssText = 'padding:0.25rem 0.6rem;font-size:0.75rem;';
+        listenBtn.textContent = 'Listen';
+        listenBtn.addEventListener('click', () => switchToPublicEntry(entry.id, listenBtn));
+        actionTd.appendChild(listenBtn);
+        tr.append(nameTd, distTd, usersTd, snrTd, actionTd);
+        publicRows.appendChild(tr);
+      }
+    }
+    publicSearchInput.addEventListener('input', renderPublicRows);
+
+    async function loadPublicDirectory() {
+      publicStatus.textContent = 'Loading…';
+      publicRows.innerHTML = '';
+      try {
+        const res = await fetch('/api/kiwisdr/public-directory');
+        const body = await res.json();
+        if (!res.ok) {
+          publicStatus.textContent = body.error ?? 'Could not load the public receiver list.';
+          return;
+        }
+        publicEntries = body.entries;
+        renderPublicRows();
+      } catch {
+        publicStatus.textContent = 'Could not load the public receiver list.';
+      }
+    }
+
+    document.getElementById('kiwi-public-browse-btn')!.addEventListener('click', () => {
+      publicModalBackdrop.removeAttribute('hidden');
+      loadPublicDirectory();
+    });
+
+    async function switchToPublicEntry(id: string, btn: HTMLButtonElement) {
+      btn.disabled = true;
+      btn.textContent = 'Connecting…';
+      try {
+        const res = await fetch('/api/kiwisdr/public/switch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          publicStatus.textContent = body.error ?? 'Could not switch receivers.';
+          btn.disabled = false;
+          btn.textContent = 'Listen';
+          return;
+        }
+        closePublicModal();
+        loadStatus();
+      } catch {
+        publicStatus.textContent = 'Could not switch receivers.';
+        btn.disabled = false;
+        btn.textContent = 'Listen';
+      }
+    }
+
+    document.getElementById('kiwi-public-reset-btn')!.addEventListener('click', async () => {
+      await fetch('/api/kiwisdr/public/reset', { method: 'POST' });
+      loadStatus();
+    });
 
     // Retuning always goes straight to the server, whether or not this
     // visitor has clicked Start -- this is one shared receiver, so a band

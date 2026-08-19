@@ -83,7 +83,16 @@ const MODE_PASSBAND_PRESETS: Record<string, Record<BandwidthPreset, [number, num
   nbfm: { narrow: [-4000, 4000], normal: [-6000, 6000], wide: [-8000, 8000] },
 };
 
+// When set, this station's own configured Kiwi is temporarily set aside in
+// favor of a public receiver picked from /kiwisdr's directory browser --
+// see switchToPublicReceiver() below. Deliberately in-memory only, same as
+// currentFreqKhz/currentMode above: an API restart reverts to this
+// station's own receiver rather than remembering the last public pick,
+// which is the sane default for a showcase page.
+let publicOverride: { hostname: string; port: number; label: string } | null = null;
+
 function parseHost(): { hostname: string; port: number } | null {
+  if (publicOverride) return { hostname: publicOverride.hostname, port: publicOverride.port };
   const raw = getKiwiSdrHost();
   if (!raw) return null;
   const [hostname, portStr] = raw.split(':');
@@ -145,6 +154,7 @@ export type KiwiSdrStatus = {
   maxWfZoom: number;
   listenerCount: number | null;
   listenerMax: number | null;
+  source: { isPublic: boolean; label: string };
 };
 
 export async function getKiwiSdrStatus(): Promise<KiwiSdrStatus> {
@@ -153,6 +163,7 @@ export async function getKiwiSdrStatus(): Promise<KiwiSdrStatus> {
   return {
     configured: !!parseHost(),
     enabled: getKiwiSdrEnabled(),
+    source: publicOverride ? { isPublic: true, label: publicOverride.label } : { isPublic: false, label: 'This station' },
     sndConnected: status.sndConnected,
     wfConnected: status.wfConnected,
     freqKhz: currentFreqKhz,
@@ -240,6 +251,67 @@ export function setWfZoom(zoom: number): ConnectResult {
   if (wfSocket && status.wfConnected) {
     wfSocket.send(`SET zoom=${currentWfZoom} cf=${currentFreqKhz.toFixed(3)}`);
   }
+  return { ok: true };
+}
+
+// Tears down whatever's currently connected (if anything) and, if there are
+// still listeners waiting, immediately reconnects -- against whatever host
+// parseHost() now resolves to, since callers run this only after flipping
+// publicOverride. Also resets the waterfall's contrast-stretch state: it's
+// tuned to the PREVIOUS receiver's noise floor (see handleWfFrame's
+// comment), which has no reason to still apply to a different receiver in a
+// different RF environment.
+function forceReconnect() {
+  sndSocket?.close();
+  sndSocket = null;
+  status.sndConnected = false;
+  if (sndKeepalive) {
+    clearInterval(sndKeepalive);
+    sndKeepalive = null;
+  }
+  if (sndReconnectTimer) {
+    clearTimeout(sndReconnectTimer);
+    sndReconnectTimer = null;
+  }
+  wfSocket?.close();
+  wfSocket = null;
+  status.wfConnected = false;
+  if (wfKeepalive) {
+    clearInterval(wfKeepalive);
+    wfKeepalive = null;
+  }
+  if (wfReconnectTimer) {
+    clearTimeout(wfReconnectTimer);
+    wfReconnectTimer = null;
+  }
+  wfLo = null;
+  wfHi = null;
+  if (audioListeners.size > 0) connectSnd();
+  if (wfListeners.size > 0) connectWf();
+}
+
+/**
+ * Points the shared receiver at a public KiwiSDR picked from /kiwisdr's
+ * directory browser instead of this station's own. `hostname`/`port` must
+ * come from the route handler's own lookup against the cached public
+ * directory (fetchPublicKiwiDirectory), never taken directly from client
+ * input -- otherwise this function would turn into an open relay to
+ * whatever host/port a visitor supplies, including this server's own LAN.
+ * Same "open to everyone" reasoning as setFrequency/setAgc/etc above
+ * applies to WHICH already-vetted public receiver is picked, just not to
+ * WHAT host gets connected to.
+ */
+export function switchToPublicReceiver(hostname: string, port: number, label: string): ConnectResult {
+  publicOverride = { hostname, port, label };
+  forceReconnect();
+  return { ok: true };
+}
+
+/** Back to this station's own configured Kiwi. */
+export function switchToOwnReceiver(): ConnectResult {
+  if (!publicOverride) return { ok: true };
+  publicOverride = null;
+  forceReconnect();
   return { ok: true };
 }
 
