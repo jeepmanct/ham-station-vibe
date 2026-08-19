@@ -1042,6 +1042,14 @@ import '../styles/kiwisdr.css';
       syncWaterfallConnection();
 
       audioCtx = new AudioContext();
+      // A fresh AudioContext can start life 'suspended' rather than
+      // 'running' even from a real click, depending on the browser's own
+      // autoplay-policy heuristics -- nothing here throws when that
+      // happens, scheduled playback just silently never produces sound
+      // while everything else (waterfall included, a separate Canvas/
+      // WebSocket path with no AudioContext involved) keeps working fine.
+      // resume() is a harmless no-op if it's already running.
+      audioCtx.resume().catch(() => {});
       gainNode = audioCtx.createGain();
       gainNode.gain.value = Number(volumeSlider.value);
       gainNode.connect(audioCtx.destination);
@@ -1061,6 +1069,7 @@ import '../styles/kiwisdr.css';
           return;
         }
         if (!audioCtx || !gainNode) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
         // Read the sample rate fresh per frame rather than capturing it
         // once at Start time -- switching to a different public receiver
         // mid-session (which the picker's "Listen" button now does without
