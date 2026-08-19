@@ -2,15 +2,6 @@
    itself is shared with /conditions, which still wants the larger size. */
 #radio-meters .stat-tile .value { font-size: 1.3rem; }
 
-#psk-map, #wspr-map, #rbn-map {
-  height: 420px;
-  width: 100%;
-  margin: 1rem 0;
-  border-radius: var(--radius);
-  overflow: hidden;
-  border: 1px solid var(--border);
-}
-
 .radio-band-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .radio-band-buttons .btn { padding: 0.35rem 0.75rem; font-size: 0.85rem; }
 
@@ -171,21 +162,3 @@
 .radio-session-row .when { font-family: var(--font-mono); }
 .radio-session-row .freq-mode { color: var(--muted); }
 .radio-session-row .duration { color: var(--muted); font-family: var(--font-mono); white-space: nowrap; }
-
-.psk-table { margin-top: 1rem; max-height: 420px; overflow-y: auto; }
-.psk-row {
-  display: grid;
-  grid-template-columns: 90px 1fr 70px 60px 60px;
-  gap: 0.6rem;
-  align-items: center;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.82rem;
-}
-.psk-row .call { font-family: var(--font-mono); font-weight: 700; }
-.psk-row .place { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.psk-row .freq { font-family: var(--font-mono); color: var(--muted); }
-.psk-row .snr { font-family: var(--font-mono); text-align: right; }
-.psk-row .snr.strong { color: var(--status-good); }
-.psk-row .snr.weak { color: var(--status-warning); }
-.psk-row .ago { font-family: var(--font-mono); color: var(--muted); font-size: 0.78rem; text-align: right; }

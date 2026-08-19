@@ -13,7 +13,7 @@ import Base from '../layouts/Base.astro';
   <section id="home-tiles" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;">
     <a class="card" data-tile-id="about" href="/about" style="text-decoration:none;display:block;">
       <h2 style="margin-bottom:0.35rem;">About</h2>
-      <p style="margin:0;color:var(--muted);">Station info and ham radio resources.</p>
+      <p style="margin:0;color:var(--muted);">Station info, rig, and the operator's story.</p>
     </a>
     <a class="card" data-tile-id="guestbook" href="/guestbook" style="text-decoration:none;display:block;">
       <h2 style="margin-bottom:0.35rem;">Guestbook</h2>
@@ -49,7 +49,11 @@ import Base from '../layouts/Base.astro';
     </a>
     <a class="card" data-tile-id="radio" href="/radio" style="text-decoration:none;display:block;">
       <h2 style="margin-bottom:0.35rem;">Radio</h2>
-      <p style="margin:0;color:var(--muted);">Live status from the FlexRadio 6400, remote tuning, and who's hearing the signal.</p>
+      <p style="margin:0;color:var(--muted);">Live status from the FlexRadio 6400, remote tuning, and receive audio.</p>
+    </a>
+    <a class="card" data-tile-id="digital-voice" href="/digital-voice" style="text-decoration:none;display:block;">
+      <h2 style="margin-bottom:0.35rem;">Digital Voice</h2>
+      <p style="margin:0;color:var(--muted);">DMR and D-STAR last-heard activity, plus a repeater offset lookup.</p>
     </a>
     <a class="card" data-tile-id="kiwisdr" href="/kiwisdr" style="text-decoration:none;display:block;">
       <h2 style="margin-bottom:0.35rem;">KiwiSDR</h2>
@@ -69,7 +73,7 @@ import Base from '../layouts/Base.astro';
     </a>
     <a class="card" data-tile-id="reference" href="/reference" style="text-decoration:none;display:block;">
       <h2 style="margin-bottom:0.35rem;">Reference</h2>
-      <p style="margin:0;color:var(--muted);">Morse code trainer, US band plan, Q-codes, and prosigns.</p>
+      <p style="margin:0;color:var(--muted);">Morse code trainer, band plan, Q-codes, and external resources.</p>
     </a>
   </section>
 

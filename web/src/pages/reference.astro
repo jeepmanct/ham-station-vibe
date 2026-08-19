@@ -4,12 +4,12 @@ import '../styles/reference.css';
 ---
 <Base title="Reference" active="reference">
   <h1>Reference</h1>
-  <p class="lede">Morse code practice, the US band plan, Q-codes, and prosigns.</p>
+  <p class="lede">Morse code practice, the US band plan, Q-codes, prosigns, and curated external resources.</p>
 
   <div class="card">
     <h2>License Exam Question of the Day</h2>
     <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
-      From the real, current FCC Technician (Element 2) question pool, effective July 2026&ndash;2030, via <a href="https://github.com/russolsen/ham_radio_question_pool" target="_blank" rel="noopener">russolsen/ham_radio_question_pool</a> (mirrors NCVEC's official release). Same question for everyone each UTC day.
+      From the FCC Technician (Element 2) pool, effective July 2026&ndash;2030, via <a href="https://github.com/russolsen/ham_radio_question_pool" target="_blank" rel="noopener">russolsen/ham_radio_question_pool</a> (NCVEC's official release). Same question for everyone each UTC day.
     </p>
     <div id="exam-qotd">
       <p class="status-line">Loading…</p>
@@ -65,7 +65,7 @@ import '../styles/reference.css';
   <div class="card">
     <h2>US Amateur Band Plan</h2>
     <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
-      Per the <a href="https://www.arrl.org/graphical-frequency-allocations" target="_blank" rel="noopener">ARRL band chart</a> (rev. 1/16/2026). <strong>N</strong> = Novice, <strong>T</strong> = Technician, <strong>G</strong> = General, <strong>A</strong> = Advanced, <strong>E</strong> = Extra (Novice/Advanced are legacy classes, no longer newly issued but grandfathered). Max power 1.5kW PEP &mdash; always the minimum needed. See <a href="https://www.arrl.org/band-plan" target="_blank" rel="noopener">arrl.org/band-plan</a> for full band-plan detail including recommended (not just legally-allowed) sub-band usage.
+      Per the <a href="https://www.arrl.org/graphical-frequency-allocations" target="_blank" rel="noopener">ARRL band chart</a> (rev. 1/16/2026). <strong>N</strong> = Novice, <strong>T</strong> = Technician, <strong>G</strong> = General, <strong>A</strong> = Advanced, <strong>E</strong> = Extra (N/A legacy, grandfathered only). Max power 1.5kW PEP, always the minimum needed. See <a href="https://www.arrl.org/band-plan" target="_blank" rel="noopener">arrl.org/band-plan</a> for full detail.
     </p>
     <div class="table-scroll">
       <table>
@@ -340,4 +340,43 @@ import '../styles/reference.css';
       if (e.key === 'Enter') submitGuess();
     });
   </script>
+
+  <h2 style="margin-top:2.5rem;">External Resources</h2>
+  <div class="links-grid">
+    <div class="link-group">
+      <h2>Logging &amp; Awards</h2>
+      <ul>
+        <li><a href="https://lotw.arrl.org" target="_blank" rel="noopener">ARRL Logbook of The World</a><span class="desc">Confirm QSOs, track DXCC/WAS/WAC/VUCC</span></li>
+        <li><a href="https://www.eqsl.cc" target="_blank" rel="noopener">eQSL.cc</a><span class="desc">Electronic QSL card exchange</span></li>
+        <li><a href="https://clublog.org" target="_blank" rel="noopener">Clublog</a><span class="desc">Log analysis, DXCC tracking, most-wanted lists</span></li>
+        <li><a href="https://www.qrz.com" target="_blank" rel="noopener">QRZ.com</a><span class="desc">Callsign lookup and logbook</span></li>
+      </ul>
+    </div>
+    <div class="link-group">
+      <h2>Propagation</h2>
+      <ul>
+        <li><a href="https://www.swpc.noaa.gov" target="_blank" rel="noopener">NOAA Space Weather Prediction Center</a><span class="desc">Solar & geomagnetic forecasts</span></li>
+        <li><a href="https://www.hamqsl.com/solar.html" target="_blank" rel="noopener">N0NBH Solar-Terrestrial Data</a><span class="desc">The classic ham propagation widget</span></li>
+        <li><a href="https://pskreporter.info" target="_blank" rel="noopener">PSK Reporter</a><span class="desc">Real-time reception reports</span></li>
+        <li><a href="https://dxheat.com" target="_blank" rel="noopener">DXHeat</a><span class="desc">Live DX cluster spots</span></li>
+      </ul>
+    </div>
+    <div class="link-group">
+      <h2>Operating Activities</h2>
+      <ul>
+        <li><a href="https://parksontheair.com" target="_blank" rel="noopener">Parks on the Air (POTA)</a><span class="desc">Park activations and hunting</span></li>
+        <li><a href="https://www.sota.org.uk" target="_blank" rel="noopener">Summits on the Air (SOTA)</a><span class="desc">Summit activations</span></li>
+        <li><a href="https://www.arrl.org/contests" target="_blank" rel="noopener">ARRL Contests</a><span class="desc">Official ARRL contest info</span></li>
+        <li><a href="https://www.contestcalendar.com" target="_blank" rel="noopener">WA7BNM Contest Calendar</a><span class="desc">Every contest, every week</span></li>
+      </ul>
+    </div>
+    <div class="link-group">
+      <h2>General Reference</h2>
+      <ul>
+        <li><a href="https://www.arrl.org/band-plan" target="_blank" rel="noopener">ARRL Band Plan</a><span class="desc">US amateur band allocations</span></li>
+        <li><a href="https://www.arrl.org" target="_blank" rel="noopener">ARRL</a><span class="desc">American Radio Relay League</span></li>
+        <li><a href="https://www.fcc.gov/wireless/bureau-divisions/mobility-division/amateur-radio-service" target="_blank" rel="noopener">FCC Amateur Radio Service</a><span class="desc">Rules & licensing</span></li>
+      </ul>
+    </div>
+  </div>
 </Base>

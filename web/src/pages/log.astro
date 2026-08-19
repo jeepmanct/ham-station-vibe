@@ -68,7 +68,7 @@ import FilterPanel from '../components/FilterPanel.astro';
 
         <div>
           <h2>Sync from LoTW</h2>
-          <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Pulls every QSO on file via LoTW's own report mechanism &mdash; not just confirmations &mdash; incrementally since the last sync (Full Resync re-pulls everything). An alternative to importing the ADIF file by hand below.</p>
+          <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Pulls every QSO via LoTW's report mechanism (not just confirmations), incrementally since the last sync. An alternative to the manual ADIF import below.</p>
           <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
             <button type="button" id="lotw-sync" class="btn">Sync now</button>
             <button type="button" id="lotw-full-sync" class="btn secondary">Full Resync</button>
@@ -84,15 +84,6 @@ import FilterPanel from '../components/FilterPanel.astro';
             <p id="adif-status" class="status-line"></p>
             <button type="submit" class="btn" style="align-self:flex-start;">Import</button>
           </form>
-        </div>
-
-        <div>
-          <h2>Solar data</h2>
-          <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Refreshes recent SFI/A/K-index data used in the Solar column above &mdash; Full Resync rebuilds the entire 1932&ndash;present history.</p>
-          <button type="button" id="solar-sync" class="btn">Sync now</button>
-          <button type="button" id="solar-full-sync" class="btn secondary">Full Resync</button>
-          <p id="solar-last-synced" class="status-line" style="font-size:0.8rem;"></p>
-          <p id="solar-status" class="status-line"></p>
         </div>
 
         <div>
@@ -120,7 +111,7 @@ import FilterPanel from '../components/FilterPanel.astro';
             <th>Band</th>
             <th>Mode</th>
             <th>QSL</th>
-            <th>Solar</th>
+            <th title="Synced from the Conditions page">Solar</th>
             <th></th>
           </tr>
         </thead>
@@ -312,7 +303,6 @@ import FilterPanel from '../components/FilterPanel.astro';
       document.getElementById('qrz-last-synced')!.textContent = formatLastSynced(status.qrz, status.qrzCount, 'imported');
       document.getElementById('eqsl-last-synced')!.textContent = formatLastSynced(status.eqsl, status.eqslCount, 'matched');
       document.getElementById('lotw-last-synced')!.textContent = formatLastSynced(status.lotw, status.lotwCount, 'imported');
-      document.getElementById('solar-last-synced')!.textContent = formatLastSynced(status.solar, null, '');
     }
 
     importToggle.addEventListener('click', () => {
@@ -441,27 +431,6 @@ import FilterPanel from '../components/FilterPanel.astro';
     document.getElementById('lotw-sync')!.addEventListener('click', () => syncFromLotw(false));
     document.getElementById('lotw-full-sync')!.addEventListener('click', () => syncFromLotw(true));
 
-    async function syncSolarData(full: boolean) {
-      const status = document.getElementById('solar-status')!;
-      status.textContent = 'Syncing…';
-      const res = await fetch(`/api/solar/sync${full ? '?full=1' : ''}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
-      });
-      if (res.ok) {
-        const { imported, from, to } = await res.json();
-        status.textContent = `Synced ${imported} days (${from}–${to}).`;
-        loadQsos();
-        loadSyncStatus();
-      } else if (res.status === 401) {
-        handleSessionExpired(status);
-      } else {
-        const body = await res.json().catch(() => ({}));
-        status.textContent = body.error ?? 'Solar sync failed.';
-      }
-    }
-    document.getElementById('solar-sync')!.addEventListener('click', () => syncSolarData(false));
-    document.getElementById('solar-full-sync')!.addEventListener('click', () => syncSolarData(true));
 
     // --- Export log (shares the same login above rather than its own — was
     // previously a separate gate on /tools with a duplicate login form) ---

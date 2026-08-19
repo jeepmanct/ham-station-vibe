@@ -1,3 +1,12 @@
+#psk-map, #wspr-map, #rbn-map {
+  height: 420px;
+  width: 100%;
+  margin: 1rem 0;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
 .spot-table, .contest-list {
   margin-top: 1rem;
   max-height: 420px;

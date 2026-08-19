@@ -8,7 +8,7 @@ import '../styles/apiDocs.css';
 
   <div class="card">
     <h2>Authentication</h2>
-    <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Most GET endpoints are public &mdash; no token needed, since they're the same data the public pages already show. Anything marked <span class="auth-badge">Admin</span> below requires a session token.</p>
+    <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Most GET endpoints are public. <span class="auth-badge">Admin</span> marks ones that need a session token.</p>
     <ol style="margin:0;padding-left:1.25rem;color:var(--muted);font-size:0.9rem;line-height:1.8;">
       <li><code>POST /api/auth/login</code> with JSON body <code>&lbrace;"password": "..."&rbrace;</code> &mdash; returns <code>&lbrace;"token": "..."&rbrace;</code> on success, <code>401</code> on a wrong password, <code>429</code> after too many failed attempts (with a <code>Retry-After</code> header).</li>
       <li>Send the token on every admin request as <code>Authorization: Bearer &lt;token&gt;</code>.</li>
@@ -98,6 +98,15 @@ import '../styles/apiDocs.css';
         <tr><td><code>GET /api/kiwisdr/status</code></td><td>&mdash;</td><td>Whether the KiwiSDR is configured/enabled and currently reachable.</td></tr>
         <tr><td><code>GET /api/kiwisdr/noise-floor</code></td><td>&mdash;</td><td>One-shot spot-check of the current tuned frequency's noise level.</td></tr>
         <tr><td><code>POST /api/kiwisdr/tune</code></td><td>&mdash;</td><td>Retune the shared KiwiSDR listener &mdash; open to any visitor, not admin-gated (one shared receiver).</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="page-group-heading">Digital Voice</h2>
+  <div class="card table-scroll">
+    <table>
+      <thead><tr><th>Method &amp; Path</th><th>Auth</th><th>Description</th></tr></thead>
+      <tbody>
         <tr><td><code>GET /api/brandmeister/lastheard</code></td><td>&mdash;</td><td>Recent DMR activity on the admin-configured talkgroup(s).</td></tr>
         <tr><td><code>GET /api/dstar/lastheard</code></td><td>&mdash;</td><td>Recent D-STAR activity on the configured reflector.</td></tr>
       </tbody>
@@ -139,5 +148,5 @@ import '../styles/apiDocs.css';
     </table>
   </div>
 
-  <p style="margin-top:2rem;color:var(--muted);font-size:0.85rem;">Not exhaustive &mdash; admin-only configuration endpoints (service credentials, alert settings, backups, and similar setup/maintenance routes) are omitted here since they're not meant for anything outside this site's own Admin page. See <a href="/about-this-site">About This Site</a> for the full feature list and where each external data source comes from.</p>
+  <p style="margin-top:2rem;color:var(--muted);font-size:0.85rem;">Not exhaustive &mdash; admin-only config endpoints are omitted. See <a href="/about-this-site">About This Site</a> for the full feature list.</p>
 </Base>

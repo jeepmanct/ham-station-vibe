@@ -260,33 +260,6 @@ import '../styles/tools.css';
       </div>
     </div>
 
-    <div class="tool-card" data-tile-id="repeater-offset">
-      <h2><span>Repeater Offset</span><button type="button" class="tool-reset-btn">Reset</button></h2>
-      <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.8rem;">Typical U.S. band-plan convention &mdash; offsets vary by region and coordinating body, always confirm against the actual repeater listing.</p>
-      <div style="display:flex;gap:0.5rem;">
-        <div class="tool-field" style="flex:1;">
-          <label for="rpt-band">Band</label>
-          <select id="rpt-band">
-            <option value="10">10m</option>
-            <option value="6">6m</option>
-            <option value="2" selected>2m</option>
-            <option value="1.25">1.25m</option>
-            <option value="0.7">70cm</option>
-          </select>
-        </div>
-        <div class="tool-field" style="flex:1;">
-          <label for="rpt-output">Output (RX) freq (MHz)</label>
-          <input type="text" id="rpt-output" placeholder="e.g. 146.94" />
-        </div>
-      </div>
-      <div class="tool-result" id="rpt-result" hidden>
-        <div class="big" id="rpt-result-value">&mdash;</div>
-        <div class="sub" id="rpt-result-sub"></div>
-      </div>
-      <p style="margin:1rem 0 0.4rem;color:var(--muted);font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;">Standard CTCSS Tones (Hz)</p>
-      <p class="ctcss-tones">67.0, 69.3, 71.9, 74.4, 77.0, 79.7, 82.5, 85.4, 88.5, 91.5, 94.8, 97.4, 100.0, 103.5, 107.2, 110.9, 114.8, 118.8, 123.0, 127.3, 131.8, 136.5, 141.3, 146.2, 151.4, 156.7, 159.8, 162.2, 165.5, 167.9, 171.3, 173.8, 177.3, 179.9, 183.5, 186.2, 189.9, 192.8, 196.6, 199.5, 203.5, 206.5, 210.7, 218.1, 225.7, 229.1, 233.6, 241.8, 250.3, 254.1</p>
-    </div>
-
     <div class="tool-card" data-tile-id="rf-exposure">
       <h2><span>RF Exposure (MPE) Estimate</span><button type="button" class="tool-reset-btn">Reset</button></h2>
       <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.8rem;">Simplified far-field estimate per FCC OET Bulletin 65 formulas &mdash; not a substitute for a full station evaluation. See <a href="https://www.arrl.org/rf-exposure" target="_blank" rel="noopener">arrl.org/rf-exposure</a>.</p>
@@ -399,7 +372,7 @@ import '../styles/tools.css';
 
     <div class="tool-card" data-tile-id="oqrs-check">
       <h2><span>Club Log OQRS Check</span><button type="button" class="tool-reset-btn" id="oqrs-reset-btn">Reset</button></h2>
-      <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Worked stations whose operator has Club Log's Online QSL Request System enabled &mdash; a checklist to visit and see if you've missed requesting a card. This can't tell whether you've already requested one, and not every station with a Club Log account has OQRS turned on.</p>
+      <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Worked stations with Club Log's OQRS enabled &mdash; a checklist to catch missed QSL requests. Can't tell if you've already requested one, and not every station has it on.</p>
       <div class="status-filter" role="group" aria-label="Filter by confirmation status">
         <button type="button" class="status-btn active" data-status="all">All</button>
         <button type="button" class="status-btn" data-status="confirmed">LoTW Confirmed</button>
@@ -412,7 +385,7 @@ import '../styles/tools.css';
 
     <div class="tool-card" data-tile-id="confirmed-nowhere" id="confirmed-nowhere">
       <h2><span>Confirmed Nowhere</span></h2>
-      <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Worked stations with no confirmation yet on LoTW or eQSL &mdash; most of these are just too recent for either network to have caught up, not a real problem, but worth a glance for anything old enough that it probably should have confirmed by now.</p>
+      <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Worked stations with no LoTW/eQSL confirmation yet &mdash; usually just too recent, but worth a glance for older ones.</p>
       <input type="text" id="unconfirmed-search" class="entity-search" placeholder="Search calls…" />
       <div class="entity-list" id="unconfirmed-list"></div>
       <p class="status-line" id="unconfirmed-count"></p>
@@ -890,35 +863,6 @@ import '../styles/tools.css';
     }
     losTx.addEventListener('input', computeLos);
     losRx.addEventListener('input', computeLos);
-
-    // --- Repeater offset -- typical U.S. band-plan convention. 2m is a
-    // sub-band rule (output below 147.0 MHz splits down, at/above splits
-    // up) rather than a fixed direction, since that's how it's actually
-    // published; every other band here just always splits one way. ---
-    const rptBand = document.getElementById('rpt-band') as HTMLSelectElement;
-    const rptOutput = document.getElementById('rpt-output') as HTMLInputElement;
-    const rptResult = document.getElementById('rpt-result')!;
-    const rptResultValue = document.getElementById('rpt-result-value')!;
-    const rptResultSub = document.getElementById('rpt-result-sub')!;
-
-    function computeRepeaterOffset() {
-      const output = Number(rptOutput.value);
-      if (!rptOutput.value || Number.isNaN(output)) { rptResult.hidden = true; return; }
-      let offsetMhz: number;
-      switch (rptBand.value) {
-        case '10': offsetMhz = -0.1; break;
-        case '6': offsetMhz = -0.5; break;
-        case '2': offsetMhz = output >= 147.0 ? 0.6 : -0.6; break;
-        case '1.25': offsetMhz = -1.6; break;
-        default: offsetMhz = -5; break; // 70cm
-      }
-      const input = output + offsetMhz;
-      rptResult.hidden = false;
-      rptResultValue.textContent = `${input.toFixed(4)} MHz`;
-      rptResultSub.textContent = `Transmit (input) frequency · ${offsetMhz > 0 ? '+' : ''}${offsetMhz.toFixed(1)} MHz offset from ${output.toFixed(4)} MHz output`;
-    }
-    rptBand.addEventListener('change', computeRepeaterOffset);
-    rptOutput.addEventListener('input', computeRepeaterOffset);
 
     // --- RF Exposure (MPE) estimate, per FCC OET Bulletin 65 formulas ---
     const mpePower = document.getElementById('mpe-power') as HTMLInputElement;

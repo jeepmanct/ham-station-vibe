@@ -31,7 +31,7 @@ import '../styles/awards.css';
 
   <div class="award-card" style="margin-bottom:1.25rem;">
     <h2>Awards by Band</h2>
-    <p class="award-substat">Single-band endorsements: LoTW issues DXCC at 100 confirmed entities and WAS at 50 confirmed states on one band. VUCC thresholds vary by band (5&ndash;100 grids), so those are shown as counts only.</p>
+    <p class="award-substat">Single-band DXCC needs 100 confirmed entities, WAS needs 50 confirmed states. VUCC thresholds vary by band, so shown as counts only.</p>
     <div class="table-scroll">
       <table>
         <thead><tr><th>Band</th><th>DXCC</th><th>WAS</th><th>VUCC (grids)</th></tr></thead>
@@ -42,7 +42,7 @@ import '../styles/awards.css';
 
   <div class="award-card" style="margin-bottom:1.25rem;">
     <h2>DXCC Coverage Map</h2>
-    <p class="award-substat">Worked entities sit at the average location of their own QSOs; entities never worked sit at cty.dat's own reference point for that entity, since there's no contact to average yet &mdash; neither is an official country boundary. Green is LoTW/eQSL confirmed, amber is worked but not yet confirmed anywhere, gray is still needed.</p>
+    <p class="award-substat">Worked entities sit at the average location of their own QSOs, not an official boundary; never-worked entities sit at a reference point instead.</p>
     <div id="dxcc-map"></div>
     <div class="award-legend">
       <span><span class="dot confirmed"></span> Confirmed</span>
@@ -53,7 +53,7 @@ import '../styles/awards.css';
 
   <div class="award-card" style="margin-bottom:1.25rem;">
     <h2>Most-Wanted DXCC</h2>
-    <p class="award-substat">Entities not yet in the log, from a <a href="https://www.country-files.com/cty/" target="_blank" rel="noopener">community-maintained reference list</a> &mdash; may not perfectly track ARRL's current/deleted entity status. Sorted by <a href="https://clublog.org/mostwanted.php" target="_blank" rel="noopener">Club Log's global most-wanted ranking</a> (rarest first) where available, alphabetical for the rest.</p>
+    <p class="award-substat">Entities not yet logged, from a <a href="https://www.country-files.com/cty/" target="_blank" rel="noopener">community reference list</a> &mdash; may not track ARRL's current/deleted status. Sorted by <a href="https://clublog.org/mostwanted.php" target="_blank" rel="noopener">Club Log's most-wanted ranking</a> where available.</p>
     <input type="text" id="wanted-search" class="entity-search" placeholder="Search entities…" />
     <div class="entity-list" id="wanted-list"></div>
   </div>
@@ -120,7 +120,7 @@ import '../styles/awards.css';
       <h2>WPX (Worked All Prefixes)</h2>
       <div class="award-stat"><span class="n" id="wpx-worked">&mdash;</span><span class="of">prefixes worked</span></div>
       <p class="award-substat"><span class="good" id="wpx-confirmed">&mdash;</span> confirmed via LoTW <span id="wpx-tier"></span></p>
-      <p class="award-substat" style="font-size:0.78rem;">Prefix parsing follows the standard CQ WPX convention as closely as practical; some portable/reciprocal calls are approximated.</p>
+      <p class="award-substat" style="font-size:0.78rem;">Follows the CQ WPX convention; some portable/reciprocal calls are approximated.</p>
       <input type="text" id="wpx-search" class="entity-search" placeholder="Search prefixes…" />
       <div class="entity-list" id="wpx-list"></div>
       <button type="button" class="btn secondary cert-btn" id="wpx-cert-btn" hidden>Download Certificate</button>

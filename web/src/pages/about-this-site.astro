@@ -37,7 +37,6 @@ import '../styles/colophon.css';
       <ul>
         <li>Station details: rigs, antennas, QTH, operating history, callsign chain (FCC ULS)</li>
         <li>Live &ldquo;By the Numbers&rdquo; stats, pulled from the log at request time rather than hardcoded</li>
-        <li>Curated links to the wider ham radio ecosystem (logging, propagation, activities, reference)</li>
       </ul>
     </div>
     <div class="feature-block">
@@ -100,6 +99,7 @@ import '../styles/colophon.css';
         <li>Live DX spot feed, with a <strong>Needed</strong> flag resolved directly from the spotted callsign's DXCC entity (not just its ISO country code)</li>
         <li>Announced/active DXpedition calendar, cross-referenced against the log the same entity-precise way the spot feed is</li>
         <li>Upcoming contest calendar</li>
+        <li>Reception reports for the operator's own signal via PSK Reporter, WSPR, and the Reverse Beacon Network (CW/RTTY), each its own live map</li>
       </ul>
     </div>
     <div class="feature-block">
@@ -108,9 +108,14 @@ import '../styles/colophon.css';
         <li>Live status from the shack's FlexRadio 6400 &mdash; slice frequency/mode, SWR, forward/reflected power, PA temperature/voltage, fan RPM, and on-air session history</li>
         <li>Admin-gated remote control on a dedicated receive-only slice &mdash; band/frequency/mode tuning (with a band-scoped drag-to-tune slider), always locked to Antenna 2 with the tuner bypassed, architecturally incapable of transmitting</li>
         <li>Live audio streaming for that same control slice &mdash; Opus-decoded server-side, played back over the Web Audio API &mdash; plus its own S-meter</li>
-        <li>Reception reports for the operator's own signal via PSK Reporter, WSPR, and the Reverse Beacon Network (CW/RTTY), each its own live map</li>
+      </ul>
+    </div>
+    <div class="feature-block">
+      <h3>Digital Voice</h3>
+      <ul>
         <li>DMR Last Heard &mdash; live activity on an admin-configured BrandMeister talkgroup, via a persistent real-time connection to the network (not a periodic poll)</li>
         <li>D-STAR Last Heard &mdash; recent activity on a configured reflector</li>
+        <li>Repeater offset lookup by band, plus a standard CTCSS tone reference table</li>
       </ul>
     </div>
     <div class="feature-block">
@@ -154,6 +159,7 @@ import '../styles/colophon.css';
         <li>Morse code trainer &mdash; adjustable speed, live playback via the Web Audio API, and a quiz mode</li>
         <li>US Amateur Band Plan chart, sourced directly from ARRL's own official chart</li>
         <li>Q-codes and prosigns reference tables</li>
+        <li>Curated external links to the wider ham radio ecosystem (logging, propagation, activities, general reference)</li>
       </ul>
     </div>
     <div class="feature-block">
@@ -174,7 +180,7 @@ import '../styles/colophon.css';
         <li>FlexRadio hardware-status and remote-control visibility toggles, and a separate KiwiSDR visibility toggle &mdash; lets an installer without that hardware hide the corresponding dashboard entirely rather than leave a non-functional one visible</li>
         <li>Lightning monitoring on/off toggle for the persistent Blitzortung connection powering the Conditions map and lightning alerts</li>
         <li>Admin-only Repeater Lookup (via Open Repeater) &mdash; DMR/D-STAR/analog FM repeaters near a configured location, filterable by band; kept admin-only since a public repeater directory isn't something every data source's terms permit</li>
-        <li>DMR talkgroup and D-STAR reflector configuration for the Radio page's Last Heard panels</li>
+        <li>DMR talkgroup and D-STAR reflector configuration for the Digital Voice page's Last Heard panels</li>
       </ul>
     </div>
   </div>

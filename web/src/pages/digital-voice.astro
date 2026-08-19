@@ -1,0 +1,175 @@
+---
+import Base from '../layouts/Base.astro';
+import '../styles/digital-voice.css';
+import '../styles/lastHeardTable.css';
+---
+<Base title="Digital Voice" active="digital-voice">
+  <h1>Digital Voice</h1>
+  <p class="lede">DMR and D-STAR network activity, plus a repeater offset lookup &mdash; independent of this station's own radio.</p>
+
+  <div class="card">
+    <h2>DMR Last Heard (BrandMeister)</h2>
+    <p style="margin:0;color:var(--muted);font-size:0.85rem;">Recent activity on this site's configured DMR talkgroup(s), via <a href="https://brandmeister.network" target="_blank" rel="noopener">BrandMeister</a> &mdash; not specific to this station's own reception.</p>
+    <div class="psk-table" id="dmr-table"></div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <h2>D-STAR Last Heard (REF069)</h2>
+    <p style="margin:0;color:var(--muted);font-size:0.85rem;">Recent activity on the Connecticut D-STAR Group's REF069 reflector, via <a href="https://ctdstar.org/reflector.html" target="_blank" rel="noopener">ctdstar.org</a> &mdash; not specific to this station's own reception. Times are the reflector's own clock.</p>
+    <p style="margin:0.15rem 0 0;color:var(--muted);font-size:0.78rem;" id="dstar-updated-at"></p>
+    <div class="psk-table" id="dstar-table"></div>
+  </div>
+
+  <div class="tool-card" data-tile-id="repeater-offset" style="margin-top:1.5rem;">
+    <h2><span>Repeater Offset</span><button type="button" class="tool-reset-btn">Reset</button></h2>
+    <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.8rem;">Typical U.S. band-plan convention &mdash; offsets vary by region and coordinating body, always confirm against the actual repeater listing.</p>
+    <div style="display:flex;gap:0.5rem;">
+      <div class="tool-field" style="flex:1;">
+        <label for="rpt-band">Band</label>
+        <select id="rpt-band">
+          <option value="10">10m</option>
+          <option value="6">6m</option>
+          <option value="2" selected>2m</option>
+          <option value="1.25">1.25m</option>
+          <option value="0.7">70cm</option>
+        </select>
+      </div>
+      <div class="tool-field" style="flex:1;">
+        <label for="rpt-output">Output (RX) freq (MHz)</label>
+        <input type="text" id="rpt-output" placeholder="e.g. 146.94" />
+      </div>
+    </div>
+    <div class="tool-result" id="rpt-result" hidden>
+      <div class="big" id="rpt-result-value">&mdash;</div>
+      <div class="sub" id="rpt-result-sub"></div>
+    </div>
+    <p style="margin:1rem 0 0.4rem;color:var(--muted);font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;">Standard CTCSS Tones (Hz)</p>
+    <p class="ctcss-tones">67.0, 69.3, 71.9, 74.4, 77.0, 79.7, 82.5, 85.4, 88.5, 91.5, 94.8, 97.4, 100.0, 103.5, 107.2, 110.9, 114.8, 118.8, 123.0, 127.3, 131.8, 136.5, 141.3, 146.2, 151.4, 156.7, 159.8, 162.2, 165.5, 167.9, 171.3, 173.8, 177.3, 179.9, 183.5, 186.2, 189.9, 192.8, 196.6, 199.5, 203.5, 206.5, 210.7, 218.1, 225.7, 229.1, 233.6, 241.8, 250.3, 254.1</p>
+  </div>
+
+  <script>
+    import { escapeHtml } from '../lib/escapeHtml';
+
+    function formatTimeAgo(unixSeconds: number | null): string {
+      if (!unixSeconds) return '';
+      const seconds = Math.max(0, Math.round(Date.now() / 1000 - unixSeconds));
+      if (seconds < 60) return `${seconds}s ago`;
+      const minutes = Math.round(seconds / 60);
+      if (minutes < 60) return `${minutes}m ago`;
+      return `${Math.round(minutes / 60)}h ago`;
+    }
+
+    type LastHeardEntry = { callsign: string; name: string; talkgroupId: number; talkgroupName: string; startTime: number; durationSec: number };
+    function loadDmrLastHeard() {
+      fetch('/api/brandmeister/lastheard')
+        .then((r) => r.json())
+        .then((body: { configured: boolean; entries: LastHeardEntry[] }) => {
+          const table = document.getElementById('dmr-table')!;
+          if (!body.configured) {
+            table.innerHTML = '<p class="status-line">No DMR talkgroup configured &mdash; set one under Admin to see activity here.</p>';
+            return;
+          }
+          if (!body.entries.length) {
+            table.innerHTML = '<p class="status-line">No DMR activity on the configured talkgroup(s) recently.</p>';
+            return;
+          }
+          table.innerHTML = '';
+          for (const e of body.entries) {
+            const row = document.createElement('div');
+            row.className = 'psk-row';
+            row.innerHTML = `
+              <span class="call">${escapeHtml(e.callsign)}</span>
+              <span class="place">${escapeHtml(e.talkgroupName)}${e.name ? ` &middot; ${escapeHtml(e.name)}` : ''}</span>
+              <span class="freq">${e.durationSec}s</span>
+              <span class="snr"></span>
+              <span class="ago">${formatTimeAgo(e.startTime)}</span>
+            `;
+            table.appendChild(row);
+          }
+        })
+        .catch(() => {
+          document.getElementById('dmr-table')!.innerHTML = '<p class="status-line">Could not load DMR last-heard data.</p>';
+        });
+    }
+    loadDmrLastHeard();
+    setInterval(loadDmrLastHeard, 15000);
+
+    type DstarEntry = { call: string; message: string; module: string; moduleLabel: string; time: string };
+    function loadDstarLastHeard() {
+      fetch('/api/dstar/lastheard')
+        .then((r) => r.json())
+        .then((body: { entries: DstarEntry[] }) => {
+          document.getElementById('dstar-updated-at')!.textContent = `Last updated ${new Date().toLocaleTimeString()}`;
+          const table = document.getElementById('dstar-table')!;
+          if (!body.entries.length) {
+            table.innerHTML = '<p class="status-line">No recent D-STAR activity on REF069 &mdash; or the reflector\'s dashboard is unreachable right now.</p>';
+            return;
+          }
+          table.innerHTML = '';
+          for (const e of body.entries) {
+            const row = document.createElement('div');
+            row.className = 'psk-row';
+            row.innerHTML = `
+              <span class="call">${escapeHtml(e.call)}</span>
+              <span class="place">${escapeHtml(e.message)}</span>
+              <span class="freq" title="${escapeHtml(e.moduleLabel)}">Mod ${escapeHtml(e.module)}</span>
+              <span class="snr"></span>
+              <span class="ago">${escapeHtml(e.time)}</span>
+            `;
+            table.appendChild(row);
+          }
+        })
+        .catch(() => {
+          document.getElementById('dstar-table')!.innerHTML = '<p class="status-line">Could not load D-STAR last-heard data.</p>';
+        });
+    }
+    loadDstarLastHeard();
+    setInterval(loadDstarLastHeard, 120000);
+
+    // --- Repeater offset -- typical U.S. band-plan convention. 2m is a
+    // sub-band rule (output below 147.0 MHz splits down, at/above splits
+    // up) rather than a fixed direction, since that's how it's actually
+    // published; every other band here just always splits one way. ---
+    const rptBand = document.getElementById('rpt-band') as HTMLSelectElement;
+    const rptOutput = document.getElementById('rpt-output') as HTMLInputElement;
+    const rptResult = document.getElementById('rpt-result')!;
+    const rptResultValue = document.getElementById('rpt-result-value')!;
+    const rptResultSub = document.getElementById('rpt-result-sub')!;
+
+    function computeRepeaterOffset() {
+      const output = Number(rptOutput.value);
+      if (!rptOutput.value || Number.isNaN(output)) { rptResult.hidden = true; return; }
+      let offsetMhz: number;
+      switch (rptBand.value) {
+        case '10': offsetMhz = -0.1; break;
+        case '6': offsetMhz = -0.5; break;
+        case '2': offsetMhz = output >= 147.0 ? 0.6 : -0.6; break;
+        case '1.25': offsetMhz = -1.6; break;
+        default: offsetMhz = -5; break; // 70cm
+      }
+      const input = output + offsetMhz;
+      rptResult.hidden = false;
+      rptResultValue.textContent = `${input.toFixed(4)} MHz`;
+      rptResultSub.textContent = `Transmit (input) frequency · ${offsetMhz > 0 ? '+' : ''}${offsetMhz.toFixed(1)} MHz offset from ${output.toFixed(4)} MHz output`;
+    }
+    rptBand.addEventListener('change', computeRepeaterOffset);
+    rptOutput.addEventListener('input', computeRepeaterOffset);
+
+    document.querySelectorAll<HTMLButtonElement>('.tool-reset-btn').forEach((button) => {
+      const card = button.closest('.tool-card')!;
+      const inputDefaults = new Map<HTMLInputElement, string>();
+      card.querySelectorAll<HTMLInputElement>('input[type="text"]').forEach((input) => inputDefaults.set(input, input.value));
+      const selectDefaults = new Map<HTMLSelectElement, string>();
+      card.querySelectorAll<HTMLSelectElement>('select').forEach((select) => selectDefaults.set(select, select.value));
+
+      button.addEventListener('click', () => {
+        inputDefaults.forEach((value, input) => { input.value = value; });
+        selectDefaults.forEach((value, select) => {
+          select.value = value;
+          select.dispatchEvent(new Event('change'));
+        });
+        card.querySelectorAll('.tool-result').forEach((el) => el.setAttribute('hidden', ''));
+      });
+    });
+  </script>
+</Base>
