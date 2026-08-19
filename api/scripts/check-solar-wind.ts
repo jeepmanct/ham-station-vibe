@@ -22,6 +22,7 @@
 import { db } from '../src/db';
 import { sendAlertEmail } from '../src/alertEmail';
 import { sendNtfyAlert } from '../src/alertNtfy';
+import { sendWebPushAlert } from '../src/alertWebPush';
 import { getAlertConfig } from '../src/alertConfig';
 import { fetchJsonLenient } from '../src/fetchJson';
 
@@ -53,11 +54,12 @@ async function main() {
   const cfg = getAlertConfig();
   const emailOn = cfg.email?.enabled ?? false;
   const ntfyOn = cfg.ntfy?.enabled ?? false;
+  const webPushOn = cfg.webPushEnabled ?? false;
   if (!cfg.windEnabled) {
     console.log('Solar wind alerts disabled — turn it on under Admin.');
     return;
   }
-  if (!emailOn && !ntfyOn) {
+  if (!emailOn && !ntfyOn && !webPushOn) {
     console.log('Solar wind alerts enabled, but no delivery channel (email/push) is on — set one up under Admin.');
     return;
   }
@@ -122,6 +124,15 @@ async function main() {
       delivered = true;
     } catch (err) {
       console.log('ntfy alert failed:', err instanceof Error ? err.message : err);
+    }
+  }
+  if (webPushOn) {
+    try {
+      await sendWebPushAlert(subject, text);
+      console.log('Sent web push solar wind alert.');
+      delivered = true;
+    } catch (err) {
+      console.log('Web push alert failed:', err instanceof Error ? err.message : err);
     }
   }
   if (!delivered) {

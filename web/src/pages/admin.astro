@@ -402,6 +402,21 @@ import Base from '../layouts/Base.astro';
           </div>
         </form>
 
+        <h3 style="margin:1.75rem 0 0.5rem;font-size:0.95rem;">Browser Push</h3>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
+          Real OS-level notifications straight from this site &mdash; no app or account needed, unlike ntfy above. Click &quot;Enable on this device&quot; separately from each phone/desktop you want alerts on.
+        </p>
+        <form id="alert-webpush-form" class="form-grid">
+          <label class="form-grid-checkbox"><input type="checkbox" id="awp-enabled" /> Browser push enabled</label>
+          <p id="alert-webpush-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;display:flex;gap:0.75rem;flex-wrap:wrap;">
+            <button type="submit" class="btn">Save</button>
+            <button type="button" id="awp-subscribe" class="btn secondary">Enable on this device</button>
+            <button type="button" id="awp-unsubscribe" class="btn secondary">Disable on this device</button>
+            <button type="button" id="awp-test" class="btn secondary">Send test push</button>
+          </div>
+        </form>
+
         <h3 style="margin:1.75rem 0 0.5rem;font-size:0.95rem;">Needed-DX Spots</h3>
         <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
           Notifies you when a live DX spot is a DXCC entity you haven't worked yet &mdash; checked every 10 minutes. Reuses whichever channel(s) above are enabled.
@@ -1536,6 +1551,7 @@ import Base from '../layouts/Base.astro';
     type AlertConfigPublic = {
       email: { smtpHost: string; smtpPort: number; smtpUser: string; alertTo: string; enabled: boolean; passwordConfigured: boolean };
       ntfy: { topic: string; enabled: boolean };
+      webPushEnabled: boolean;
       vhfEnabled: boolean;
       flareEnabled: boolean;
       windEnabled: boolean;
@@ -1560,6 +1576,9 @@ import Base from '../layouts/Base.astro';
     const anTopic = document.getElementById('an-topic') as HTMLInputElement;
     const anEnabled = document.getElementById('an-enabled') as HTMLInputElement;
     const alertNtfyStatus = document.getElementById('alert-ntfy-status')!;
+
+    const awpEnabled = document.getElementById('awp-enabled') as HTMLInputElement;
+    const alertWebPushStatus = document.getElementById('alert-webpush-status')!;
 
     const avEnabled = document.getElementById('av-enabled') as HTMLInputElement;
     const avUsOnly = document.getElementById('av-us-only') as HTMLInputElement;
@@ -1606,6 +1625,8 @@ import Base from '../layouts/Base.astro';
       aePass.placeholder = cfg.email.passwordConfigured ? 'leave blank to keep existing' : 'app-specific password';
       anTopic.value = cfg.ntfy.topic;
       anEnabled.checked = cfg.ntfy.enabled;
+      awpEnabled.checked = cfg.webPushEnabled;
+      refreshWebPushSubscriptionStatus();
       avEnabled.checked = cfg.vhfEnabled;
       avUsOnly.checked = cfg.vhfUsSpottersOnly;
       afEnabled.checked = cfg.flareEnabled;
@@ -1693,6 +1714,107 @@ import Base from '../layouts/Base.astro';
       } else {
         const body = await res.json().catch(() => ({}));
         alertNtfyStatus.textContent = body.error ?? 'Test push failed.';
+      }
+    });
+
+    // --- Browser Push (native Web Push, one subscription per device) ---
+    function urlBase64ToUint8Array(base64String: string): Uint8Array {
+      const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+      return outputArray;
+    }
+
+    async function refreshWebPushSubscriptionStatus() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        alertWebPushStatus.textContent = 'This browser does not support push notifications.';
+        return;
+      }
+      const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      alertWebPushStatus.textContent = sub ? 'This device is subscribed.' : 'This device is not subscribed yet.';
+    }
+
+    document.getElementById('alert-webpush-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertWebPushStatus.textContent = 'Saving…';
+      const res = await fetch('/api/alert-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ webPushEnabled: awpEnabled.checked }),
+      });
+      if (res.ok) {
+        alertWebPushStatus.textContent = 'Saved.';
+        refreshWebPushSubscriptionStatus();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alertWebPushStatus.textContent = body.error ?? 'Save failed.';
+      }
+    });
+
+    document.getElementById('awp-subscribe')!.addEventListener('click', async () => {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        alertWebPushStatus.textContent = 'This browser does not support push notifications.';
+        return;
+      }
+      alertWebPushStatus.textContent = 'Requesting permission…';
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        alertWebPushStatus.textContent = 'Permission denied — enable notifications for this site in your browser settings.';
+        return;
+      }
+      try {
+        const reg = await navigator.serviceWorker.register('/sw.js');
+        await navigator.serviceWorker.ready;
+        const keyRes = await fetch('/api/push/vapid-public-key');
+        const { publicKey } = await keyRes.json();
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        });
+        const res = await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+          body: JSON.stringify(sub.toJSON()),
+        });
+        alertWebPushStatus.textContent = res.ok
+          ? 'This device is now subscribed.'
+          : 'Subscribed in the browser, but saving to the server failed — try again.';
+      } catch (err) {
+        alertWebPushStatus.textContent = `Subscribe failed: ${err instanceof Error ? err.message : err}`;
+      }
+    });
+
+    document.getElementById('awp-unsubscribe')!.addEventListener('click', async () => {
+      const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      if (!sub) {
+        alertWebPushStatus.textContent = 'This device is not subscribed.';
+        return;
+      }
+      const endpoint = sub.endpoint;
+      await sub.unsubscribe();
+      await fetch('/api/push/unsubscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ endpoint }),
+      });
+      alertWebPushStatus.textContent = 'Unsubscribed on this device.';
+    });
+
+    document.getElementById('awp-test')!.addEventListener('click', async () => {
+      alertWebPushStatus.textContent = 'Sending test push…';
+      const res = await fetch('/api/alert-config/test-webpush', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (res.ok) {
+        alertWebPushStatus.textContent = 'Test push sent — check this device.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alertWebPushStatus.textContent = body.error ?? 'Test push failed.';
       }
     });
 

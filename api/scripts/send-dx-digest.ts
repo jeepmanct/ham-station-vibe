@@ -12,6 +12,7 @@ import { distanceKm } from '../src/maidenhead';
 import { resolveWorkedEntities } from '../src/dxccEntities';
 import { sendAlertEmail } from '../src/alertEmail';
 import { sendNtfyAlert } from '../src/alertNtfy';
+import { sendWebPushAlert } from '../src/alertWebPush';
 import { formatDistance } from '../src/siteSettings';
 
 function daysAgoYyyymmdd(days: number): string {
@@ -27,7 +28,8 @@ async function main() {
   }
   const emailOn = cfg.email?.enabled ?? false;
   const ntfyOn = cfg.ntfy?.enabled ?? false;
-  if (!emailOn && !ntfyOn) {
+  const webPushOn = cfg.webPushEnabled ?? false;
+  if (!emailOn && !ntfyOn && !webPushOn) {
     console.log('DX Digest enabled, but no delivery channel (email/push) is on — set one up under Admin.');
     return;
   }
@@ -94,6 +96,15 @@ async function main() {
       console.log('Sent DX Digest push.');
     } catch (err) {
       console.log('DX Digest push failed:', err instanceof Error ? err.message : err);
+    }
+  }
+  if (webPushOn) {
+    try {
+      // Same condensed-body reasoning as the ntfy branch above.
+      await sendWebPushAlert(subject, lines[0]);
+      console.log('Sent DX Digest web push.');
+    } catch (err) {
+      console.log('DX Digest web push failed:', err instanceof Error ? err.message : err);
     }
   }
 }

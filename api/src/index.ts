@@ -29,6 +29,7 @@ import { lightningRoutes } from './routes/lightning';
 import { examQuestionRoutes } from './routes/examQuestion';
 import { siteSettingsRoutes } from './routes/siteSettings';
 import { auroraRoutes } from './routes/aurora';
+import { pushRoutes } from './routes/push';
 import { startLightningMonitoring } from './lightning';
 import { startFlexRadioClient, registerAudioListener, unregisterAudioListener } from './flexRadio';
 import {
@@ -73,6 +74,7 @@ app.route('/api/guestbook', guestbookRoutes);
 app.route('/api/lightning', lightningRoutes);
 app.route('/api/exam', examQuestionRoutes);
 app.route('/api/settings', siteSettingsRoutes);
+app.route('/api/push', pushRoutes);
 // Registered before the general /media/* handler below -- Hono matches
 // middleware in registration order, and eqsl-card images live in their own
 // directory, not under PHOTOS_DIR.

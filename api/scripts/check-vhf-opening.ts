@@ -25,6 +25,7 @@
 import { db } from '../src/db';
 import { sendAlertEmail } from '../src/alertEmail';
 import { sendNtfyAlert } from '../src/alertNtfy';
+import { sendWebPushAlert } from '../src/alertWebPush';
 import { getAlertConfig, getSiteUrl } from '../src/alertConfig';
 import { isUsSpotterCallsign } from '../src/dxccPrefixes';
 
@@ -37,11 +38,12 @@ async function main() {
   const cfg = getAlertConfig();
   const emailOn = cfg.email?.enabled ?? false;
   const ntfyOn = cfg.ntfy?.enabled ?? false;
+  const webPushOn = cfg.webPushEnabled ?? false;
   if (!cfg.vhfEnabled) {
     console.log('VHF opening alerts disabled — turn it on under Admin.');
     return;
   }
-  if (!emailOn && !ntfyOn) {
+  if (!emailOn && !ntfyOn && !webPushOn) {
     console.log('VHF opening alerts enabled, but no delivery channel (email/push) is on — set one up under Admin.');
     return;
   }
@@ -109,6 +111,15 @@ async function main() {
       delivered = true;
     } catch (err) {
       console.log('ntfy alert failed:', err instanceof Error ? err.message : err);
+    }
+  }
+  if (webPushOn) {
+    try {
+      await sendWebPushAlert(subject, text);
+      console.log('Sent web push VHF opening alert.');
+      delivered = true;
+    } catch (err) {
+      console.log('Web push alert failed:', err instanceof Error ? err.message : err);
     }
   }
   if (!delivered) {

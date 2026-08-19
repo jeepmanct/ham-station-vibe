@@ -15,6 +15,7 @@ import { getAlertConfig } from '../src/alertConfig';
 import { getLotwConfirmedEntities } from '../src/dxccConfirmedAlert';
 import { sendAlertEmail } from '../src/alertEmail';
 import { sendNtfyAlert } from '../src/alertNtfy';
+import { sendWebPushAlert } from '../src/alertWebPush';
 import { db } from '../src/db';
 
 async function main() {
@@ -25,7 +26,8 @@ async function main() {
   }
   const emailOn = cfg.email?.enabled ?? false;
   const ntfyOn = cfg.ntfy?.enabled ?? false;
-  if (!emailOn && !ntfyOn) {
+  const webPushOn = cfg.webPushEnabled ?? false;
+  if (!emailOn && !ntfyOn && !webPushOn) {
     console.log('DXCC confirmation alerts enabled, but no delivery channel (email/push) is on — set one up under Admin.');
     return;
   }
@@ -63,6 +65,15 @@ async function main() {
         delivered = true;
       } catch (err) {
         console.log(`ntfy alert failed for ${entity}:`, err instanceof Error ? err.message : err);
+      }
+    }
+    if (webPushOn) {
+      try {
+        await sendWebPushAlert(subject, text);
+        console.log(`Sent web push for ${entity}.`);
+        delivered = true;
+      } catch (err) {
+        console.log(`Web push alert failed for ${entity}:`, err instanceof Error ? err.message : err);
       }
     }
     if (delivered) insertAlerted.run(entity);

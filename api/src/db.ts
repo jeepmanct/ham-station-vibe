@@ -284,6 +284,31 @@ db.exec(`
     hidden INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (page, tile_id)
   );
+
+  -- One row per subscribed browser/device for native Web Push (see
+  -- alertWebPush.ts) -- unlike ntfy (one shared topic) or email (one
+  -- address), a site owner may enable push from several devices (phone,
+  -- desktop), each with its own endpoint/keys issued by that browser's push
+  -- service. endpoint is unique so re-subscribing the same device (e.g.
+  -- after clearing site data) updates its keys in place instead of piling
+  -- up dead rows.
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    endpoint TEXT NOT NULL UNIQUE,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+
+  -- This server's own VAPID keypair, generated once on first use
+  -- (alertWebPush.ts) and persisted so every subscribed browser keeps
+  -- trusting the same identity across API restarts -- regenerating it would
+  -- silently invalidate every existing subscription.
+  CREATE TABLE IF NOT EXISTS vapid_keys (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    public_key TEXT NOT NULL,
+    private_key TEXT NOT NULL
+  );
 `);
 
 const SEED_SATELLITES: {
@@ -486,6 +511,11 @@ for (const [name, type] of [
   // weekly schedule once turned on, even in a quiet week with nothing new
   // to report. See scripts/send-dx-digest.ts.
   ['dx_digest_enabled', 'INTEGER NOT NULL DEFAULT 0'],
+  // Third delivery channel alongside email/ntfy_enabled -- native browser
+  // Web Push. Unlike ntfy_topic, there's no per-channel config value to
+  // store here; which devices actually receive it lives in
+  // push_subscriptions instead.
+  ['webpush_enabled', 'INTEGER NOT NULL DEFAULT 0'],
 ] as const) {
   if (!alertConfigColumns.has(name)) {
     db.exec(`ALTER TABLE alert_email_config ADD COLUMN ${name} ${type}`);

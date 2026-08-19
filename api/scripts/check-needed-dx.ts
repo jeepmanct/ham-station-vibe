@@ -13,6 +13,7 @@ import { resolveCallsignEntity, isUsSpotterCallsign } from '../src/dxccPrefixes'
 import { workedEntitiesByCallsign } from '../src/dxNeeded';
 import { sendAlertEmail } from '../src/alertEmail';
 import { sendNtfyAlert } from '../src/alertNtfy';
+import { sendWebPushAlert } from '../src/alertWebPush';
 import { getAlertConfig, getSiteUrl } from '../src/alertConfig';
 
 const COOLDOWN_HOURS = 3;
@@ -23,7 +24,8 @@ async function main() {
   const cfg = getAlertConfig();
   const emailOn = cfg.email?.enabled ?? false;
   const ntfyOn = cfg.ntfy?.enabled ?? false;
-  if (!emailOn && !ntfyOn) {
+  const webPushOn = cfg.webPushEnabled ?? false;
+  if (!emailOn && !ntfyOn && !webPushOn) {
     console.log('Needed-DX alerts disabled or not configured — set it up under Admin.');
     return;
   }
@@ -96,6 +98,15 @@ async function main() {
       delivered = true;
     } catch (err) {
       console.log('ntfy alert failed:', err instanceof Error ? err.message : err);
+    }
+  }
+  if (webPushOn) {
+    try {
+      await sendWebPushAlert(subject, text);
+      console.log('Sent web push alert.');
+      delivered = true;
+    } catch (err) {
+      console.log('Web push alert failed:', err instanceof Error ? err.message : err);
     }
   }
   if (!delivered) {

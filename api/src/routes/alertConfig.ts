@@ -3,6 +3,7 @@ import { requireAuth } from '../auth';
 import { getAlertConfigPublic, setAlertConfig } from '../alertConfig';
 import { sendAlertEmail } from '../alertEmail';
 import { sendNtfyAlert } from '../alertNtfy';
+import { sendWebPushAlert } from '../alertWebPush';
 import { seedDxccConfirmationBaseline } from '../dxccConfirmedAlert';
 
 export const alertConfigRoutes = new Hono();
@@ -17,6 +18,7 @@ alertConfigRoutes.post('/', requireAuth, async (c) => {
   if (
     !body?.email &&
     !body?.ntfy &&
+    body?.webPushEnabled === undefined &&
     body?.vhfEnabled === undefined &&
     body?.flareEnabled === undefined &&
     body?.windEnabled === undefined &&
@@ -32,7 +34,7 @@ alertConfigRoutes.post('/', requireAuth, async (c) => {
     return c.json(
       {
         error:
-          'email, ntfy, vhfEnabled, flareEnabled, windEnabled, kpEnabled, tropoEnabled, satPassEnabled, lightningEnabled, dxccConfirmedEnabled, dxDigestEnabled, dxUsSpottersOnly, or vhfUsSpottersOnly is required',
+          'email, ntfy, webPushEnabled, vhfEnabled, flareEnabled, windEnabled, kpEnabled, tropoEnabled, satPassEnabled, lightningEnabled, dxccConfirmedEnabled, dxDigestEnabled, dxUsSpottersOnly, or vhfUsSpottersOnly is required',
       },
       400,
     );
@@ -64,6 +66,7 @@ alertConfigRoutes.post('/', requireAuth, async (c) => {
         }
       : undefined,
     ntfy: body.ntfy ? { topic: String(body.ntfy.topic).trim(), enabled: !!body.ntfy.enabled } : undefined,
+    webPushEnabled: body.webPushEnabled !== undefined ? !!body.webPushEnabled : undefined,
     vhfEnabled: body.vhfEnabled !== undefined ? !!body.vhfEnabled : undefined,
     flareEnabled: body.flareEnabled !== undefined ? !!body.flareEnabled : undefined,
     windEnabled: body.windEnabled !== undefined ? !!body.windEnabled : undefined,
@@ -102,6 +105,15 @@ alertConfigRoutes.post('/test-email', requireAuth, async (c) => {
 alertConfigRoutes.post('/test-ntfy', requireAuth, async (c) => {
   try {
     await sendNtfyAlert('Test alert', "This is a test push from your site's needed-DX alert configuration. If you received this, it's working.");
+    return c.json({ ok: true });
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : 'Send failed' }, 502);
+  }
+});
+
+alertConfigRoutes.post('/test-webpush', requireAuth, async (c) => {
+  try {
+    await sendWebPushAlert('Test alert', "This is a test push from your site's browser push configuration. If you received this, it's working.");
     return c.json({ ok: true });
   } catch (err) {
     return c.json({ error: err instanceof Error ? err.message : 'Send failed' }, 502);

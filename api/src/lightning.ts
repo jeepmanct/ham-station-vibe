@@ -26,6 +26,7 @@ import { distanceKm } from './maidenhead';
 import { getAlertConfig } from './alertConfig';
 import { sendAlertEmail } from './alertEmail';
 import { sendNtfyAlert } from './alertNtfy';
+import { sendWebPushAlert } from './alertWebPush';
 
 const BROKER_URL = 'mqtt://blitzortung.ha.sed.pl:1883';
 const TILE_PRECISION = 3; // ~156km x 156km cells at this precision
@@ -124,7 +125,8 @@ async function maybeAlert(strike: Strike) {
   if (!cfg.lightningEnabled) return;
   const emailOn = cfg.email?.enabled ?? false;
   const ntfyOn = cfg.ntfy?.enabled ?? false;
-  if (!emailOn && !ntfyOn) return;
+  const webPushOn = cfg.webPushEnabled ?? false;
+  if (!emailOn && !ntfyOn && !webPushOn) return;
   if (Date.now() - lastAlertAt < ALERT_COOLDOWN_MS) return;
   lastAlertAt = Date.now();
 
@@ -140,6 +142,13 @@ async function maybeAlert(strike: Strike) {
   if (ntfyOn) {
     try {
       await sendNtfyAlert(subject, text);
+    } catch {
+      // Same.
+    }
+  }
+  if (webPushOn) {
+    try {
+      await sendWebPushAlert(subject, text);
     } catch {
       // Same.
     }
