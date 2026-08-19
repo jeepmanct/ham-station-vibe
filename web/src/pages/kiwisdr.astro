@@ -702,6 +702,26 @@ import '../styles/kiwisdr.css';
       buildPalette(key);
     });
 
+    // The waterfall/spectrum's zoom window is always centered exactly on
+    // the tuned frequency (kiwiSdr.ts sends `cf=` as the current
+    // frequency, same value updateFreqAxis's axisCenter already shows) --
+    // so the tuned-frequency marker is always dead center, no per-frame
+    // frequency-to-pixel math needed, just a redraw at the same x each
+    // time. Drawn as an overlay on top rather than baked into the
+    // waterfall's scrolling image, so it doesn't need touching the
+    // row-shift logic above it.
+    function drawCenterLine(context: CanvasRenderingContext2D, w: number, h: number) {
+      context.save();
+      context.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+      context.lineWidth = 1;
+      context.beginPath();
+      const x = Math.round(w / 2) + 0.5; // +0.5 keeps a 1px line crisp instead of antialiased across two pixels
+      context.moveTo(x, 0);
+      context.lineTo(x, h);
+      context.stroke();
+      context.restore();
+    }
+
     function drawWaterfallRow(bins: Uint8Array) {
       const w = canvas.width;
       const h = canvas.height;
@@ -717,6 +737,7 @@ import '../styles/kiwisdr.css';
         row.data[i + 3] = 255;
       }
       ctx.putImageData(row, 0, 0);
+      drawCenterLine(ctx, w, h);
     }
 
     // --- Live spectrum analyzer -- the classic line-graph-above-a-waterfall
@@ -893,6 +914,7 @@ import '../styles/kiwisdr.css';
         drawSpectrumLine(bins, n, w, h);
         if (spectrumStyle === 'peak-hold') drawSpectrumPeaks(bins, n, h);
       }
+      drawCenterLine(spectrumCtx, w, h);
     }
     function clearSpectrum() {
       spectrumCtx.clearRect(0, 0, spectrumCanvas.width, spectrumCanvas.height);
