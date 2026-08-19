@@ -108,6 +108,19 @@ async function fetchDirectory(): Promise<PublicKiwiEntry[]> {
       continue;
     }
     if (!hostname || !Number.isFinite(port) || port <= 0) continue;
+    // Receivers behind restrictive NAT/firewalls get tunneled through
+    // kiwisdr.com's own *.proxy.kiwisdr.com relay rather than being
+    // reachable directly. Confirmed live (2026-08-19): a plain HTTP GET to
+    // one of these succeeds and returns the receiver's real status page,
+    // but a WebSocket connection to the same host/port opens successfully
+    // and then never sends back a single byte -- not even the initial
+    // MSG handshake -- while an otherwise-identical direct-address
+    // receiver responds immediately. Whatever session/routing the proxy
+    // tier needs for WS traffic isn't satisfied by this minimal client
+    // (which only ports the *direct* KiwiSDR protocol, see this file's
+    // header), so these silently hang instead of erroring -- worse than
+    // just not listing them.
+    if (/(^|\.)proxy\.kiwisdr\.com$/i.test(hostname)) continue;
 
     const users = Number(r.users) || 0;
     const usersMax = Number(r.users_max) || 0;

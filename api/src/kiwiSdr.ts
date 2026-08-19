@@ -509,6 +509,15 @@ function connectSnd(): Promise<ConnectResult> {
 
     ws.onclose = () => {
       finish({ ok: false, error: 'KiwiSDR connection closed' });
+      // A switchToPublicReceiver()/switchToOwnReceiver() call closes this
+      // socket and opens its replacement in the same tick, but the close
+      // event for the old one only arrives later (async) -- by then
+      // sndSocket already points at the new connection. Without this
+      // check, that stale event would null out the reference to the
+      // (working) new connection and schedule an unnecessary reconnect for
+      // it, which is what made "switch receivers while already listening"
+      // silently drop audio.
+      if (sndSocket !== ws) return;
       sndSocket = null;
       status.sndConnected = false;
       if (sndKeepalive) {
@@ -588,6 +597,10 @@ function connectWf(): Promise<ConnectResult> {
 
     ws.onclose = () => {
       finish({ ok: false, error: 'KiwiSDR waterfall connection closed' });
+      // See connectSnd()'s onclose comment -- same stale-event race when a
+      // receiver switch closes this socket and opens its replacement
+      // before this one's (async) close event arrives.
+      if (wfSocket !== ws) return;
       wfSocket = null;
       status.wfConnected = false;
       if (wfKeepalive) {
