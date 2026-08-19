@@ -117,6 +117,12 @@
 
 .kiwi-unconfigured { color: var(--muted); font-size: 0.9rem; }
 
+/* [hidden] alone loses to the .kiwi-public-banner display:flex below --
+   same-specificity author rule beats the UA stylesheet's [hidden] rule
+   regardless of source order, so the element stayed visibly on-screen the
+   entire time despite the attribute correctly toggling (same reason
+   .eqsl-modal-backdrop[hidden] exists as its own rule below). */
+.kiwi-public-banner[hidden] { display: none; }
 .kiwi-public-banner {
   display: flex;
   align-items: center;
@@ -126,4 +132,28 @@
   font-size: 0.9rem;
   margin-bottom: 1rem;
 }
+
+/* Flex rows instead of a wide <table> -- a table with 4+ data columns plus
+   an action button needed horizontal scrolling to even reach "Listen" on
+   anything narrower than a desktop window. flex-wrap lets a row that
+   doesn't fit drop the button to its own line instead of pushing it
+   off-screen, so it's always reachable without scrolling sideways. */
+.kiwi-public-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.65rem 0.1rem;
+  border-bottom: 1px solid var(--border);
+}
+.kiwi-public-row:last-child { border-bottom: 0; }
+.kiwi-public-row-info { flex: 1 1 auto; min-width: 0; }
+.kiwi-public-row-name { font-size: 0.92rem; }
+.kiwi-public-row-meta { color: var(--muted); font-size: 0.8rem; margin-top: 0.15rem; }
+.kiwi-public-row-listen { flex-shrink: 0; padding: 0.35rem 0.75rem; font-size: 0.8rem; }
+
+/* Scrolls on its own (capped height) so the heading/search stay put above
+   it instead of scrolling away with 300+ receivers below them. */
+.kiwi-public-list { max-height: 55vh; overflow-y: auto; }
 

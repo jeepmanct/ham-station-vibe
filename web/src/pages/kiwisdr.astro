@@ -19,14 +19,7 @@ import '../styles/kiwisdr.css';
       <p class="chart-desc" style="margin:0 0 0.75rem;">Sorted by distance from this station. Only receivers currently online and accepting connections are listed.</p>
       <input type="text" id="kiwi-public-search" placeholder="Search by name or location&hellip;" style="margin-bottom:0.75rem;" />
       <p class="status-line" id="kiwi-public-status">Loading&hellip;</p>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr><th>Receiver</th><th>Distance</th><th>Users</th><th>SNR</th><th></th></tr>
-          </thead>
-          <tbody id="kiwi-public-rows"></tbody>
-        </table>
-      </div>
+      <div id="kiwi-public-rows" class="kiwi-public-list"></div>
     </div>
   </div>
 
@@ -312,6 +305,7 @@ import '../styles/kiwisdr.css';
         publicBannerLabel.textContent = s.source.label;
         ledeCallsignEl.textContent = s.source.label;
       } else {
+        publicBannerLabel.textContent = '';
         ledeCallsignEl.textContent = stationCallsign;
       }
       if (!s.configured || !s.enabled) return;
@@ -377,25 +371,33 @@ import '../styles/kiwisdr.css';
       }
       publicStatus.textContent = '';
       for (const entry of filtered) {
-        const tr = document.createElement('tr');
-        const nameTd = document.createElement('td');
-        nameTd.innerHTML = `${entry.name}${entry.location ? `<br><span style="color:var(--muted);font-size:0.82rem;">${entry.location}</span>` : ''}`;
-        const distTd = document.createElement('td');
-        distTd.textContent = entry.distanceKm != null ? `${entry.distanceKm.toLocaleString()} km` : '—';
-        const usersTd = document.createElement('td');
-        usersTd.textContent = `${entry.users} / ${entry.usersMax}`;
-        const snrTd = document.createElement('td');
-        snrTd.textContent = entry.bestSnr != null ? `${entry.bestSnr} dB` : '—';
-        const actionTd = document.createElement('td');
+        const row = document.createElement('div');
+        row.className = 'kiwi-public-row';
+
+        const info = document.createElement('div');
+        info.className = 'kiwi-public-row-info';
+        const nameEl = document.createElement('div');
+        nameEl.className = 'kiwi-public-row-name';
+        nameEl.textContent = entry.name;
+        const metaEl = document.createElement('div');
+        metaEl.className = 'kiwi-public-row-meta';
+        const metaParts = [
+          entry.location || null,
+          entry.distanceKm != null ? `${entry.distanceKm.toLocaleString()} km` : null,
+          `${entry.users}/${entry.usersMax} users`,
+          entry.bestSnr != null ? `SNR ${entry.bestSnr} dB` : null,
+        ].filter(Boolean);
+        metaEl.textContent = metaParts.join(' · ');
+        info.append(nameEl, metaEl);
+
         const listenBtn = document.createElement('button');
         listenBtn.type = 'button';
-        listenBtn.className = 'btn secondary';
-        listenBtn.style.cssText = 'padding:0.25rem 0.6rem;font-size:0.75rem;';
+        listenBtn.className = 'btn secondary kiwi-public-row-listen';
         listenBtn.textContent = 'Listen';
         listenBtn.addEventListener('click', () => switchToPublicEntry(entry.id, listenBtn));
-        actionTd.appendChild(listenBtn);
-        tr.append(nameTd, distTd, usersTd, snrTd, actionTd);
-        publicRows.appendChild(tr);
+
+        row.append(info, listenBtn);
+        publicRows.appendChild(row);
       }
     }
     publicSearchInput.addEventListener('input', renderPublicRows);
@@ -425,6 +427,15 @@ import '../styles/kiwisdr.css';
     async function switchToPublicEntry(id: string, btn: HTMLButtonElement) {
       btn.disabled = true;
       btn.textContent = 'Connecting…';
+      // "Listen" should actually start listening -- if audio isn't already
+      // running, start it now, synchronously within this click handler (an
+      // AudioContext can only be created/resumed off a real user gesture,
+      // which a later `await`-ed fetch's continuation may no longer count
+      // as). It'll connect to whatever receiver is currently active and
+      // then follow the switch below automatically once that lands, same
+      // as picking a different receiver while already listening already
+      // does.
+      if (!running) startAll();
       try {
         const res = await fetch('/api/kiwisdr/public/switch', {
           method: 'POST',
@@ -1030,7 +1041,6 @@ import '../styles/kiwisdr.css';
       audioStatus.textContent = 'Connecting…';
       syncWaterfallConnection();
 
-      const sampleRate = Math.round(lastStatus?.sampleRate ?? 12000);
       audioCtx = new AudioContext();
       gainNode = audioCtx.createGain();
       gainNode.gain.value = Number(volumeSlider.value);
@@ -1051,6 +1061,15 @@ import '../styles/kiwisdr.css';
           return;
         }
         if (!audioCtx || !gainNode) return;
+        // Read the sample rate fresh per frame rather than capturing it
+        // once at Start time -- switching to a different public receiver
+        // mid-session (which the picker's "Listen" button now does without
+        // requiring a separate Start click) can mean a different sample
+        // rate takes over the same still-open audio socket, and playing
+        // its frames back at the OLD rate would just come out pitch-
+        // shifted/sped up rather than erroring. loadStatus()'s poll keeps
+        // lastStatus.sampleRate caught up to whatever's actually connected.
+        const sampleRate = Math.round(lastStatus?.sampleRate ?? 12000);
         const pcm = new Int16Array(ev.data as ArrayBuffer);
         const buffer = audioCtx.createBuffer(1, pcm.length, sampleRate);
         const channel = buffer.getChannelData(0);
