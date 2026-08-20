@@ -61,6 +61,9 @@ import '../styles/kiwisdr.css';
               <option value="peak-hold">Peak Hold</option>
               <option value="filled">Filled Area</option>
               <option value="gradient-bars">Gradient Bars</option>
+              <option value="average">Average</option>
+              <option value="min-hold">Min Hold</option>
+              <option value="persistence">Persistence</option>
             </select>
           </label>
           <label>
@@ -1224,9 +1227,34 @@ import '../styles/kiwisdr.css';
     // saved per-browser, not site-wide. ---
     const spectrumAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#5eead4';
     const peakAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent-2').trim() || '#f5a962';
+    const minHoldAccent = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#8891a8';
+    // Resolves any CSS color (hex, named, etc.) to concrete RGB bytes by
+    // actually painting it -- used once below to seed 'persistence' style's
+    // per-pixel ImageData writes, which need raw RGB rather than a CSS
+    // color string.
+    function cssColorToRgb(color: string): [number, number, number] {
+      const probe = document.createElement('canvas');
+      probe.width = 1;
+      probe.height = 1;
+      const pctx = probe.getContext('2d')!;
+      pctx.fillStyle = color;
+      pctx.fillRect(0, 0, 1, 1);
+      const [r, g, b] = pctx.getImageData(0, 0, 1, 1).data;
+      return [r, g, b];
+    }
+    const persistenceRgb = cssColorToRgb(spectrumAccent);
 
-    type SpectrumStyle = 'line' | 'bars' | 'peak-hold' | 'filled' | 'gradient-bars';
-    const SPECTRUM_STYLES: SpectrumStyle[] = ['line', 'bars', 'peak-hold', 'filled', 'gradient-bars'];
+    type SpectrumStyle = 'line' | 'bars' | 'peak-hold' | 'filled' | 'gradient-bars' | 'average' | 'min-hold' | 'persistence';
+    const SPECTRUM_STYLES: SpectrumStyle[] = [
+      'line',
+      'bars',
+      'peak-hold',
+      'filled',
+      'gradient-bars',
+      'average',
+      'min-hold',
+      'persistence',
+    ];
     const SPECTRUM_STYLE_STORAGE_KEY = 'kiwi_spectrum_style';
     const spectrumStyleSelect = document.getElementById('kiwi-spectrum-style') as HTMLSelectElement;
     const savedSpectrumStyle = localStorage.getItem(SPECTRUM_STYLE_STORAGE_KEY);
@@ -1236,10 +1264,19 @@ import '../styles/kiwisdr.css';
     // Slowly-decaying per-bin peak track, only used in 'peak-hold' -- reset
     // whenever the style changes so an old session's peaks don't linger.
     let peakLevels: Float32Array | null = null;
+    // Slowly-rising per-bin minimum track, mirror of peakLevels for 'min-hold'.
+    let minLevels: Float32Array | null = null;
+    // Exponentially-smoothed trace for 'average'.
+    let avgLevels: Float32Array | null = null;
+    // Per-pixel decaying intensity buffer for 'persistence' -- indexed [y*w+x].
+    let persistenceBuffer: Uint8ClampedArray | null = null;
     spectrumStyleSelect.addEventListener('change', () => {
       spectrumStyle = spectrumStyleSelect.value as SpectrumStyle;
       localStorage.setItem(SPECTRUM_STYLE_STORAGE_KEY, spectrumStyle);
       peakLevels = null;
+      minLevels = null;
+      avgLevels = null;
+      persistenceBuffer = null;
     });
 
     // The server already contrast-stretches each waterfall row to its own
@@ -1373,6 +1410,104 @@ import '../styles/kiwisdr.css';
       }
     }
 
+    // Mirror of drawSpectrumPeaks -- rises instead of decays, at the same
+    // rate, so a brief dip in the noise floor still shows for a few
+    // seconds but a floor that's genuinely risen isn't stuck showing an
+    // old, now-inaccurate low reading forever. Good for spotting the true
+    // noise floor or a stuck birdie that a live/peak trace alone would
+    // bury under normal signal activity.
+    const MIN_RISE_PER_FRAME = 1.5;
+    function drawSpectrumMinHold(bins: Uint8Array, n: number, h: number) {
+      if (!minLevels || minLevels.length !== n) minLevels = Float32Array.from(bins.subarray(0, n));
+      spectrumCtx.beginPath();
+      for (let x = 0; x < n; x++) {
+        minLevels[x] = Math.min(bins[x], minLevels[x] + MIN_RISE_PER_FRAME);
+        const y = h - binHeight(minLevels[x], h);
+        if (x === 0) spectrumCtx.moveTo(x, y);
+        else spectrumCtx.lineTo(x, y);
+      }
+      spectrumCtx.strokeStyle = minHoldAccent;
+      spectrumCtx.lineWidth = 1;
+      spectrumCtx.stroke();
+    }
+
+    // Exponentially-smoothed trace instead of the raw one -- pulls a weak
+    // steady signal out of frame-to-frame noise jitter, at the cost of a
+    // little lag reacting to real level changes. AVG_ALPHA close to 0 means
+    // heavier smoothing/more lag; closer to 1 tracks the raw trace almost
+    // exactly. Replaces the raw line entirely (unlike peak-hold/min-hold,
+    // which overlay it) -- showing both together would defeat the point of
+    // smoothing away the jitter.
+    const AVG_ALPHA = 0.15;
+    function drawSpectrumAverage(bins: Uint8Array, n: number, h: number) {
+      if (!avgLevels || avgLevels.length !== n) avgLevels = Float32Array.from(bins.subarray(0, n));
+      for (let x = 0; x < n; x++) avgLevels[x] = avgLevels[x] * (1 - AVG_ALPHA) + bins[x] * AVG_ALPHA;
+      spectrumCtx.beginPath();
+      spectrumCtx.moveTo(0, h);
+      for (let x = 0; x < n; x++) spectrumCtx.lineTo(x, h - binHeight(avgLevels[x], h));
+      spectrumCtx.lineTo(n, h);
+      spectrumCtx.closePath();
+      const gradient = spectrumCtx.createLinearGradient(0, 0, 0, h);
+      gradient.addColorStop(0, spectrumAccent);
+      gradient.addColorStop(1, 'transparent');
+      spectrumCtx.globalAlpha = 0.3;
+      spectrumCtx.fillStyle = gradient;
+      spectrumCtx.fill();
+      spectrumCtx.globalAlpha = 1;
+
+      spectrumCtx.beginPath();
+      for (let x = 0; x < n; x++) {
+        const y = h - binHeight(avgLevels[x], h);
+        if (x === 0) spectrumCtx.moveTo(x, y);
+        else spectrumCtx.lineTo(x, y);
+      }
+      spectrumCtx.strokeStyle = spectrumAccent;
+      spectrumCtx.lineWidth = 1.5;
+      spectrumCtx.shadowColor = spectrumAccent;
+      spectrumCtx.shadowBlur = 6;
+      spectrumCtx.stroke();
+      spectrumCtx.shadowBlur = 0;
+    }
+
+    // Phosphor-scope style trace: every frame's trace position lights up a
+    // few pixels to full brightness, then everything fades a little each
+    // frame. A frequency that repeatedly sits at the same level builds up
+    // a bright, persistent glow there; noise that never settles anywhere
+    // in particular stays dim and spread out. Uses raw ImageData rather
+    // than per-pixel fillRect calls -- w*h fillRect calls with a changing
+    // fillStyle/alpha every frame would be far slower than one
+    // getImageData/putImageData round trip. Reads the canvas via
+    // getImageData first (rather than starting from a blank buffer) so
+    // the band-plan/passband overlays already drawn underneath survive --
+    // putImageData replaces pixels outright, it doesn't composite.
+    const PERSISTENCE_DECAY = 10; // fades a fully-lit pixel to zero in ~25 frames
+    function drawSpectrumPersistence(bins: Uint8Array, n: number, w: number, h: number) {
+      if (!persistenceBuffer || persistenceBuffer.length !== w * h) persistenceBuffer = new Uint8ClampedArray(w * h);
+      for (let i = 0; i < persistenceBuffer.length; i++) {
+        if (persistenceBuffer[i] > 0) persistenceBuffer[i] -= Math.min(persistenceBuffer[i], PERSISTENCE_DECAY);
+      }
+      for (let x = 0; x < n; x++) {
+        const y = Math.round(h - binHeight(bins[x], h));
+        for (let dy = -1; dy <= 1; dy++) {
+          const yy = y + dy;
+          if (yy >= 0 && yy < h) persistenceBuffer[yy * w + x] = 255;
+        }
+      }
+      const imageData = spectrumCtx.getImageData(0, 0, w, h);
+      const data = imageData.data;
+      const [r, g, b] = persistenceRgb;
+      for (let i = 0; i < persistenceBuffer.length; i++) {
+        const intensity = persistenceBuffer[i];
+        if (intensity === 0) continue;
+        const idx = i * 4;
+        data[idx] = r;
+        data[idx + 1] = g;
+        data[idx + 2] = b;
+        data[idx + 3] = intensity;
+      }
+      spectrumCtx.putImageData(imageData, 0, 0);
+    }
+
     // Simplified US HF band plan -- CW/Data lower segment, Phone/Image
     // upper segment, per the general boundaries ARRL band-edge charts
     // commonly publish. General orientation while tuning, not a
@@ -1498,15 +1633,23 @@ import '../styles/kiwisdr.css';
         drawSpectrumGradientBars(bins, n, w, h);
       } else if (spectrumStyle === 'filled') {
         drawSpectrumFilled(bins, n, w, h);
+      } else if (spectrumStyle === 'average') {
+        drawSpectrumAverage(bins, n, h);
+      } else if (spectrumStyle === 'persistence') {
+        drawSpectrumPersistence(bins, n, w, h);
       } else {
         drawSpectrumLine(bins, n, w, h);
         if (spectrumStyle === 'peak-hold') drawSpectrumPeaks(bins, n, h);
+        if (spectrumStyle === 'min-hold') drawSpectrumMinHold(bins, n, h);
       }
       drawCenterLine(spectrumCtx, w, h);
     }
     function clearSpectrum() {
       spectrumCtx.clearRect(0, 0, spectrumCanvas.width, spectrumCanvas.height);
       peakLevels = null;
+      minLevels = null;
+      avgLevels = null;
+      persistenceBuffer = null;
     }
 
     // Recomputed in loadStatus() from the server's current wfZoom (see the
