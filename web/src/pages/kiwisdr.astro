@@ -91,6 +91,21 @@ import '../styles/kiwisdr.css';
       <p class="status-line" id="kiwi-wf-status" style="margin-top:0.4rem;"></p>
     </div>
 
+    <!-- The checkbox itself is the show/hide control -- unchecked, this is
+         just the one label row; checking it is what reveals the actual
+         output panel below (see cwSyncStatus()), so there's no separate
+         collapsible section needed the way Tuning & Filter/Quick Tune
+         have. Sits right under the waterfall since that's the display
+         it's actually reading. -->
+    <div class="card kiwi-cw-decoder">
+      <label class="kiwi-cw-toggle" title="Adapts to the sender's speed automatically -- the first character or two after enabling (or after a long gap) may come out garbled while it locks on, same as any adaptive CW decoder.">
+        <input type="checkbox" id="kiwi-cw-enabled" /> CW Decoder
+      </label>
+      <span class="status-line" id="kiwi-cw-status" style="margin:0;"></span>
+      <button type="button" class="btn secondary" id="kiwi-cw-clear" style="padding:0.25rem 0.6rem;font-size:0.75rem;" hidden>Clear</button>
+      <div class="kiwi-cw-output" id="kiwi-cw-output" hidden></div>
+    </div>
+
     <!-- Always visible -- the core "what's playing right now" dashboard.
          Everything else below is grouped into collapsible sections (see
          kiwi-section/renderCollapsedSections) for controls that are
@@ -237,20 +252,6 @@ import '../styles/kiwisdr.css';
             </div>
           </label>
           <p id="kiwi-tune-status" class="status-line"></p>
-        </div>
-      </div>
-    </details>
-
-    <details class="card kiwi-section" id="kiwi-section-cw" open>
-      <summary class="kiwi-section-header">CW Decoder <span class="kiwi-chevron" aria-hidden="true">&#9656;</span></summary>
-      <div class="kiwi-section-body">
-        <div class="kiwi-cw-decoder">
-          <label class="kiwi-cw-toggle" title="Adapts to the sender's speed automatically -- the first character or two after enabling (or after a long gap) may come out garbled while it locks on, same as any adaptive CW decoder.">
-            <input type="checkbox" id="kiwi-cw-enabled" /> CW Decoder
-          </label>
-          <span class="status-line" id="kiwi-cw-status" style="margin:0;"></span>
-          <button type="button" class="btn secondary" id="kiwi-cw-clear" style="padding:0.25rem 0.6rem;font-size:0.75rem;" hidden>Clear</button>
-          <div class="kiwi-cw-output" id="kiwi-cw-output" hidden></div>
         </div>
       </div>
     </details>
