@@ -10,6 +10,7 @@ import {
   setNoiseBlanker,
   setWfZoom,
   setWfSpeed,
+  setWfContrast,
   setKiwiSdrEnabled,
   sampleNoiseFloor,
   switchToPublicReceiver,
@@ -112,6 +113,14 @@ kiwiSdrRoutes.post('/wf-speed', async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body || typeof body.speed !== 'number') return c.json({ error: 'speed must be a number' }, 400);
   const result = setWfSpeed(body.speed);
+  if (!result.ok) return c.json({ error: result.error }, 400);
+  return c.json(await getKiwiSdrStatus());
+});
+
+kiwiSdrRoutes.post('/wf-contrast', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (!body || typeof body.percent !== 'number') return c.json({ error: 'percent must be a number' }, 400);
+  const result = setWfContrast(body.percent);
   if (!result.ok) return c.json({ error: result.error }, 400);
   return c.json(await getKiwiSdrStatus());
 });

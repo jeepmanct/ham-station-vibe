@@ -92,6 +92,11 @@ import '../styles/kiwisdr.css';
             </select>
           </label>
         </div>
+        <div class="kiwi-gain-row" title="How aggressively the waterfall stretches contrast around each row's own noise floor -- gentle keeps a wide dynamic range visible, punchy clips more of the tails for a starker view of weak signals against strong ones.">
+          <label for="kiwi-wf-contrast">Contrast</label>
+          <input type="range" id="kiwi-wf-contrast" min="1" max="15" step="1" value="2" aria-label="Waterfall contrast sensitivity" />
+          <span class="kiwi-gain-readout" id="kiwi-wf-contrast-readout">2%</span>
+        </div>
       </div>
     </details>
 
@@ -348,6 +353,9 @@ import '../styles/kiwisdr.css';
       wfSpeed: number;
       minWfSpeed: number;
       maxWfSpeed: number;
+      wfContrastPercent: number;
+      minWfContrastPercent: number;
+      maxWfContrastPercent: number;
       listenerCount: number | null;
       listenerMax: number | null;
       source: { isPublic: boolean; label: string };
@@ -415,6 +423,8 @@ import '../styles/kiwisdr.css';
     const siteListenersEl = document.getElementById('kiwi-site-listeners')!;
     const wfZoomSelect = document.getElementById('kiwi-wf-zoom') as HTMLSelectElement;
     const wfSpeedSelect = document.getElementById('kiwi-wf-speed') as HTMLSelectElement;
+    const wfContrastSlider = document.getElementById('kiwi-wf-contrast') as HTMLInputElement;
+    const wfContrastReadout = document.getElementById('kiwi-wf-contrast-readout')!;
     const bandSelect = document.getElementById('kiwi-band-select') as HTMLSelectElement;
     const timeSelect = document.getElementById('kiwi-time-select') as HTMLSelectElement;
     const swSelect = document.getElementById('kiwi-sw-select') as HTMLSelectElement;
@@ -524,6 +534,10 @@ import '../styles/kiwisdr.css';
       }
       if (document.activeElement !== wfZoomSelect) wfZoomSelect.value = String(s.wfZoom);
       if (document.activeElement !== wfSpeedSelect) wfSpeedSelect.value = String(s.wfSpeed);
+      if (document.activeElement !== wfContrastSlider) {
+        wfContrastSlider.value = String(s.wfContrastPercent);
+        wfContrastReadout.textContent = `${s.wfContrastPercent}%`;
+      }
       WF_SPAN_KHZ = 30000 / 2 ** s.wfZoom;
       updateFreqAxis(s.freqKhz);
       listenerCountEl.textContent =
@@ -860,6 +874,18 @@ import '../styles/kiwisdr.css';
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ speed: Number(wfSpeedSelect.value) }),
+      });
+      if (res.ok) loadStatus();
+    });
+
+    wfContrastSlider.addEventListener('input', () => {
+      wfContrastReadout.textContent = `${wfContrastSlider.value}%`;
+    });
+    wfContrastSlider.addEventListener('change', async () => {
+      const res = await fetch('/api/kiwisdr/wf-contrast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ percent: Number(wfContrastSlider.value) }),
       });
       if (res.ok) loadStatus();
     });

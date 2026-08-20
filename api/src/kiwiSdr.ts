@@ -82,6 +82,17 @@ const WF_SPEED_MIN = 1;
 const WF_SPEED_MAX = 4;
 let currentWfSpeed = 4;
 
+// How much of each waterfall row's tail gets clipped before the rest is
+// stretched to fill 0-255 -- see handleWfFrame's comment for why this
+// per-row percentile stretch exists at all (the Kiwi's raw bytes have no
+// fixed calibration). Purely local math, never sent upstream -- unlike the
+// other settings in this file, there's no protocol command for it. Bounds
+// are just sane UI limits, not protocol-derived: below 1% barely clips
+// anything, above 15% starts eating real signal into flat black/white.
+const WF_CONTRAST_MIN_PERCENT = 1;
+const WF_CONTRAST_MAX_PERCENT = 15;
+let currentWfContrastPercent = 2;
+
 function getEnabledRow(): { enabled: number } | null {
   return db.query('SELECT enabled FROM kiwisdr_settings WHERE id = 1').get() as { enabled: number } | null;
 }
@@ -237,6 +248,9 @@ export type KiwiSdrStatus = {
   wfSpeed: number;
   minWfSpeed: number;
   maxWfSpeed: number;
+  wfContrastPercent: number;
+  minWfContrastPercent: number;
+  maxWfContrastPercent: number;
   listenerCount: number | null;
   listenerMax: number | null;
   source: { isPublic: boolean; label: string };
@@ -285,6 +299,9 @@ export async function getKiwiSdrStatus(): Promise<KiwiSdrStatus> {
     wfSpeed: currentWfSpeed,
     minWfSpeed: WF_SPEED_MIN,
     maxWfSpeed: WF_SPEED_MAX,
+    wfContrastPercent: currentWfContrastPercent,
+    minWfContrastPercent: WF_CONTRAST_MIN_PERCENT,
+    maxWfContrastPercent: WF_CONTRAST_MAX_PERCENT,
     listenerCount: listeners?.users ?? null,
     listenerMax: listeners?.usersMax ?? null,
     siteListeners: audioListeners.size,
@@ -451,6 +468,16 @@ export function setWfSpeed(speed: number): ConnectResult {
   return { ok: true };
 }
 
+/** Adjusts the waterfall's own auto-contrast stretch (see handleWfFrame's comment) -- purely local, nothing to send upstream. */
+export function setWfContrast(percent: number): ConnectResult {
+  if (!getKiwiSdrEnabled()) return { ok: false, error: 'KiwiSDR is currently disabled' };
+  if (!Number.isFinite(percent) || percent < WF_CONTRAST_MIN_PERCENT || percent > WF_CONTRAST_MAX_PERCENT) {
+    return { ok: false, error: `Contrast must be between ${WF_CONTRAST_MIN_PERCENT} and ${WF_CONTRAST_MAX_PERCENT}` };
+  }
+  currentWfContrastPercent = percent;
+  return { ok: true };
+}
+
 // Tears down whatever's currently connected (if anything) and, if there are
 // still listeners waiting, immediately reconnects -- against whatever host
 // parseHost() now resolves to, since callers run this only after flipping
@@ -599,8 +626,9 @@ function handleWfFrame(data: Uint8Array) {
   if (data.length < 16 || wfListeners.size === 0) return;
   const raw = data.subarray(16);
   const sorted = Uint8Array.from(raw).sort();
-  const p2 = sorted[Math.floor(sorted.length * 0.02)];
-  const p98 = sorted[Math.floor(sorted.length * 0.98)];
+  const frac = currentWfContrastPercent / 100;
+  const p2 = sorted[Math.floor(sorted.length * frac)];
+  const p98 = sorted[Math.floor(sorted.length * (1 - frac))];
   wfLo = wfLo === null ? p2 : wfLo * (1 - WF_SMOOTHING) + p2 * WF_SMOOTHING;
   wfHi = wfHi === null ? p98 : wfHi * (1 - WF_SMOOTHING) + p98 * WF_SMOOTHING;
   const span = Math.max(wfHi - wfLo, WF_MIN_SPAN);
