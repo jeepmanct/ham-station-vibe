@@ -1241,7 +1241,17 @@ import '../styles/kiwisdr.css';
     // sliders' input-preview/change-commit split elsewhere on this page)
     // -- the waterfall's actual pixels can't preview a frequency nothing's
     // tuned to yet, so only the big frequency readout updates live while
-    // dragging; the real picture catches up once the retune lands. ---
+    // dragging; the real picture catches up once the retune lands.
+    //
+    // The raw drag position is a continuous, essentially arbitrary
+    // frequency -- snapped to the nearest multiple of whichever step size
+    // the step buttons currently have active (same activeStepKhz the jog
+    // slider already uses), so a drag always lands somewhere clean instead
+    // of some odd fractional-Hz spot, and any follow-up nudge with the
+    // step buttons starts from a sensible base. Snapping the live preview
+    // too, not just the final commit, so what's shown while dragging
+    // already matches what release will actually land on -- nothing
+    // visibly jumps at the end. ---
     const DRAG_THRESHOLD_PX = 6;
     function wireWaterfallDrag(canvasEl: HTMLCanvasElement) {
       let dragPointerId: number | null = null;
@@ -1252,7 +1262,8 @@ import '../styles/kiwisdr.css';
       function targetKhzFor(clientX: number): number {
         const rect = canvasEl.getBoundingClientRect();
         const deltaKhz = (-(clientX - startClientX) / rect.width) * WF_SPAN_KHZ;
-        return Math.max(0, startCenterKhz + deltaKhz);
+        const rawKhz = Math.max(0, startCenterKhz + deltaKhz);
+        return Math.round(rawKhz / activeStepKhz) * activeStepKhz;
       }
       function onMove(e: PointerEvent) {
         if (e.pointerId !== dragPointerId) return;
