@@ -43,7 +43,7 @@ import '../styles/colophon.css';
       <h3>Photos</h3>
       <ul>
         <li>Gallery of shack, antenna, and field photos</li>
-        <li>Admin-gated upload and delete</li>
+        <li>Admin-gated upload, caption editing, and delete</li>
       </ul>
     </div>
     <div class="feature-block">
@@ -52,15 +52,16 @@ import '../styles/colophon.css';
         <li>Full searchable, filterable contact log (band, mode, country, state, date range) with faceted filter counts</li>
         <li><strong>Log a QSO</strong> &mdash; add a contact directly, with country/continent/CQ-zone auto-filled from the callsign, and an option to push it straight to your QRZ.com logbook</li>
         <li>Import from an LoTW ADIF file by hand, or sync directly from LoTW, QRZ.com, and eQSL.cc (each incremental by default, with a Full Resync option)</li>
-        <li>On-demand eQSL.cc card viewer for confirmed contacts, fetched and cached one at a time rather than a bulk gallery</li>
+        <li>Admin-gated Edit/Delete on any logged QSO, with a warning before changing an imported record's own identity fields (call/date/time/band/mode)</li>
         <li>Full ADIF/CSV log export (admin-gated)</li>
       </ul>
     </div>
     <div class="feature-block">
       <h3>QSO Map</h3>
       <ul>
-        <li>Every contact plotted as a great-circle line on a world map, colored by band</li>
-        <li>Day/night grayline terminator overlay, computed client-side from real solar position</li>
+        <li>Every contact plotted as a great-circle line on a world map, colored by band, with a click-through to QRZ.com and Google Street View for each worked station</li>
+        <li>A hand-rolled 3D globe view (plain canvas, no WebGL) as an alternative to the 2D map, sharing the same arc data</li>
+        <li>Day/night grayline terminator overlay, computed client-side from real solar position, and a live aurora forecast overlay</li>
         <li>Band, mode, country, and state filters &mdash; opt-in, so the map starts empty until you choose what to show</li>
       </ul>
     </div>
@@ -69,6 +70,7 @@ import '../styles/colophon.css';
       <ul>
         <li>DXCC, Worked All States, Worked All Continents, VUCC, Worked All Zones, CQ WPX, Triple Play WAS, USA Counties, and IOTA &mdash; every award computed live from the actual log, not self-reported</li>
         <li>Most-Wanted DXCC checklist, diffed against a 346-entity reference list and ranked by Club Log's real global demand data (rarest first)</li>
+        <li>DXCC Coverage Map &mdash; every worked entity plotted at the average location of its own QSOs</li>
         <li>Per-band award standings (which single-band DXCC/WAS/VUCC awards are already earned)</li>
         <li>Band and confirmation-status filters across every award card</li>
       </ul>
@@ -78,7 +80,8 @@ import '../styles/colophon.css';
       <ul>
         <li>QSOs per year, band breakdown, and mode breakdown &mdash; hand-rolled SVG charts, no charting library</li>
         <li>GitHub-style activity heatmap with longest/current streak tracking</li>
-        <li>Activity patterns by hour-of-day and day-of-week (UTC, since that's the operationally relevant frame for propagation)</li>
+        <li>Activity patterns by hour-of-day and day-of-week (UTC, since that's the operationally relevant frame for propagation), plus a Best Time by Band heatmap scaled per-band</li>
+        <li>QSL confirmation coverage across LoTW and eQSL, with a year-by-year breakdown</li>
         <li>Distance leaderboard and histogram (great-circle distance to every contact)</li>
         <li>Solar cycle history (SFI and K-index over time)</li>
       </ul>
@@ -92,11 +95,11 @@ import '../styles/colophon.css';
     <div class="feature-block">
       <h3>Conditions</h3>
       <ul>
-        <li>Today's solar flux index, A-index, K-index, and sunspot number, plus a 90-day propagation trend chart and NOAA's 27-day forecast for the same metrics</li>
+        <li>Today's solar flux index, A-index, K-index, and sunspot number, plus a rough A&ndash;F HF propagation grade, a 90-day trend chart, and NOAA's 27-day forecast for the same metrics</li>
         <li>Real-time worldwide Maximum Usable Frequency map, and the NCDXF/IARU beacon schedule (which of the 18 beacons is on which band right now)</li>
         <li>Live band noise floor spot-check via this station's own KiwiSDR</li>
         <li>Lightning strikes within a configurable radius of the station QTH, via a persistent Blitzortung feed, plus sunrise/sunset/solar noon/day length for the station's own location</li>
-        <li>Live DX spot feed, with a <strong>Needed</strong> flag resolved directly from the spotted callsign's DXCC entity (not just its ISO country code)</li>
+        <li>Live DX spot feed, with a <strong>Needed</strong> flag resolved directly from the spotted callsign's DXCC entity (not just its ISO country code), and a live band-activity gauge derived from the same feed</li>
         <li>Announced/active DXpedition calendar, cross-referenced against the log the same entity-precise way the spot feed is</li>
         <li>Upcoming contest calendar</li>
         <li>Reception reports for the operator's own signal via PSK Reporter, WSPR, and the Reverse Beacon Network (CW/RTTY), each its own live map</li>
@@ -123,6 +126,8 @@ import '../styles/colophon.css';
       <ul>
         <li>Live waterfall and spectrum display from the station's own KiwiSDR, with adjustable colormap, spectrum style, and zoom</li>
         <li>Live receive audio and drag-to-tune frequency control, with band/mode presets</li>
+        <li>A live, client-side CW (Morse) decoder over the receive audio</li>
+        <li>"Listening now" presence indicator, and a public receiver picker (search + favorites) to switch to any other public KiwiSDR</li>
         <li>Admin-configurable visibility, so a site without a KiwiSDR can hide the page entirely rather than show a non-functional one</li>
       </ul>
     </div>
@@ -138,8 +143,8 @@ import '../styles/colophon.css';
       <h3>Tools</h3>
       <ul>
         <li>Grid Square Converter (also accepts a city/ZIP/address, or your current browser location)</li>
-        <li>Distance &amp; Bearing, Antenna Length, Antenna Takeoff Angle, SWR, Coax Feedline Loss, Wavelength &amp; Frequency</li>
-        <li>ERP/EIRP, Antenna Gain (dBi&harr;dBd), Free Space Path Loss, VHF/UHF Line-of-Sight Range, RF Exposure (MPE) Estimate</li>
+        <li>Distance &amp; Bearing, Bearing to Callsign, Antenna Length, Antenna Takeoff Angle, SWR, Coax Feedline Loss, Wavelength &amp; Frequency</li>
+        <li>ERP/EIRP, Antenna Gain (dBi&harr;dBd), Free Space Path Loss, VHF/UHF Line-of-Sight Range, RF Exposure (MPE) Estimate, S-Meter/dB Converter</li>
         <li>UTC/Local Time converter with a live clock</li>
         <li>&ldquo;Have I Worked This Call?&rdquo; log lookup</li>
         <li>Callsign Lookup &mdash; name, QTH, country, grid square, IOTA, and QSL routing for any callsign, via HamQTH</li>
@@ -156,6 +161,7 @@ import '../styles/colophon.css';
     <div class="feature-block">
       <h3>Reference</h3>
       <ul>
+        <li>License Exam Question of the Day &mdash; a real FCC Technician-pool question, the same one for everyone each UTC day</li>
         <li>Morse code trainer &mdash; adjustable speed, live playback via the Web Audio API, and a quiz mode</li>
         <li>US Amateur Band Plan chart, sourced directly from ARRL's own official chart</li>
         <li>Q-codes and prosigns reference tables</li>
@@ -174,8 +180,9 @@ import '../styles/colophon.css';
       <h3>Admin</h3>
       <ul>
         <li>Photo upload; service-credential management (QRZ, eQSL, LoTW, HamQTH, Open Repeater, and FlexRadio LAN address &mdash; with a one-click network auto-detect), stored server-side and never sent back to the browser once saved</li>
-        <li>Page Layout &mdash; drag-and-drop reorder/hide for every tile grid on the site (Home, Tools, Electronics, Conditions, Awards, Stats, Radio, Digital Voice, Reference, Status) and the main nav itself</li>
-        <li>Inline tile editing &mdash; the same reorder/hide directly on each of those pages' own tiles, via a floating "Edit Layout" toggle that only appears once already logged in, instead of picking a page from Admin's list first</li>
+        <li>Page Layout &mdash; drag-and-drop reorder/hide for the main nav bar (the one tile grid on the site without a card-based layout an inline editor can drag directly)</li>
+        <li>Inline tile editing &mdash; the same reorder/hide, but directly on every other page's own tiles (Home, Tools, Electronics, Conditions, Awards, Stats, Radio, Digital Voice, Reference, Status), via a floating "Edit Layout" toggle that only appears once already logged in</li>
+        <li>Site-wide distance unit toggle (miles or kilometers), applied everywhere a distance is shown</li>
         <li>QRZ, eQSL, and LoTW sync controls (each incremental &mdash; only pulls what's changed); solar data sync, with a Full Resync option for rebuilding the entire history; on-demand database/photo backup, in addition to the nightly automatic one</li>
         <li>Alert configuration for Needed-DX spots and VHF/Sporadic-E band openings (each optionally filterable to US-based spotters only), X-class solar flares, solar wind (early-warning), geomagnetic storms (Kp-index), tropospheric ducting, satellite passes, lightning, newly-confirmed DXCC entities, and a weekly DX digest &mdash; email, ntfy.sh push, and/or native browser push, each independently testable</li>
         <li>FlexRadio hardware-status and remote-control visibility toggles, and a separate KiwiSDR visibility toggle &mdash; lets an installer without that hardware hide the corresponding dashboard entirely rather than leave a non-functional one visible</li>
@@ -197,7 +204,8 @@ import '../styles/colophon.css';
       <li><strong style="color:var(--fg);">Database and photo backup</strong> &mdash; nightly</li>
       <li><strong style="color:var(--fg);">Needed-DX spot check</strong> &mdash; every 10 minutes, alerting by email and/or push when a not-yet-worked DXCC entity shows up on the live spot feed</li>
       <li><strong style="color:var(--fg);">VHF/Sporadic-E, solar flare, solar wind, and geomagnetic storm (Kp-index) checks</strong> &mdash; every 5 minutes each, same alert channels</li>
-      <li><strong style="color:var(--fg);">Tropospheric ducting and satellite-pass checks</strong> &mdash; every 5 minutes each, same alert channels</li>
+      <li><strong style="color:var(--fg);">Satellite-pass check</strong> &mdash; every 5 minutes, same alert channels</li>
+      <li><strong style="color:var(--fg);">Tropospheric ducting check</strong> &mdash; hourly (weather forecasts don't update fast enough to justify 5-minute polling), same alert channels</li>
       <li><strong style="color:var(--fg);">Newly-confirmed DXCC check</strong> &mdash; daily, shortly after the QRZ/eQSL/LoTW syncs</li>
       <li><strong style="color:var(--fg);">Weekly DX digest</strong> &mdash; every Sunday, regardless of activity level</li>
     </ul>
@@ -224,6 +232,7 @@ import '../styles/colophon.css';
         <li><a href="https://www.npmjs.com/package/opus-decoder" target="_blank" rel="noopener">opus-decoder</a><span class="desc">WASM Opus decode for the radio's live receive audio</span></li>
         <li><a href="https://sharp.pixelplumbing.com" target="_blank" rel="noopener">sharp</a><span class="desc">Photo upload processing/thumbnails</span></li>
         <li><a href="https://nodemailer.com" target="_blank" rel="noopener">Nodemailer</a><span class="desc">Sends the alert emails</span></li>
+        <li><a href="https://www.npmjs.com/package/web-push" target="_blank" rel="noopener">web-push</a><span class="desc">Native browser Web Push alert delivery (VAPID)</span></li>
         <li><a href="https://socket.io" target="_blank" rel="noopener">Socket.IO client</a><span class="desc">Persistent real-time connection powering DMR Last Heard</span></li>
         <li><a href="https://github.com/mqttjs/MQTT.js" target="_blank" rel="noopener">MQTT.js</a><span class="desc">Persistent connection to the Blitzortung lightning-detection network</span></li>
       </ul>
@@ -256,7 +265,7 @@ import '../styles/colophon.css';
       <h3>Propagation &amp; Conditions</h3>
       <ul>
         <li><a href="https://dataservices.gfz-potsdam.de" target="_blank" rel="noopener">GFZ Potsdam</a><span class="desc">Historical K-index data back to 1932, solar flux since 1947</span></li>
-        <li><a href="https://www.swpc.noaa.gov" target="_blank" rel="noopener">NOAA Space Weather Prediction Center</a><span class="desc">Real-time X-ray flux, solar wind, and planetary K-index behind the flare, solar wind, and geomagnetic storm alerts</span></li>
+        <li><a href="https://www.swpc.noaa.gov" target="_blank" rel="noopener">NOAA Space Weather Prediction Center</a><span class="desc">Real-time X-ray flux, solar wind, and planetary K-index behind the flare, solar wind, and geomagnetic storm alerts, plus the QSO map's aurora forecast overlay</span></li>
         <li><a href="https://dxheat.com" target="_blank" rel="noopener">DXHeat</a><span class="desc">Live DX cluster spot feed</span></li>
         <li><a href="https://pskreporter.info" target="_blank" rel="noopener">PSK Reporter</a><span class="desc">Real-time digital-mode reception reports</span></li>
         <li><a href="https://wspr.live" target="_blank" rel="noopener">WSPR.live</a><span class="desc">WSPR beacon reception reports</span></li>
@@ -265,6 +274,7 @@ import '../styles/colophon.css';
         <li><a href="https://www.contestcalendar.com" target="_blank" rel="noopener">WA7BNM Contest Calendar</a><span class="desc">Upcoming contests</span></li>
         <li><a href="https://prop.kc2g.com" target="_blank" rel="noopener">prop.kc2g.com</a><span class="desc">Real-time worldwide MUF map</span></li>
         <li><a href="https://www.ncdxf.org/beacon/" target="_blank" rel="noopener">NCDXF/IARU Beacon Project</a><span class="desc">International beacon schedule</span></li>
+        <li><a href="https://rx.linkfanel.net" target="_blank" rel="noopener">rx.linkfanel.net</a><span class="desc">Public KiwiSDR receiver directory behind the KiwiSDR page's receiver picker</span></li>
         <li><a href="https://www.blitzortung.org" target="_blank" rel="noopener">Blitzortung.org</a><span class="desc">Community lightning-strike detection network, behind the Conditions map and lightning alerts</span></li>
         <li><a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a><span class="desc">Weather-forecast data behind the tropospheric ducting alert</span></li>
       </ul>
@@ -284,14 +294,15 @@ import '../styles/colophon.css';
         <li><a href="https://parksontheair.com" target="_blank" rel="noopener">Parks on the Air (POTA)</a><span class="desc">Activator/hunter activity on the Activations page</span></li>
         <li><a href="https://ntfy.sh" target="_blank" rel="noopener">ntfy.sh</a><span class="desc">Push-notification channel for needed-DX alerts</span></li>
         <li><a href="https://www.arrl.org/graphical-frequency-allocations" target="_blank" rel="noopener">ARRL Band Chart</a><span class="desc">Source for the US Amateur Band Plan reference table</span></li>
+        <li><a href="https://github.com/russolsen/ham_radio_question_pool" target="_blank" rel="noopener">russolsen/ham_radio_question_pool</a><span class="desc">FCC Technician exam question pool behind Reference's Question of the Day</span></li>
       </ul>
     </div>
     <div class="link-group">
       <h3>Repeaters &amp; Digital Voice</h3>
       <ul>
         <li><a href="https://www.openrepeater.org" target="_blank" rel="noopener">Open Repeater</a><span class="desc">DMR/D-STAR/analog repeater data for the admin-only Repeater Lookup tool</span></li>
-        <li><a href="https://brandmeister.network" target="_blank" rel="noopener">BrandMeister</a><span class="desc">Live DMR talkgroup activity for the Radio page's Last Heard panel</span></li>
-        <li>A configured D-STAR reflector's own dashboard<span class="desc">Last Heard activity on the Radio page (example integration points at REF069)</span></li>
+        <li><a href="https://brandmeister.network" target="_blank" rel="noopener">BrandMeister</a><span class="desc">Live DMR talkgroup activity for the Digital Voice page's Last Heard panel</span></li>
+        <li>A configured D-STAR reflector's own dashboard<span class="desc">Last Heard activity on the Digital Voice page (example integration points at REF069)</span></li>
       </ul>
     </div>
   </div>
