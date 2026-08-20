@@ -158,6 +158,7 @@ import '../styles/awards.css';
     import 'leaflet/dist/leaflet.css';
     import L from 'leaflet';
     import { downloadOrShareImage } from '../lib/downloadImage';
+    import { formatDate } from '../lib/dates';
     import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
 
     const awardsTileContainers = ['awards-tiles-top', 'awards-tiles-grid'].map((id) => document.getElementById(id)!);
@@ -314,11 +315,6 @@ import '../styles/awards.css';
         applyAllFilters();
       });
     });
-
-    function formatDate(d: string) {
-      if (d.length !== 8) return d;
-      return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
-    }
 
     function generateCertificate(title: string, subtitle: string, statLine: string): string {
       const canvas = document.createElement('canvas');

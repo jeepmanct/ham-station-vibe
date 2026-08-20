@@ -83,3 +83,17 @@ input[type="date"] {
 }
 .chip-link:hover { text-decoration: underline; }
 .chip-link + .chip-link { margin-left: 0.4rem; }
+
+/* Below ~490px page width, auto-fit still squeezes in a second column even
+   though there isn't room for a real 180px one (e.g. resolves to 180px +
+   94px rather than dropping to a single column) -- confirmed via computed
+   styles at several phone widths. Force a single column below that point
+   instead of relying on auto-fit's own math here. Placed at the end of the
+   file (not right after the base .filter-grid rule) so it wins the cascade
+   over the later, unconditional .filter-group-wide span:2 rule above --
+   two same-specificity rules resolve by source order regardless of which
+   one's media query is "more specific" to the current viewport. */
+@media (max-width: 500px) {
+  .filter-grid { grid-template-columns: 1fr; }
+  .filter-group-wide { grid-column: span 1; }
+}

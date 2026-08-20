@@ -535,9 +535,9 @@ import Base from '../layouts/Base.astro';
   </section>
 
   <script>
-    import { autoScrollWhileDragging } from '../lib/tileLayout';
+    import { makeDraggable } from '../lib/tileLayout';
 
-    const TOKEN_KEY = 'hamstation_admin_token';
+    import { TOKEN_KEY } from '../lib/auth';
 
     const loginSection = document.getElementById('login-section')!;
     const adminTools = document.getElementById('admin-tools')!;
@@ -735,54 +735,21 @@ import Base from '../layouts/Base.astro';
       tlToggle.textContent = nowHidden ? 'Show' : 'Hide';
     });
 
-    // Pointer-based drag reorder -- works for mouse and touch alike, no
-    // library needed. The listener is on the whole row (not just the
-    // handle icon) so any part of the row starts a drag -- a handle-only
-    // hit target turned out to be too easy to miss. The "Visible" checkbox
-    // opts itself out below so it still just toggles normally.
-    //
-    // move/up/cancel are tracked on `document`, not the row itself -- an
-    // earlier version relied on setPointerCapture() retargeting events back
-    // to the row, but that turned out not to reliably deliver pointermove
-    // in practice. Listening globally and filtering by pointerId sidesteps
-    // that entirely and needs no capture API at all.
+    // Pointer-based drag reorder, via the shared makeDraggable() helper
+    // (also used by the inline tile editor on every other page) -- works
+    // for mouse and touch alike, no library needed. `handle: row` means the
+    // whole row is the drag zone (not just a handle icon) -- a handle-only
+    // hit target turned out to be too easy to miss; the "Visible" checkbox
+    // opts itself out via makeDraggable's own `<label>` check so it still
+    // just toggles normally.
     function makeRowDraggable(row: HTMLLIElement) {
-      row.addEventListener('pointerdown', (e) => {
-        const ev = e as PointerEvent;
-        if ((ev.target as HTMLElement).closest('label')) return; // let the checkbox's own click through
-        // Without this, iOS Safari claims the gesture for its own touch
-        // handling (text-selection callout) before pointermove ever gets a
-        // chance to fire; on desktop it also stops an accidental text
-        // selection drag from competing with the reorder.
-        ev.preventDefault();
-        const draggingPointerId = ev.pointerId;
-        row.classList.add('dragging');
-
-        let lastClientY = ev.clientY;
-        const stopAutoScroll = autoScrollWhileDragging(() => lastClientY);
-
-        function onMove(moveEv: PointerEvent) {
-          if (moveEv.pointerId !== draggingPointerId) return;
-          lastClientY = moveEv.clientY;
-          const rows = Array.from(tlList.querySelectorAll<HTMLLIElement>('.tl-row:not(.dragging)'));
-          const after = rows.find((r) => {
-            const box = r.getBoundingClientRect();
-            return moveEv.clientY < box.top + box.height / 2;
-          });
-          if (after) tlList.insertBefore(row, after);
-          else tlList.appendChild(row);
-        }
-        function onEnd(endEv: PointerEvent) {
-          if (endEv.pointerId !== draggingPointerId) return;
-          row.classList.remove('dragging');
-          stopAutoScroll();
-          document.removeEventListener('pointermove', onMove);
-          document.removeEventListener('pointerup', onEnd);
-          document.removeEventListener('pointercancel', onEnd);
-        }
-        document.addEventListener('pointermove', onMove);
-        document.addEventListener('pointerup', onEnd);
-        document.addEventListener('pointercancel', onEnd);
+      makeDraggable({
+        item: row,
+        handle: row,
+        container: tlList,
+        draggingClass: 'dragging',
+        getSiblings: () => Array.from(tlList.querySelectorAll<HTMLLIElement>('.tl-row:not(.dragging)')),
+        onDrop: () => {}, // this list requires an explicit "Save order" click, unlike the inline editor's autosave
       });
     }
 
@@ -791,7 +758,7 @@ import Base from '../layouts/Base.astro';
       row.className = 'tl-row';
       row.dataset.id = id;
       row.innerHTML = `
-        <span class="tl-handle">&#9776;</span>
+        <span class="tl-handle" role="img" aria-label="Drag to reorder this item">&#9776;</span>
         <span class="tl-label">${label}</span>
         <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;color:var(--muted);white-space:nowrap;cursor:default;">
           <input type="checkbox" class="tl-visible" ${hidden ? '' : 'checked'} /> Visible

@@ -45,7 +45,7 @@ import '../styles/guestbook.css';
   </section>
 
   <script>
-    const TOKEN_KEY = 'hamstation_admin_token';
+    import { TOKEN_KEY } from '../lib/auth';
 
     type GuestbookEntry = { id: number; name: string; callsign: string | null; message: string; submittedAt: string };
 

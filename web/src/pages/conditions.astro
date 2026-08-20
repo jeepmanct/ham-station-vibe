@@ -184,9 +184,11 @@ import '../styles/lastHeardTable.css';
     import { sunriseSunset } from '../lib/grayline';
     import { renderLineChart } from '../lib/charts';
     import { escapeHtml } from '../lib/escapeHtml';
+    import { formatDate } from '../lib/dates';
     import 'leaflet/dist/leaflet.css';
     import L from 'leaflet';
-    import { fetchDistanceUnit, formatDistance, type DistanceUnit } from '../lib/units';
+    import { fetchDistanceUnit, formatDistance, dbmToSUnit, type DistanceUnit } from '../lib/units';
+    import { pollWhileVisible } from '../lib/polling';
     import { greatCircleArc } from '../lib/geo';
     import { gridToLatLon } from '../lib/maidenhead';
     import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
@@ -199,7 +201,7 @@ import '../styles/lastHeardTable.css';
     }
     enableInlineTileEditing('conditions', conditionsTileContainers);
 
-    const TOKEN_KEY = 'hamstation_admin_token';
+    import { TOKEN_KEY } from '../lib/auth';
 
     // --- Propagation trend (last 90 days) — distinct from /stats' yearly
     // solar-cycle-context chart; this answers "how has it been lately,"
@@ -269,7 +271,7 @@ import '../styles/lastHeardTable.css';
       img.src = `https://prop.kc2g.com/renders/current/mufd-normal-now.svg?_=${Date.now()}`;
     }
     refreshMufMap();
-    setInterval(refreshMufMap, 5 * 60 * 1000);
+    pollWhileVisible(refreshMufMap, 5 * 60 * 1000);
 
     // NCDXF/IARU beacon schedule, verified against the official schedule
     // table at ncdxf.org/beacon/beaconschedule.html (2026-08-10) -- no live
@@ -328,18 +330,13 @@ import '../styles/lastHeardTable.css';
       }).join('');
     }
     renderBeaconTable();
-    setInterval(renderBeaconTable, 1000);
+    pollWhileVisible(renderBeaconTable, 1000);
 
     type Today = { date: string; sfi: number | null; aIndex: number | null; kIndex: number | null; sunspotNumber: number | null } | null;
     type Spot = { spotter: string; call: string; frequency: string; band: number; mode: string; comment: string; time: string; continent: string; grid: string; lotw: boolean; needed: 'needed' | 'worked' | null };
     type Contest = { title: string; link: string; description: string };
     type HomeCoords = { lat: number; lon: number; grid: string | null } | null;
     type Dxpedition = { entity: string; dateRange: string; call: string; qslVia: string; info: string; needed: boolean | null };
-
-    function formatDate(d: string) {
-      if (d.length !== 8) return d;
-      return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
-    }
 
     function formatClock(d: Date) {
       return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
@@ -561,7 +558,7 @@ import '../styles/lastHeardTable.css';
         });
     }
     loadSpots();
-    setInterval(loadSpots, 60000);
+    pollWhileVisible(loadSpots, 60000);
 
     function loadDxpeditions() {
       fetch('/api/conditions/dxpeditions')
@@ -625,15 +622,6 @@ import '../styles/lastHeardTable.css';
     // manual re-check button, never an auto-poll (see the card's own
     // description for why: polling would mean quietly holding a receiver
     // channel open just for this page to exist). ---
-    function dbmToSUnit(dbm: number): string {
-      const sUnits = 9 + (dbm + 73) / 6;
-      if (sUnits >= 9) {
-        const over = Math.round((sUnits - 9) * 6);
-        return over > 0 ? `S9+${over}dB` : 'S9';
-      }
-      return `S${Math.max(1, Math.round(sUnits))}`;
-    }
-
     function checkNoiseFloor() {
       const status = document.getElementById('noise-floor-status')!;
       const checkedAt = document.getElementById('noise-floor-checked-at')!;
@@ -785,7 +773,7 @@ import '../styles/lastHeardTable.css';
         });
     }
     loadLightning();
-    setInterval(loadLightning, 20000);
+    pollWhileVisible(loadLightning, 20000);
 
     // --- PSK Reporter / WSPR / RBN reception reports -- moved here from
     // /radio: these are propagation evidence (who's hearing this station,
@@ -927,7 +915,7 @@ import '../styles/lastHeardTable.css';
         });
     }
     loadWsprReports();
-    setInterval(loadWsprReports, 60000);
+    pollWhileVisible(loadWsprReports, 60000);
 
     function drawRbnMap(reports: RbnReport[]) {
       rbnLayer.clearLayers();
@@ -978,7 +966,7 @@ import '../styles/lastHeardTable.css';
         });
     }
     loadRbnReports();
-    setInterval(loadRbnReports, 60000);
+    pollWhileVisible(loadRbnReports, 60000);
 
     function loadPskReports() {
       fetch('/api/conditions/pskreporter')
@@ -1013,6 +1001,6 @@ import '../styles/lastHeardTable.css';
         });
     }
     loadPskReports();
-    setInterval(loadPskReports, 60000);
+    pollWhileVisible(loadPskReports, 60000);
   </script>
 </Base>

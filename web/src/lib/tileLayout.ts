@@ -1,3 +1,5 @@
+import { TOKEN_KEY } from './auth';
+
 export type TileLayoutEntry = { tileId: string; hidden: boolean };
 
 /**
@@ -37,8 +39,6 @@ export async function applyTileLayout(page: string, container: HTMLElement): Pro
   }
 }
 
-const TOKEN_KEY = 'hamstation_admin_token';
-
 /**
  * Auto-scrolls the page while a drag pointer sits near the top/bottom
  * viewport edge -- without this, a drag target taller than the screen
@@ -74,6 +74,71 @@ export function autoScrollWhileDragging(getY: () => number): () => void {
   return () => {
     if (raf != null) cancelAnimationFrame(raf);
   };
+}
+
+/**
+ * Generic pointer-based drag-to-reorder: press on `handle`, drag anywhere on
+ * the page, and `item` moves within `container`'s children based on Y
+ * position (inserted before whichever sibling's vertical midpoint the
+ * pointer is currently above, or appended to the end once past all of
+ * them). Includes the same auto-scroll-near-edge behavior as
+ * autoScrollWhileDragging (shares its RAF loop, doesn't duplicate it).
+ * Shared by this file's own inline tile dragging and admin.astro's list-row
+ * dragging -- the only real difference between the two was which DOM shape
+ * got dragged and what CSS class marks the item mid-drag, not the
+ * algorithm itself.
+ */
+export function makeDraggable(options: {
+  item: HTMLElement;
+  handle: HTMLElement;
+  container: HTMLElement;
+  draggingClass: string;
+  /** This container's other reorderable children, excluding `item` itself. */
+  getSiblings: () => HTMLElement[];
+  onDrop: () => void;
+}): void {
+  const { item, handle, container, draggingClass, getSiblings, onDrop } = options;
+  handle.addEventListener('pointerdown', (e) => {
+    const ev = e as PointerEvent;
+    // Lets a nested interactive control's own click through -- relevant for
+    // admin.astro's row drag (whole row is the drag zone, including a
+    // visibility checkbox inside a <label>); a no-op for a dedicated
+    // drag-handle element with no such descendant.
+    if ((ev.target as HTMLElement).closest('label')) return;
+    // Without this, iOS Safari claims the gesture for its own touch
+    // handling (text-selection callout) before pointermove ever gets a
+    // chance to fire; on desktop it also stops an accidental text
+    // selection drag from competing with the reorder.
+    ev.preventDefault();
+    const draggingPointerId = ev.pointerId;
+    item.classList.add(draggingClass);
+
+    let lastClientY = ev.clientY;
+    const stopAutoScroll = autoScrollWhileDragging(() => lastClientY);
+
+    function onMove(moveEv: PointerEvent) {
+      if (moveEv.pointerId !== draggingPointerId) return;
+      lastClientY = moveEv.clientY;
+      const after = getSiblings().find((el) => {
+        const box = el.getBoundingClientRect();
+        return moveEv.clientY < box.top + box.height / 2;
+      });
+      if (after) container.insertBefore(item, after);
+      else container.appendChild(item);
+    }
+    function onEnd(endEv: PointerEvent) {
+      if (endEv.pointerId !== draggingPointerId) return;
+      item.classList.remove(draggingClass);
+      stopAutoScroll();
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onEnd);
+      document.removeEventListener('pointercancel', onEnd);
+      onDrop();
+    }
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onEnd);
+    document.addEventListener('pointercancel', onEnd);
+  });
 }
 
 function tileChildren(container: HTMLElement): HTMLElement[] {
@@ -152,44 +217,14 @@ export function enableInlineTileEditing(page: string, containers: HTMLElement[])
     }, 2000);
   }
 
-  // Same pointer-event drag algorithm as admin.astro's makeRowDraggable(),
-  // just retargeted from <li> rows to real tile elements, and started only
-  // from the handle -- unlike that row list (label + checkbox only), a real
-  // tile's content is full of buttons/links/inputs a whole-tile drag zone
-  // would break.
   function makeTileDraggable(tile: HTMLElement, container: HTMLElement, handle: HTMLElement) {
-    handle.addEventListener('pointerdown', (e) => {
-      const ev = e as PointerEvent;
-      ev.preventDefault();
-      const draggingPointerId = ev.pointerId;
-      tile.classList.add('tile-dragging');
-
-      let lastClientY = ev.clientY;
-      const stopAutoScroll = autoScrollWhileDragging(() => lastClientY);
-
-      function onMove(moveEv: PointerEvent) {
-        if (moveEv.pointerId !== draggingPointerId) return;
-        lastClientY = moveEv.clientY;
-        const siblings = tileChildren(container).filter((el) => el !== tile);
-        const after = siblings.find((el) => {
-          const box = el.getBoundingClientRect();
-          return moveEv.clientY < box.top + box.height / 2;
-        });
-        if (after) container.insertBefore(tile, after);
-        else container.appendChild(tile);
-      }
-      function onEnd(endEv: PointerEvent) {
-        if (endEv.pointerId !== draggingPointerId) return;
-        tile.classList.remove('tile-dragging');
-        stopAutoScroll();
-        document.removeEventListener('pointermove', onMove);
-        document.removeEventListener('pointerup', onEnd);
-        document.removeEventListener('pointercancel', onEnd);
-        save();
-      }
-      document.addEventListener('pointermove', onMove);
-      document.addEventListener('pointerup', onEnd);
-      document.addEventListener('pointercancel', onEnd);
+    makeDraggable({
+      item: tile,
+      handle,
+      container,
+      draggingClass: 'tile-dragging',
+      getSiblings: () => tileChildren(container).filter((el) => el !== tile),
+      onDrop: save,
     });
   }
 
@@ -200,6 +235,8 @@ export function enableInlineTileEditing(page: string, containers: HTMLElement[])
     const handle = document.createElement('span');
     handle.className = 'tile-edit-handle';
     handle.innerHTML = '&#9776;';
+    handle.setAttribute('aria-label', 'Drag to reorder this tile');
+    handle.setAttribute('role', 'img');
 
     const hideBtn = document.createElement('button');
     hideBtn.type = 'button';

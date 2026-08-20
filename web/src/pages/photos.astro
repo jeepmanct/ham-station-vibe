@@ -47,7 +47,7 @@ import '../styles/gallery.css';
   </section>
 
   <script>
-    const TOKEN_KEY = 'hamstation_admin_token';
+    import { TOKEN_KEY } from '../lib/auth';
 
     type Photo = { id: number; url: string; thumbUrl: string; caption?: string };
 

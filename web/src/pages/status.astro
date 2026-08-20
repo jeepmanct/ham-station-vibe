@@ -76,11 +76,12 @@ import '../styles/syncStatus.css';
 
   <script>
     import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
+    import { pollWhileVisible } from '../lib/polling';
 
     applyTileLayout('status', document.getElementById('status-tiles')!);
     enableInlineTileEditing('status', [document.getElementById('status-tiles')!]);
 
-    const TOKEN_KEY = 'hamstation_admin_token';
+    import { TOKEN_KEY } from '../lib/auth';
 
     type SystemStats = {
       hostname: string;
@@ -163,7 +164,7 @@ import '../styles/syncStatus.css';
         });
     }
     loadSystemStats();
-    setInterval(loadSystemStats, 10000);
+    pollWhileVisible(loadSystemStats, 10000);
 
     // --- Admin: reboot ---
     const rebootLogin = document.getElementById('reboot-login')!;
@@ -325,6 +326,6 @@ import '../styles/syncStatus.css';
     }
 
     loadSyncStatus();
-    setInterval(loadSyncStatus, 60_000);
+    pollWhileVisible(loadSyncStatus, 60_000);
   </script>
 </Base>

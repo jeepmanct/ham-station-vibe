@@ -26,3 +26,17 @@ export function formatDistance(km: number, unit: DistanceUnit, decimals = 0): st
   const value = unit === 'mi' ? km / KM_PER_MI : km;
   return `${value.toLocaleString(undefined, { maximumFractionDigits: decimals, minimumFractionDigits: decimals })} ${unit}`;
 }
+
+// Standard ham-radio S-meter convention: S9 = -73 dBm, 6 dB per S-unit
+// below S9, dB-over-S9 above it. The S9 reference point itself is only
+// loosely standardized and varies by receiver/manufacturer, so this is
+// an approximation, same spirit as every other "nominal, not certified"
+// calculator on this site.
+export function dbmToSUnit(dbm: number): string {
+  const sUnits = 9 + (dbm + 73) / 6;
+  if (sUnits >= 9) {
+    const over = Math.round((sUnits - 9) * 6);
+    return over > 0 ? `S9+${over}dB` : 'S9';
+  }
+  return `S${Math.max(1, Math.round(sUnits))}`;
+}

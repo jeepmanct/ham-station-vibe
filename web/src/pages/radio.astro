@@ -157,6 +157,8 @@ import '../styles/radio.css';
 
   <script>
     import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
+    import { dbmToSUnit } from '../lib/units';
+    import { pollWhileVisible } from '../lib/polling';
 
     const radioTileContainers = ['radio-tile-onair', 'radio-tile-sessions'].map((id) => document.getElementById(id)!);
     for (const container of radioTileContainers) {
@@ -199,20 +201,6 @@ import '../styles/radio.css';
 
     function fmt(value: number | null, digits: number, suffix: string): string {
       return value == null ? '—' : `${value.toFixed(digits)}${suffix}`;
-    }
-
-    // Standard ham-radio S-meter convention: S9 = -73 dBm, 6 dB per S-unit
-    // below S9, dB-over-S9 above it. The S9 reference point itself is only
-    // loosely standardized and varies by receiver/manufacturer, so this is
-    // an approximation, same spirit as every other "nominal, not certified"
-    // calculator on this site.
-    function dbmToSUnit(dbm: number): string {
-      const sUnits = 9 + (dbm + 73) / 6;
-      if (sUnits >= 9) {
-        const over = Math.round((sUnits - 9) * 6);
-        return over > 0 ? `S9+${over}dB` : 'S9';
-      }
-      return `S${Math.max(1, Math.round(sUnits))}`;
     }
 
     function renderStatus(s: RadioStatus) {
@@ -330,7 +318,7 @@ import '../styles/radio.css';
         });
     }
     loadStatus();
-    setInterval(loadStatus, 3000);
+    pollWhileVisible(loadStatus, 3000);
 
     monitorToggle.addEventListener('change', () => {
       togglingInFlight = true;
@@ -354,7 +342,7 @@ import '../styles/radio.css';
     // --- Remote control (receive only) -- admin-gated, same TOKEN_KEY/login
     // pattern used on /log and /admin, so logging in on any of those pages
     // also unlocks this one for the rest of the browser session. ---
-    const TOKEN_KEY = 'hamstation_admin_token';
+    import { TOKEN_KEY } from '../lib/auth';
     const controlLogin = document.getElementById('control-login')!;
     const controlPanel = document.getElementById('control-panel')!;
     const controlLoginStatus = document.getElementById('control-login-status')!;
@@ -677,6 +665,6 @@ import '../styles/radio.css';
         });
     }
     loadSessions();
-    setInterval(loadSessions, 30000);
+    pollWhileVisible(loadSessions, 30000);
   </script>
 </Base>

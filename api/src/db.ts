@@ -187,12 +187,12 @@ db.exec(`
     was_ducting INTEGER NOT NULL DEFAULT 0
   );
 
-  -- On-demand eQSL card image cache (see eqslCard.ts). Deliberately NOT a
-  -- bulk-fetched gallery -- eQSL's GeteQSL.cfm is rate-limited (max 6/min,
-  -- explicitly forbids mass-downloading an entire Inbox) and requires
-  -- per-QSO parameters, so cards are only ever fetched one at a time when
-  -- actually viewed from the log, then cached here so the same QSO is never
-  -- re-fetched. image_path is NULL for a confirmed "no card available"
+  -- eQSL card image cache -- the on-demand fetch/viewer UI that populated
+  -- this was removed from the log page in an earlier session; the table
+  -- (and any already-cached images under EQSL_CARDS_DIR) are kept as-is
+  -- rather than deleted, since they're real fetched data with real value if
+  -- that UI ever comes back, not disposable derived state. image_path is
+  -- NULL for a confirmed "no card available"
   -- result (also cached, so a QSO with no graphic isn't re-queried on every
   -- view either).
   CREATE TABLE IF NOT EXISTS eqsl_cards (

@@ -6,7 +6,6 @@ import { importAdifRecords } from '../qsoImport';
 import { syncFromQrz, pushQsoToQrz } from '../qrz';
 import { syncFromEqsl } from '../eqsl';
 import { syncFromLotw } from '../lotw';
-import { getOrFetchEqslCard } from '../eqslCard';
 import { getQrzApiKey, getEqslCredentials, getLotwCredentials } from '../serviceCredentials';
 import { resolveCallsignEntity } from '../dxccPrefixes';
 import { resolveLatLon } from '../maidenhead';
@@ -500,26 +499,6 @@ qsoRoutes.post('/import/lotw', requireAuth, async (c) => {
   }
 });
 
-// Fetches (and caches) a single QSO's eQSL card image on demand. Deliberately
-// auth-gated even though it's a read, not a write -- each not-yet-cached
-// call consumes real quota against eQSL's rate limit (6/min), so this
-// shouldn't be triggerable by anonymous traffic the way the rest of the
-// log's read endpoints are.
-qsoRoutes.post('/:id/eqsl-card', requireAuth, async (c) => {
-  const qsoId = Number(c.req.param('id'));
-  if (!Number.isInteger(qsoId)) return c.json({ error: 'Invalid QSO id' }, 400);
-  const creds = getEqslCredentials();
-  if (!creds) {
-    return c.json({ error: 'eQSL credentials are not configured — set them under Admin' }, 500);
-  }
-  try {
-    const result = await getOrFetchEqslCard(qsoId, creds.callsign, creds.password);
-    return c.json(result);
-  } catch (err) {
-    return c.json({ error: err instanceof Error ? err.message : 'eQSL card fetch failed' }, 502);
-  }
-});
-
 // Logs a QSO entered directly on the site (rather than imported from LoTW/
 // QRZ afterward) — builds a synthetic ADIF record and runs it through the
 // exact same importAdifRecords() pipeline real imports use, so it gets the
@@ -675,7 +654,7 @@ qsoRoutes.patch('/:id', requireAuth, async (c) => {
   return c.json({ qso: updated, wasImported: existing.raw_adif != null, keyChanged });
 });
 
-/** Deletes a QSO. Also clears any cached eQSL card image row for it (see eqslCard.ts) rather than leaving an orphaned reference behind. */
+/** Deletes a QSO. Also clears any cached eQSL card image row for it rather than leaving an orphaned reference behind. */
 qsoRoutes.delete('/:id', requireAuth, (c) => {
   const id = Number(c.req.param('id'));
   const existing = db.query('SELECT id, raw_adif FROM qsos WHERE id = ?').get(id) as { id: number; raw_adif: string | null } | null;

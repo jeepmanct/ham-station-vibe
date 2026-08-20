@@ -59,15 +59,12 @@ const recognition = [
   </div>
 
   <script>
+    import { formatDate } from '../lib/dates';
+
     function setText(id: string, text: string) {
       const el = document.getElementById(id);
       if (el) el.textContent = text;
     }
-    function formatDate(d: string) {
-      if (d.length !== 8) return d;
-      return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
-    }
-
     fetch('/api/station-location')
       .then((r) => r.json())
       .then((data: { location: { label: string | null; grid: string | null } | null }) => {

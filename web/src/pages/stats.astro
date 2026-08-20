@@ -120,6 +120,7 @@ import '../styles/stats.css';
     import { renderBarChart, renderLineChart, renderMultiLineChart } from '../lib/charts';
     import { fetchDistanceUnit, formatDistance } from '../lib/units';
     import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
+    import { formatDate } from '../lib/dates';
 
     applyTileLayout('stats', document.getElementById('stats-tiles')!);
     enableInlineTileEditing('stats', [document.getElementById('stats-tiles')!]);
@@ -129,11 +130,6 @@ import '../styles/stats.css';
     const ACCENT2 = style.getPropertyValue('--accent-2').trim();
     const BAND_VARS = ['--band-1', '--band-2', '--band-3', '--band-4', '--band-5', '--band-6', '--band-7', '--band-8'];
     const OTHER_COLOR = style.getPropertyValue('--band-other').trim();
-
-    function formatDate(d: string) {
-      if (d.length !== 8) return d;
-      return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
-    }
 
     // --- Summary ---
     type Summary = {

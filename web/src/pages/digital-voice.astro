@@ -52,6 +52,7 @@ import '../styles/lastHeardTable.css';
   <script>
     import { escapeHtml } from '../lib/escapeHtml';
     import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
+    import { pollWhileVisible } from '../lib/polling';
 
     applyTileLayout('digital-voice', document.getElementById('digital-voice-tiles')!);
     enableInlineTileEditing('digital-voice', [document.getElementById('digital-voice-tiles')!]);
@@ -98,7 +99,7 @@ import '../styles/lastHeardTable.css';
         });
     }
     loadDmrLastHeard();
-    setInterval(loadDmrLastHeard, 15000);
+    pollWhileVisible(loadDmrLastHeard, 15000);
 
     type DstarEntry = { call: string; message: string; module: string; moduleLabel: string; time: string };
     function loadDstarLastHeard() {
@@ -130,7 +131,7 @@ import '../styles/lastHeardTable.css';
         });
     }
     loadDstarLastHeard();
-    setInterval(loadDstarLastHeard, 120000);
+    pollWhileVisible(loadDstarLastHeard, 120000);
 
     // --- Repeater offset -- typical U.S. band-plan convention. 2m is a
     // sub-band rule (output below 147.0 MHz splits down, at/above splits

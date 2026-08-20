@@ -395,6 +395,8 @@ import '../styles/tools.css';
   <script>
     import { gridToLatLon, latLonToGrid, distanceKm, bearingDeg } from '../lib/maidenhead';
     import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
+    import { formatDate } from '../lib/dates';
+    import { pollWhileVisible } from '../lib/polling';
 
     // Split into 3 grids (Location & Distance / Antenna & RF / Time & Log
     // Lookups) for scannability now that there are 20 cards, but all three
@@ -992,7 +994,7 @@ import '../styles/tools.css';
       utcClockSub.textContent = `${now.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} UTC · local: ${now.toLocaleTimeString()}`;
     }
     updateUtcClock();
-    setInterval(updateUtcClock, 1000);
+    pollWhileVisible(updateUtcClock, 1000);
 
     const tzLocal = document.getElementById('tz-local') as HTMLInputElement;
     const tzUtc = document.getElementById('tz-utc') as HTMLInputElement;
@@ -1097,11 +1099,6 @@ import '../styles/tools.css';
 
     // --- Have I worked this call ---
     type Qso = { call: string; qsoDate: string; band: string | null; mode: string | null; gridsquare: string | null; country: string | null; lotwQslRcvd: string | null };
-
-    function formatDate(d: string) {
-      if (d.length !== 8) return d;
-      return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
-    }
 
     const callSearch = document.getElementById('call-search') as HTMLInputElement;
     const callStatus = document.getElementById('call-status')!;

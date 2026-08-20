@@ -39,7 +39,6 @@ import '../styles/apiDocs.css';
         <tr><td><code>POST /api/qsos/import/eqsl</code></td><td><span class="auth-badge">Admin</span></td><td>Sync confirmations from eQSL.cc, incremental by default. <code>?full=1</code> forces a complete recheck.</td></tr>
         <tr><td><code>POST /api/qsos/import/lotw</code></td><td><span class="auth-badge">Admin</span></td><td>Sync from ARRL LoTW, incremental by default. <code>?full=1</code> forces a complete resync.</td></tr>
         <tr><td><code>POST /api/qsos/manual</code></td><td><span class="auth-badge">Admin</span></td><td>Log a QSO directly &mdash; JSON body with <code>call</code>/<code>qsoDate</code>/<code>timeOn</code>/<code>band</code>/<code>mode</code> required; country/continent/CQ-zone auto-fill from the callsign. Optional <code>sendToQrz</code> also pushes it to QRZ's logbook.</td></tr>
-        <tr><td><code>POST /api/qsos/:id/eqsl-card</code></td><td><span class="auth-badge">Admin</span></td><td>Fetches (and caches) that QSO's eQSL card image on demand, one at a time.</td></tr>
       </tbody>
     </table>
   </div>

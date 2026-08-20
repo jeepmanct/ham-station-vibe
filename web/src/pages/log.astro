@@ -155,6 +155,7 @@ import FilterPanel from '../components/FilterPanel.astro';
   <script>
     import { initQsoFilters } from '../lib/qsoFilters';
     import { downloadOrShareBlob } from '../lib/downloadImage';
+    import { formatDate } from '../lib/dates';
 
     type Qso = {
       id: number;
@@ -200,11 +201,6 @@ import FilterPanel from '../components/FilterPanel.astro';
         if (data.callsign) stationCallsign = data.callsign;
       })
       .catch(() => {});
-
-    function formatDate(d: string) {
-      if (d.length !== 8) return d;
-      return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
-    }
 
     function formatTimeOn(t: string | null): string {
       if (!t || t.length !== 4) return '—';
@@ -271,7 +267,7 @@ import FilterPanel from '../components/FilterPanel.astro';
     );
 
     // --- Password-protected import panel ---
-    const TOKEN_KEY = 'hamstation_admin_token';
+    import { TOKEN_KEY } from '../lib/auth';
 
     const importToggle = document.getElementById('import-toggle')!;
     const importPanel = document.getElementById('import-panel')!;

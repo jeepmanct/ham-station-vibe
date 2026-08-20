@@ -204,6 +204,8 @@ import '../styles/kiwisdr.css';
 
   <script>
     import { MORSE_DECODE } from '../lib/morse';
+    import { dbmToSUnit } from '../lib/units';
+    import { pollWhileVisible } from '../lib/polling';
 
     type KiwiSdrStatus = {
       configured: boolean;
@@ -290,15 +292,6 @@ import '../styles/kiwisdr.css';
     // no visible frequency text field to read from directly.
     let currentFreqMhz = 7.255;
 
-    function dbmToSUnit(dbm: number): string {
-      const sUnits = 9 + (dbm + 73) / 6;
-      if (sUnits >= 9) {
-        const over = Math.round((sUnits - 9) * 6);
-        return over > 0 ? `S9+${over}dB` : 'S9';
-      }
-      return `S${Math.max(1, Math.round(sUnits))}`;
-    }
-
     // Every loadStatus() call gets a ticket; a response only gets applied
     // if no NEWER call has been made since it went out. Without this, the
     // 3s poll interval and an explicit post-action refresh (e.g. right
@@ -367,7 +360,7 @@ import '../styles/kiwisdr.css';
       }
     }
     loadStatus();
-    setInterval(loadStatus, 3000);
+    pollWhileVisible(loadStatus, 3000);
 
     // --- Public receiver picker ---
     // Switching source is open to everyone, same as tuning -- see

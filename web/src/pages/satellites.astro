@@ -39,7 +39,8 @@ import '../styles/satellites.css';
     import L from 'leaflet';
     import * as satellite from 'satellite.js';
 
-    const TOKEN_KEY = 'hamstation_admin_token';
+    import { TOKEN_KEY } from '../lib/auth';
+    import { pollWhileVisible } from '../lib/polling';
 
     type Sat = {
       noradId: number;
@@ -430,10 +431,10 @@ import '../styles/satellites.css';
     }
 
     loadSatellites();
-    setInterval(updatePositions, 3000);
-    setInterval(updatePasses, 5 * 60 * 1000);
-    setInterval(updateCountdowns, 1000);
-    setInterval(updateTracks, 60 * 1000);
+    pollWhileVisible(updatePositions, 3000);
+    pollWhileVisible(updatePasses, 5 * 60 * 1000);
+    pollWhileVisible(updateCountdowns, 1000);
+    pollWhileVisible(updateTracks, 60 * 1000);
 
     // --- Password-protected config panel ---
     const configToggle = document.getElementById('config-toggle')!;
