@@ -1224,6 +1224,27 @@ import '../styles/kiwisdr.css';
       spectrumCtx.strokeStyle = spectrumAccent;
       spectrumCtx.lineWidth = 1;
       spectrumCtx.strokeRect(left + 0.5, 0.5, Math.max(0, right - left - 1), h - 1);
+      // CW's passband is the only one with a single specific point inside
+      // it that actually matters -- the exact pitch the decoder's Goertzel
+      // filter listens at (cwProcessFrame's targetFreq, always the
+      // passband's center for CW -- see cutsForWidth's CW_PITCH_HZ
+      // anchoring server-side). A whole shaded band answers "is my signal
+      // audible at all"; this crosshair answers the sharper question this
+      // feature exists for: "is it EXACTLY where the decoder is listening."
+      if (lastStatus.mode === 'cw') {
+        const targetHz = (lastStatus.lowCutHz + lastStatus.highCutHz) / 2;
+        const targetKhz = centerKhz + targetHz / 1000;
+        const targetX = ((targetKhz - windowLowKhz) / WF_SPAN_KHZ) * w;
+        if (targetX >= 0 && targetX <= w) {
+          spectrumCtx.globalAlpha = 0.9;
+          spectrumCtx.strokeStyle = peakAccent;
+          spectrumCtx.lineWidth = 1.5;
+          spectrumCtx.beginPath();
+          spectrumCtx.moveTo(targetX, 0);
+          spectrumCtx.lineTo(targetX, h);
+          spectrumCtx.stroke();
+        }
+      }
       spectrumCtx.restore();
     }
 
