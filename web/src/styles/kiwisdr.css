@@ -11,6 +11,19 @@
   border: 1px solid var(--border);
 }
 .kiwi-freq-display .unit { color: var(--muted); font-size: 0.9rem; font-weight: 400; }
+#kiwi-freq { cursor: text; border-radius: 4px; }
+#kiwi-freq:hover, #kiwi-freq:focus-visible { background: color-mix(in srgb, var(--accent) 14%, transparent); outline: none; }
+.kiwi-freq-input {
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  font-weight: 700;
+  width: 5.5ch;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 0 0.15rem;
+}
 .kiwi-mode-select {
   color: var(--accent);
   font-size: 0.85rem;
@@ -85,6 +98,7 @@
 
 .kiwi-audio-controls { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
 .kiwi-audio-controls input[type="range"] { width: 100px; }
+#kiwi-record-btn.recording { background: var(--status-critical); border-color: var(--status-critical); color: #fff; }
 
 .kiwi-cw-decoder { display: flex; align-items: center; gap: 0.6rem 0.75rem; flex-wrap: wrap; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
 .kiwi-cw-toggle { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--muted); }
@@ -106,6 +120,8 @@
 }
 
 .kiwi-quick-tune { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+.kiwi-bookmark-actions { display: flex; gap: 0.4rem; margin-top: 0.35rem; }
+.kiwi-bookmark-actions .btn { padding: 0.35rem 0.55rem; font-size: 0.75rem; text-transform: none; }
 #kiwi-startstop-btn.listening { background: var(--status-good); border-color: var(--status-good); color: #fff; }
 
 .kiwi-waterfall-wrap {

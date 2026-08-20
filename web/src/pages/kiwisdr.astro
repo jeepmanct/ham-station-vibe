@@ -93,7 +93,9 @@ import '../styles/kiwisdr.css';
 
     <div class="card">
       <div class="kiwi-freq-display">
-        <span id="kiwi-freq">7.2550</span><span class="unit">MHz</span>
+        <span id="kiwi-freq" tabindex="0" role="button" title="Click to type an exact frequency">7.2550</span>
+        <input type="text" id="kiwi-freq-input" class="kiwi-freq-input" inputmode="decimal" aria-label="Type an exact frequency in MHz" hidden />
+        <span class="unit">MHz</span>
         <select id="kiwi-tune-mode" class="kiwi-mode-select">
           <option value="lsb">LSB</option>
           <option value="usb">USB</option>
@@ -161,6 +163,7 @@ import '../styles/kiwisdr.css';
           Volume
           <input type="range" id="kiwi-volume" min="0" max="1" step="0.05" value="0.8" />
         </label>
+        <button type="button" class="btn secondary" id="kiwi-record-btn" disabled title="Start listening first">&#9210; Record</button>
         <span class="status-line" id="kiwi-audio-status" style="margin:0;"></span>
       </div>
 
@@ -210,6 +213,15 @@ import '../styles/kiwisdr.css';
             <option data-freq="11.700" data-mode="am">25m Broadcast</option>
             <option data-freq="15.100" data-mode="am">19m Broadcast</option>
           </select>
+        </label>
+        <label>My Bookmarks
+          <select id="kiwi-bookmarks-select">
+            <option value="">Choose&hellip;</option>
+          </select>
+          <div class="kiwi-bookmark-actions">
+            <button type="button" class="btn secondary" id="kiwi-bookmark-save">&starf; Save Current</button>
+            <button type="button" class="btn secondary" id="kiwi-bookmark-remove" hidden>&#128465; Remove</button>
+          </div>
         </label>
         <p id="kiwi-tune-status" class="status-line"></p>
       </div>
@@ -303,6 +315,11 @@ import '../styles/kiwisdr.css';
     const sliderStepLabel = document.getElementById('kiwi-slider-step-label')!;
     const publicBanner = document.getElementById('kiwi-public-banner')!;
     const publicBannerLabel = document.getElementById('kiwi-public-banner-label')!;
+    const freqInput = document.getElementById('kiwi-freq-input') as HTMLInputElement;
+    const bookmarksSelect = document.getElementById('kiwi-bookmarks-select') as HTMLSelectElement;
+    const bookmarkSaveBtn = document.getElementById('kiwi-bookmark-save') as HTMLButtonElement;
+    const bookmarkRemoveBtn = document.getElementById('kiwi-bookmark-remove') as HTMLButtonElement;
+    const recordBtn = document.getElementById('kiwi-record-btn') as HTMLButtonElement;
 
     let lastStatus: KiwiSdrStatus | null = null;
     let lastSourceLabel: string | null = null;
@@ -667,6 +684,109 @@ import '../styles/kiwisdr.css';
     wireQuickTuneSelect(timeSelect);
     wireQuickTuneSelect(swSelect);
 
+    // --- Click-to-type: an alternative to the jog slider/step buttons for
+    // landing on an exact known frequency in one shot instead of several
+    // nudges. Swaps the read-only display span for a text input in place,
+    // pre-filled with the current value; Enter commits, Escape/blur
+    // reverts without retuning. ---
+    function openFreqInput() {
+      freqInput.value = freqEl.textContent ?? '';
+      freqEl.hidden = true;
+      freqInput.hidden = false;
+      freqInput.focus();
+      freqInput.select();
+    }
+    function closeFreqInput() {
+      freqInput.hidden = true;
+      freqEl.hidden = false;
+    }
+    freqEl.addEventListener('click', openFreqInput);
+    freqEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openFreqInput();
+      }
+    });
+    freqInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const mhz = Number(freqInput.value);
+        closeFreqInput();
+        if (!Number.isFinite(mhz) || mhz < 0 || mhz > 30) {
+          tuneStatus.textContent = 'Enter a frequency between 0 and 30 MHz.';
+          return;
+        }
+        currentFreqMhz = mhz;
+        tune(mhz, lastStatus?.mode ?? tuneMode.value);
+      } else if (e.key === 'Escape') {
+        closeFreqInput();
+      }
+    });
+    freqInput.addEventListener('blur', () => {
+      if (!freqInput.hidden) closeFreqInput();
+    });
+
+    // --- Personal frequency bookmarks -- distinct from the public-receiver
+    // favorites above (those save a whole RECEIVER; these save a specific
+    // frequency+mode+label on whichever receiver is currently active, the
+    // same idea as the fixed Ham Band/WWV/Shortwave lists above but
+    // operator-curated instead of built in). Stored per-browser, same
+    // localStorage pattern as FAVORITES_KEY. ---
+    type Bookmark = { freqMhz: number; mode: string; label: string };
+    const BOOKMARKS_KEY = 'kiwi_frequency_bookmarks';
+    function getBookmarks(): Bookmark[] {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(BOOKMARKS_KEY) ?? '[]');
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    function saveBookmarks(bookmarks: Bookmark[]) {
+      localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(bookmarks));
+    }
+    function renderBookmarks(selectValue?: string) {
+      const bookmarks = getBookmarks();
+      bookmarksSelect.innerHTML = '<option value="">Choose&hellip;</option>';
+      bookmarks.forEach((b, i) => {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = `${b.label} (${b.freqMhz.toFixed(4)} MHz ${b.mode.toUpperCase()})`;
+        bookmarksSelect.appendChild(opt);
+      });
+      if (selectValue !== undefined) bookmarksSelect.value = selectValue;
+      bookmarkRemoveBtn.hidden = bookmarksSelect.value === '';
+    }
+    renderBookmarks();
+
+    bookmarksSelect.addEventListener('change', () => {
+      bookmarkRemoveBtn.hidden = bookmarksSelect.value === '';
+      const bookmarks = getBookmarks();
+      const b = bookmarks[Number(bookmarksSelect.value)];
+      if (!b) return;
+      currentFreqMhz = b.freqMhz;
+      tuneMode.value = b.mode;
+      tune(b.freqMhz, b.mode);
+      bookmarksSelect.value = '';
+      bookmarkRemoveBtn.hidden = true;
+    });
+    bookmarkSaveBtn.addEventListener('click', () => {
+      const mode = lastStatus?.mode ?? tuneMode.value;
+      const label = prompt(`Save ${currentFreqMhz.toFixed(4)} MHz ${mode.toUpperCase()} as:`, `${currentFreqMhz.toFixed(3)} MHz`);
+      if (!label) return;
+      const bookmarks = getBookmarks();
+      bookmarks.push({ freqMhz: currentFreqMhz, mode, label: label.slice(0, 60) });
+      saveBookmarks(bookmarks);
+      renderBookmarks();
+    });
+    bookmarkRemoveBtn.addEventListener('click', () => {
+      const idx = Number(bookmarksSelect.value);
+      if (!Number.isInteger(idx)) return;
+      const bookmarks = getBookmarks();
+      bookmarks.splice(idx, 1);
+      saveBookmarks(bookmarks);
+      renderBookmarks();
+    });
+
     // The step buttons double as the slider's step-size picker -- whichever
     // one was clicked most recently (by magnitude, sign doesn't matter)
     // becomes what the slider below nudges by. Defaults to 10kHz.
@@ -1027,10 +1147,38 @@ import '../styles/kiwisdr.css';
       }
     }
 
+    // Shades the actual receive filter's position/width directly on the
+    // spectrum, using the same freq<->pixel mapping tuneFromCanvasClick
+    // uses in reverse -- otherwise the width slider/bandwidth presets only
+    // change what's audible, with nothing to show for it visually. Drawn
+    // before the trace itself so the trace still reads clearly on top.
+    function drawPassbandOverlay(w: number, h: number) {
+      if (!lastStatus) return;
+      const centerKhz = lastStatus.freqKhz;
+      const lowKhz = centerKhz + lastStatus.lowCutHz / 1000;
+      const highKhz = centerKhz + lastStatus.highCutHz / 1000;
+      const windowLowKhz = centerKhz - WF_SPAN_KHZ / 2;
+      const x1 = ((lowKhz - windowLowKhz) / WF_SPAN_KHZ) * w;
+      const x2 = ((highKhz - windowLowKhz) / WF_SPAN_KHZ) * w;
+      const left = Math.max(0, Math.min(x1, x2));
+      const right = Math.min(w, Math.max(x1, x2));
+      if (right <= left) return;
+      spectrumCtx.save();
+      spectrumCtx.fillStyle = spectrumAccent;
+      spectrumCtx.globalAlpha = 0.16;
+      spectrumCtx.fillRect(left, 0, right - left, h);
+      spectrumCtx.globalAlpha = 0.5;
+      spectrumCtx.strokeStyle = spectrumAccent;
+      spectrumCtx.lineWidth = 1;
+      spectrumCtx.strokeRect(left + 0.5, 0.5, Math.max(0, right - left - 1), h - 1);
+      spectrumCtx.restore();
+    }
+
     function drawSpectrum(bins: Uint8Array) {
       const w = spectrumCanvas.width;
       const h = spectrumCanvas.height;
       spectrumCtx.clearRect(0, 0, w, h);
+      drawPassbandOverlay(w, h);
       const n = Math.min(w, bins.length);
 
       if (spectrumStyle === 'bars') {
@@ -1113,6 +1261,101 @@ import '../styles/kiwisdr.css';
     let gainNode: GainNode | null = null;
     let nextPlayTime = 0;
 
+    // --- Recording -- captures the same raw PCM frames already flowing to
+    // the speaker into an in-memory buffer, encoded to a WAV file and
+    // downloaded on Stop. Locks in the sample rate at Start; if it changes
+    // mid-recording (switching to a different public receiver while
+    // recording), that would corrupt playback if left in one file, so this
+    // auto-finalizes what's captured so far instead of silently producing
+    // a garbled recording. Capped at RECORD_MAX_MS for the same reason --
+    // nothing stops someone leaving Record on indefinitely otherwise. ---
+    const RECORD_MAX_MS = 10 * 60 * 1000;
+    let recording = false;
+    let recordedChunks: Int16Array[] = [];
+    let recordSampleRate: number | null = null;
+    let recordStartedAt = 0;
+    let recordTimerInterval: ReturnType<typeof setInterval> | null = null;
+
+    function encodeWav(chunks: Int16Array[], sampleRate: number): Blob {
+      const sampleCount = chunks.reduce((sum, c) => sum + c.length, 0);
+      const dataBytes = sampleCount * 2;
+      const buffer = new ArrayBuffer(44 + dataBytes);
+      const view = new DataView(buffer);
+      const writeStr = (offset: number, s: string) => {
+        for (let i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i));
+      };
+      writeStr(0, 'RIFF');
+      view.setUint32(4, 36 + dataBytes, true);
+      writeStr(8, 'WAVE');
+      writeStr(12, 'fmt ');
+      view.setUint32(16, 16, true); // fmt chunk size
+      view.setUint16(20, 1, true); // PCM
+      view.setUint16(22, 1, true); // mono
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true); // byte rate (16-bit mono)
+      view.setUint16(32, 2, true); // block align
+      view.setUint16(34, 16, true); // bits per sample
+      writeStr(36, 'data');
+      view.setUint32(40, dataBytes, true);
+      let offset = 44;
+      for (const chunk of chunks) {
+        for (let i = 0; i < chunk.length; i++) {
+          view.setInt16(offset, chunk[i], true);
+          offset += 2;
+        }
+      }
+      return new Blob([buffer], { type: 'audio/wav' });
+    }
+
+    function downloadRecording() {
+      if (recordedChunks.length === 0 || !recordSampleRate) return;
+      const blob = encodeWav(recordedChunks, recordSampleRate);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      a.href = url;
+      a.download = `kiwisdr-${stamp}.wav`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function updateRecordTimer() {
+      const elapsedSec = Math.floor((Date.now() - recordStartedAt) / 1000);
+      const m = Math.floor(elapsedSec / 60);
+      const s = elapsedSec % 60;
+      recordBtn.textContent = `⏺ ${m}:${String(s).padStart(2, '0')}`;
+    }
+
+    function startRecording() {
+      if (!running || !lastStatus?.sampleRate) return;
+      recording = true;
+      recordedChunks = [];
+      recordSampleRate = Math.round(lastStatus.sampleRate);
+      recordStartedAt = Date.now();
+      recordBtn.classList.add('recording');
+      updateRecordTimer();
+      recordTimerInterval = setInterval(updateRecordTimer, 1000);
+    }
+
+    function stopRecording(download: boolean) {
+      if (!recording) return;
+      recording = false;
+      if (recordTimerInterval) {
+        clearInterval(recordTimerInterval);
+        recordTimerInterval = null;
+      }
+      recordBtn.classList.remove('recording');
+      recordBtn.textContent = '⏺ Record';
+      if (download) downloadRecording();
+      recordedChunks = [];
+      recordSampleRate = null;
+    }
+
+    recordBtn.addEventListener('click', () => {
+      if (recording) stopRecording(true);
+      else startRecording();
+    });
+
     function startWaterfall() {
       wfStatus.textContent = 'Connecting…';
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -1174,6 +1417,7 @@ import '../styles/kiwisdr.css';
 
     function stopAll(message: string) {
       running = false;
+      if (recording) stopRecording(true); // still worth keeping whatever was captured, even on an unplanned stop
       audioSocket?.close();
       audioSocket = null;
       audioCtx?.close();
@@ -1182,6 +1426,8 @@ import '../styles/kiwisdr.css';
       startStopBtn.textContent = 'Start';
       startStopBtn.classList.remove('listening');
       audioStatus.textContent = message;
+      recordBtn.disabled = true;
+      recordBtn.title = 'Start listening first';
       syncWaterfallConnection();
     }
 
@@ -1190,6 +1436,8 @@ import '../styles/kiwisdr.css';
       startStopBtn.textContent = 'Stop';
       startStopBtn.classList.add('listening');
       audioStatus.textContent = 'Connecting…';
+      recordBtn.disabled = false;
+      recordBtn.title = 'Record the audio you\'re currently hearing to a WAV file';
       syncWaterfallConnection();
 
       audioCtx = new AudioContext();
@@ -1231,6 +1479,15 @@ import '../styles/kiwisdr.css';
         // lastStatus.sampleRate caught up to whatever's actually connected.
         const sampleRate = Math.round(lastStatus?.sampleRate ?? 12000);
         const pcm = new Int16Array(ev.data as ArrayBuffer);
+        if (recording) {
+          // A receiver switch mid-recording means every frame from here on
+          // is a different sample rate -- finalize what's captured so far
+          // as its own clean file rather than silently mixing two rates
+          // into one corrupted one.
+          if (recordSampleRate !== null && sampleRate !== recordSampleRate) stopRecording(true);
+          else if (Date.now() - recordStartedAt >= RECORD_MAX_MS) stopRecording(true);
+          else recordedChunks.push(pcm);
+        }
         if (cwEnabledCheckbox.checked && lastStatus?.mode === 'cw') cwProcessFrame(pcm, sampleRate);
         const buffer = audioCtx.createBuffer(1, pcm.length, sampleRate);
         const channel = buffer.getChannelData(0);
