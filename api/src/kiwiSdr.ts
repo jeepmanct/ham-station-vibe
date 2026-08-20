@@ -44,7 +44,9 @@ const CONNECT_TIMEOUT_MS = 8000;
 // to DEFAULT_CONTROL_FREQ_MHZ rather than remembering its last frequency.
 let currentFreqKhz = DEFAULT_FREQ_KHZ;
 let currentMode = DEFAULT_MODE;
-let currentBandwidth: BandwidthPreset = 'normal';
+// null means a custom width from the fine filter-width slider is in
+// effect instead of one of the three named presets -- see setFilterWidth().
+let currentBandwidth: BandwidthPreset | null = 'normal';
 let currentAgcEnabled = true;
 let currentWfZoom = DEFAULT_WF_ZOOM;
 
@@ -82,6 +84,35 @@ const MODE_PASSBAND_PRESETS: Record<string, Record<BandwidthPreset, [number, num
   cw: { narrow: [400, 600], normal: [300, 700], wide: [200, 800] },
   nbfm: { narrow: [-4000, 4000], normal: [-6000, 6000], wide: [-8000, 8000] },
 };
+
+// Every preset pair above is reproducible from just its total width plus
+// the anchoring rule described in the comment above (symmetric for AM-
+// family/NBFM/CW, one-sided for LSB/USB) -- confirmed against all three
+// presets in every mode. The fine width slider reuses that same rule for
+// an arbitrary width instead of one of the three fixed ones, so a custom
+// width still "looks like" this app's own filters rather than an
+// unrelated shape, and narrowing/widening it keeps the signal centered
+// where the operator expects (the CW pitch, or the carrier for AM/NBFM).
+const MIN_FILTER_WIDTH_HZ = 50;
+const MAX_FILTER_WIDTH_HZ = 16_000;
+const CW_PITCH_HZ = 500; // matches the center of every existing CW preset (300-700, 400-600, 200-800)
+function cutsForWidth(mode: string, widthHz: number): [number, number] {
+  if (mode === 'lsb') return [-(widthHz + 300), -300];
+  if (mode === 'usb') return [300, 300 + widthHz];
+  if (mode === 'cw') return [CW_PITCH_HZ - widthHz / 2, CW_PITCH_HZ + widthHz / 2];
+  return [-widthHz / 2, widthHz / 2]; // am, amn, sam, nbfm -- symmetric around the carrier
+}
+
+// Only meaningful while currentBandwidth is null; holds whatever width the
+// fine slider last requested, so a reconnect (e.g. switching public
+// receivers) re-applies it instead of silently falling back to a preset.
+let currentWidthHz = MODE_PASSBAND_PRESETS[DEFAULT_MODE].normal[1] - MODE_PASSBAND_PRESETS[DEFAULT_MODE].normal[0];
+
+/** Single source of truth for the currently active passband -- either a named preset or, when currentBandwidth is null, the slider's custom width. */
+function currentCuts(): [number, number] {
+  if (currentBandwidth) return MODE_PASSBAND_PRESETS[currentMode]?.[currentBandwidth] ?? [0, 0];
+  return cutsForWidth(currentMode, currentWidthHz);
+}
 
 // When set, this station's own configured Kiwi is temporarily set aside in
 // favor of a public receiver picked from /kiwisdr's directory browser --
@@ -150,9 +181,13 @@ export type KiwiSdrStatus = {
   mode: string;
   sampleRate: number | null;
   smeterDbm: number | null;
-  bandwidth: BandwidthPreset;
+  /** null means a custom width from the fine slider is active, not one of the three named presets. */
+  bandwidth: BandwidthPreset | null;
+  widthHz: number;
   lowCutHz: number;
   highCutHz: number;
+  minWidthHz: number;
+  maxWidthHz: number;
   agcEnabled: boolean;
   wfZoom: number;
   maxWfZoom: number;
@@ -170,7 +205,7 @@ export type KiwiSdrStatus = {
 };
 
 export async function getKiwiSdrStatus(): Promise<KiwiSdrStatus> {
-  const [lowCutHz, highCutHz] = MODE_PASSBAND_PRESETS[currentMode]?.[currentBandwidth] ?? [0, 0];
+  const [lowCutHz, highCutHz] = currentCuts();
   const listeners = await fetchListenerCount();
   return {
     configured: !!parseHost(),
@@ -183,8 +218,11 @@ export async function getKiwiSdrStatus(): Promise<KiwiSdrStatus> {
     sampleRate: status.sampleRate,
     smeterDbm: status.smeterDbm,
     bandwidth: currentBandwidth,
+    widthHz: highCutHz - lowCutHz,
     lowCutHz,
     highCutHz,
+    minWidthHz: MIN_FILTER_WIDTH_HZ,
+    maxWidthHz: MAX_FILTER_WIDTH_HZ,
     agcEnabled: currentAgcEnabled,
     wfZoom: currentWfZoom,
     maxWfZoom: MAX_WF_ZOOM,
@@ -205,7 +243,7 @@ export function setFrequency(freqKhz: number, mode: string): ConnectResult {
   if (mode !== currentMode) currentBandwidth = 'normal';
   currentFreqKhz = freqKhz;
   currentMode = mode;
-  const [lowCut, highCut] = presets[currentBandwidth];
+  const [lowCut, highCut] = currentCuts();
   if (sndSocket && status.sndConnected) {
     sndSocket.send(`SET mod=${mode} low_cut=${lowCut} high_cut=${highCut} freq=${freqKhz.toFixed(3)}`);
   }
@@ -222,6 +260,28 @@ export function setBandwidth(preset: BandwidthPreset): ConnectResult {
   if (!presets?.[preset]) return { ok: false, error: `Unknown bandwidth preset: ${preset}` };
   currentBandwidth = preset;
   const [lowCut, highCut] = presets[preset];
+  if (sndSocket && status.sndConnected) {
+    sndSocket.send(`SET mod=${currentMode} low_cut=${lowCut} high_cut=${highCut} freq=${currentFreqKhz.toFixed(3)}`);
+  }
+  return { ok: true };
+}
+
+/**
+ * Fine filter-width control, alongside (not replacing) the three named
+ * presets above -- lets an operator dial in exactly how wide the passband
+ * is instead of only picking from narrow/normal/wide. Reuses the same
+ * per-mode anchoring rule as the presets (cutsForWidth), so a custom width
+ * still keeps the signal centered where it's expected (the CW pitch, the
+ * carrier for AM/NBFM, the edge for SSB) rather than drifting off it.
+ */
+export function setFilterWidth(widthHz: number): ConnectResult {
+  if (!getKiwiSdrEnabled()) return { ok: false, error: 'KiwiSDR is currently disabled' };
+  if (!Number.isFinite(widthHz) || widthHz < MIN_FILTER_WIDTH_HZ || widthHz > MAX_FILTER_WIDTH_HZ) {
+    return { ok: false, error: `Filter width must be between ${MIN_FILTER_WIDTH_HZ} and ${MAX_FILTER_WIDTH_HZ} Hz` };
+  }
+  currentWidthHz = widthHz;
+  currentBandwidth = null;
+  const [lowCut, highCut] = cutsForWidth(currentMode, widthHz);
   if (sndSocket && status.sndConnected) {
     sndSocket.send(`SET mod=${currentMode} low_cut=${lowCut} high_cut=${highCut} freq=${currentFreqKhz.toFixed(3)}`);
   }
@@ -543,8 +603,7 @@ function connectSnd(): Promise<ConnectResult> {
         }
         if (kv.sample_rate) {
           status.sampleRate = Number(kv.sample_rate);
-          const presets = MODE_PASSBAND_PRESETS[currentMode] ?? MODE_PASSBAND_PRESETS.lsb;
-          const [lowCut, highCut] = presets[currentBandwidth];
+          const [lowCut, highCut] = currentCuts();
           // This exact order -- squelch/gen before mod/agc/compression --
           // is required to get audio flowing at all; confirmed live that
           // sending mod/agc/compression immediately on open (before this

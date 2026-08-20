@@ -4,6 +4,7 @@ import {
   getKiwiSdrStatus,
   setFrequency,
   setBandwidth,
+  setFilterWidth,
   setAgc,
   setWfZoom,
   setKiwiSdrEnabled,
@@ -51,6 +52,18 @@ kiwiSdrRoutes.post('/bandwidth', async (c) => {
     return c.json({ error: 'bandwidth must be "narrow", "normal", or "wide"' }, 400);
   }
   const result = setBandwidth(body.bandwidth);
+  if (!result.ok) return c.json({ error: result.error }, 400);
+  return c.json(await getKiwiSdrStatus());
+});
+
+// Fine width control alongside the preset buttons above -- see
+// setFilterWidth()'s comment for why this doesn't replace them.
+kiwiSdrRoutes.post('/filter-width', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (!body || typeof body.widthHz !== 'number') {
+    return c.json({ error: 'widthHz must be a number' }, 400);
+  }
+  const result = setFilterWidth(body.widthHz);
   if (!result.ok) return c.json({ error: result.error }, 400);
   return c.json(await getKiwiSdrStatus());
 });

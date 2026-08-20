@@ -110,6 +110,7 @@ import '../styles/kiwisdr.css';
             <option value="narrow">Narrow</option>
             <option value="normal">Normal</option>
             <option value="wide">Wide</option>
+            <option value="custom" disabled>Custom</option>
           </select>
         </label>
         <label class="kiwi-agc-toggle">
@@ -117,6 +118,18 @@ import '../styles/kiwisdr.css';
         </label>
         <span class="status-line" id="kiwi-listener-count" style="margin:0;"></span>
         <span class="kiwi-site-listeners" id="kiwi-site-listeners" title="How many browsers on this site currently have audio open to this receiver"></span>
+      </div>
+
+      <!-- Fine-grained alternative to the Narrow/Normal/Wide presets above --
+           e.g. CW's widest preset is only 600Hz total (built for isolating
+           one signal), nowhere close to AM's 16kHz "wide" (built for
+           scanning past many at once). This dials in anything in between,
+           on a log scale so the low end -- where CW/SSB actually live --
+           isn't squeezed into a few pixels of slider travel. -->
+      <div class="kiwi-width-row">
+        <label for="kiwi-width-slider">Filter Width</label>
+        <input type="range" id="kiwi-width-slider" min="0" max="1000" step="1" value="500" aria-label="Filter width, fine control" />
+        <span class="kiwi-width-readout" id="kiwi-width-readout">&mdash;</span>
       </div>
 
       <!-- Only picks which step size the slider below nudges by -- the
@@ -217,9 +230,12 @@ import '../styles/kiwisdr.css';
       mode: string;
       sampleRate: number | null;
       smeterDbm: number | null;
-      bandwidth: 'narrow' | 'normal' | 'wide';
+      bandwidth: 'narrow' | 'normal' | 'wide' | null;
+      widthHz: number;
       lowCutHz: number;
       highCutHz: number;
+      minWidthHz: number;
+      maxWidthHz: number;
       agcEnabled: boolean;
       wfZoom: number;
       maxWfZoom: number;
@@ -273,6 +289,8 @@ import '../styles/kiwisdr.css';
     const axisHigh = document.getElementById('kiwi-axis-high')!;
     const tuneMode = document.getElementById('kiwi-tune-mode') as HTMLSelectElement;
     const bandwidthSelect = document.getElementById('kiwi-bandwidth') as HTMLSelectElement;
+    const widthSlider = document.getElementById('kiwi-width-slider') as HTMLInputElement;
+    const widthReadout = document.getElementById('kiwi-width-readout')!;
     const agcCheckbox = document.getElementById('kiwi-agc-enabled') as HTMLInputElement;
     const listenerCountEl = document.getElementById('kiwi-listener-count')!;
     const siteListenersEl = document.getElementById('kiwi-site-listeners')!;
@@ -339,7 +357,11 @@ import '../styles/kiwisdr.css';
       if (document.activeElement !== freqSlider) freqEl.textContent = (s.freqKhz / 1000).toFixed(4);
       currentFreqMhz = s.freqKhz / 1000;
       if (document.activeElement !== tuneMode) tuneMode.value = s.mode;
-      if (document.activeElement !== bandwidthSelect) bandwidthSelect.value = s.bandwidth;
+      if (document.activeElement !== bandwidthSelect) bandwidthSelect.value = s.bandwidth ?? 'custom';
+      if (document.activeElement !== widthSlider) {
+        widthSlider.value = String(widthHzToSliderPos(s.widthHz, s.minWidthHz, s.maxWidthHz));
+        widthReadout.textContent = formatWidthHz(s.widthHz);
+      }
       if (document.activeElement !== agcCheckbox) agcCheckbox.checked = s.agcEnabled;
       if (document.activeElement !== wfZoomSelect) wfZoomSelect.value = String(s.wfZoom);
       WF_SPAN_KHZ = 30000 / 2 ** s.wfZoom;
@@ -565,6 +587,44 @@ import '../styles/kiwisdr.css';
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bandwidth: bandwidthSelect.value }),
+      });
+      if (res.ok) loadStatus();
+    });
+
+    // Log scale, not linear -- CW/SSB's actually-useful widths (tens to a
+    // few thousand Hz) would get squeezed into a handful of pixels at the
+    // low end of a slider that also has to reach AM's 16kHz "wide" at the
+    // top. min/maxWidthHz come from the server (kiwiSdr.ts's
+    // MIN/MAX_FILTER_WIDTH_HZ) rather than being duplicated here, so the
+    // two stay in sync automatically if either changes.
+    function widthHzToSliderPos(widthHz: number, minHz: number, maxHz: number): number {
+      const clamped = Math.min(maxHz, Math.max(minHz, widthHz));
+      return Math.round(1000 * (Math.log(clamped / minHz) / Math.log(maxHz / minHz)));
+    }
+    function sliderPosToWidthHz(pos: number, minHz: number, maxHz: number): number {
+      return Math.round(minHz * Math.pow(maxHz / minHz, pos / 1000));
+    }
+    function formatWidthHz(widthHz: number): string {
+      return widthHz >= 1000 ? `${(widthHz / 1000).toFixed(widthHz % 1000 === 0 ? 0 : 1)}kHz` : `${widthHz}Hz`;
+    }
+
+    // Same input/change split as the frequency slider: input previews the
+    // width locally while dragging (no network call), change commits it on
+    // release. Picking a width this way is what makes the Bandwidth select
+    // above show "Custom" instead of one of the three presets.
+    widthSlider.addEventListener('input', () => {
+      const minHz = lastStatus?.minWidthHz ?? 50;
+      const maxHz = lastStatus?.maxWidthHz ?? 16000;
+      widthReadout.textContent = formatWidthHz(sliderPosToWidthHz(Number(widthSlider.value), minHz, maxHz));
+    });
+    widthSlider.addEventListener('change', async () => {
+      const minHz = lastStatus?.minWidthHz ?? 50;
+      const maxHz = lastStatus?.maxWidthHz ?? 16000;
+      const widthHz = sliderPosToWidthHz(Number(widthSlider.value), minHz, maxHz);
+      const res = await fetch('/api/kiwisdr/filter-width', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ widthHz }),
       });
       if (res.ok) loadStatus();
     });
