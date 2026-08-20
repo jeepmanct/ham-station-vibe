@@ -93,7 +93,7 @@ import '../styles/kiwisdr.css';
 
     <div class="card">
       <div class="kiwi-freq-display">
-        <span id="kiwi-freq">7.255</span><span class="unit">MHz</span>
+        <span id="kiwi-freq">7.2550</span><span class="unit">MHz</span>
         <select id="kiwi-tune-mode" class="kiwi-mode-select">
           <option value="lsb">LSB</option>
           <option value="usb">USB</option>
@@ -128,6 +128,7 @@ import '../styles/kiwisdr.css';
         <button type="button" class="btn secondary kiwi-step" data-step-khz="100">100kHz</button>
         <button type="button" class="btn secondary kiwi-step" data-step-khz="10">10kHz</button>
         <button type="button" class="btn secondary kiwi-step" data-step-khz="1">1kHz</button>
+        <button type="button" class="btn secondary kiwi-step" data-step-khz="0.1">100Hz</button>
       </div>
 
       <div class="kiwi-slider-row">
@@ -335,7 +336,7 @@ import '../styles/kiwisdr.css';
       // last tune) still update everything else whenever it isn't actively
       // in use. The slider is a relative jog, not bound to freqKhz at all,
       // so it's excluded here rather than checked against activeElement.
-      if (document.activeElement !== freqSlider) freqEl.textContent = (s.freqKhz / 1000).toFixed(3);
+      if (document.activeElement !== freqSlider) freqEl.textContent = (s.freqKhz / 1000).toFixed(4);
       currentFreqMhz = s.freqKhz / 1000;
       if (document.activeElement !== tuneMode) tuneMode.value = s.mode;
       if (document.activeElement !== bandwidthSelect) bandwidthSelect.value = s.bandwidth;
@@ -612,7 +613,8 @@ import '../styles/kiwisdr.css';
     let activeStepKhz = 10;
 
     function updateSliderStepLabel() {
-      sliderStepLabel.textContent = `${activeStepKhz >= 1000 ? `${activeStepKhz / 1000}MHz` : `${activeStepKhz}kHz`}/step`;
+      const label = activeStepKhz >= 1000 ? `${activeStepKhz / 1000}MHz` : activeStepKhz >= 1 ? `${activeStepKhz}kHz` : `${Math.round(activeStepKhz * 1000)}Hz`;
+      sliderStepLabel.textContent = `${label}/step`;
     }
     function highlightActiveStep() {
       document.querySelectorAll<HTMLButtonElement>('.kiwi-step').forEach((btn) => {
@@ -648,7 +650,7 @@ import '../styles/kiwisdr.css';
     freqSlider.addEventListener('input', () => {
       if (dragBaseKhz === null) dragBaseKhz = lastStatus?.freqKhz ?? 7255;
       const previewKhz = Math.max(0, dragBaseKhz + Number(freqSlider.value) * activeStepKhz);
-      freqEl.textContent = (previewKhz / 1000).toFixed(3);
+      freqEl.textContent = (previewKhz / 1000).toFixed(4);
     });
     freqSlider.addEventListener('change', () => {
       const baseKhz = dragBaseKhz ?? lastStatus?.freqKhz ?? 7255;
