@@ -215,7 +215,15 @@ import '../styles/kiwisdr.css';
               <option value="">Choose a band&hellip;</option>
               <option data-freq="1.900" data-mode="lsb">160m</option>
               <option data-freq="3.750" data-mode="lsb">80m</option>
-              <option data-freq="5.357" data-mode="usb">60m</option>
+              <!-- 5 fixed channels, not a continuous band -- center
+                   frequencies per the FCC's 2021 Part 97 update (channel
+                   center is now the dial frequency directly, no more
+                   USB suppressed-carrier offset to account for). -->
+              <option data-freq="5.3320" data-mode="usb">60m Ch 1</option>
+              <option data-freq="5.3480" data-mode="usb">60m Ch 2</option>
+              <option data-freq="5.3585" data-mode="usb">60m Ch 3</option>
+              <option data-freq="5.3730" data-mode="usb">60m Ch 4</option>
+              <option data-freq="5.4050" data-mode="usb">60m Ch 5</option>
               <option data-freq="7.255" data-mode="lsb">40m</option>
               <option data-freq="10.130" data-mode="cw">30m</option>
               <option data-freq="14.230" data-mode="usb">20m</option>
