@@ -69,6 +69,9 @@ import '../styles/kiwisdr.css';
           <label>
             <input type="checkbox" id="kiwi-spectrum-enabled" checked /> Spectrum
           </label>
+          <label title="Shades where each HF band's CW/Data and Phone segments fall, per the general ARRL band plan -- a rough visual guide, not a substitute for your license class's actual sub-band privileges.">
+            <input type="checkbox" id="kiwi-band-plan-enabled" /> Band Plan
+          </label>
           <label>
             Zoom
             <select id="kiwi-wf-zoom">
@@ -93,7 +96,10 @@ import '../styles/kiwisdr.css';
           <span id="kiwi-axis-high">&mdash;</span>
         </div>
       </div>
-      <p class="status-line" id="kiwi-wf-status" style="margin-top:0.4rem;"></p>
+      <div class="kiwi-waterfall-toolbar">
+        <button type="button" class="btn secondary" id="kiwi-jump-strongest" title="Scans the currently visible span and tunes straight to the loudest signal in it">&#127919; Strongest Signal</button>
+        <p class="status-line" id="kiwi-wf-status" style="margin:0;"></p>
+      </div>
     </div>
 
     <!-- The checkbox itself is the show/hide control -- unchecked, this is
@@ -334,6 +340,7 @@ import '../styles/kiwisdr.css';
     const wfWrap = document.querySelector('.kiwi-waterfall-wrap') as HTMLElement;
     const wfEnabledCheckbox = document.getElementById('kiwi-wf-enabled') as HTMLInputElement;
     const spectrumEnabledCheckbox = document.getElementById('kiwi-spectrum-enabled') as HTMLInputElement;
+    const bandPlanEnabledCheckbox = document.getElementById('kiwi-band-plan-enabled') as HTMLInputElement;
     const canvas = document.getElementById('kiwi-waterfall') as HTMLCanvasElement;
     const ctx = canvas.getContext('2d')!;
     const spectrumCanvas = document.getElementById('kiwi-spectrum') as HTMLCanvasElement;
@@ -362,6 +369,7 @@ import '../styles/kiwisdr.css';
     const bookmarkSaveBtn = document.getElementById('kiwi-bookmark-save') as HTMLButtonElement;
     const bookmarkRemoveBtn = document.getElementById('kiwi-bookmark-remove') as HTMLButtonElement;
     const recordBtn = document.getElementById('kiwi-record-btn') as HTMLButtonElement;
+    const jumpStrongestBtn = document.getElementById('kiwi-jump-strongest') as HTMLButtonElement;
 
     // --- Collapsible sections (Tuning & Filter, Quick Tune & Bookmarks, CW
     // Decoder) -- native <details>/<summary> for the toggle itself (free
@@ -1208,6 +1216,69 @@ import '../styles/kiwisdr.css';
       }
     }
 
+    // Simplified US HF band plan -- CW/Data lower segment, Phone/Image
+    // upper segment, per the general boundaries ARRL band-edge charts
+    // commonly publish. General orientation while tuning, not a
+    // substitute for the actual FCC Part 97 rules or your license
+    // class's specific sub-band privileges (not modeled here). 60m is
+    // deliberately excluded -- it's 5 fixed channels, not a continuous
+    // band with CW/Phone segments (see the Ham Band dropdown instead).
+    // 30m has no phone segment at all (CW/data only), so its
+    // phoneStartKhz just equals its own endKhz -- a zero-width phone
+    // segment naturally never draws anything.
+    type BandPlanEntry = { name: string; startKhz: number; endKhz: number; phoneStartKhz: number };
+    const BAND_PLAN: BandPlanEntry[] = [
+      { name: '160m', startKhz: 1800, endKhz: 2000, phoneStartKhz: 1840 },
+      { name: '80m', startKhz: 3500, endKhz: 4000, phoneStartKhz: 3600 },
+      { name: '40m', startKhz: 7000, endKhz: 7300, phoneStartKhz: 7125 },
+      { name: '30m', startKhz: 10100, endKhz: 10150, phoneStartKhz: 10150 },
+      { name: '20m', startKhz: 14000, endKhz: 14350, phoneStartKhz: 14150 },
+      { name: '17m', startKhz: 18068, endKhz: 18168, phoneStartKhz: 18110 },
+      { name: '15m', startKhz: 21000, endKhz: 21450, phoneStartKhz: 21200 },
+      { name: '12m', startKhz: 24890, endKhz: 24990, phoneStartKhz: 24930 },
+      { name: '10m', startKhz: 28000, endKhz: 29700, phoneStartKhz: 28300 },
+    ];
+    function freqToSpectrumX(freqKhz: number, windowLowKhz: number, w: number): number {
+      return ((freqKhz - windowLowKhz) / WF_SPAN_KHZ) * w;
+    }
+    function drawBandPlanOverlay(w: number, h: number) {
+      if (!bandPlanEnabled || !lastStatus) return;
+      const windowLowKhz = lastStatus.freqKhz - WF_SPAN_KHZ / 2;
+      const windowHighKhz = lastStatus.freqKhz + WF_SPAN_KHZ / 2;
+      spectrumCtx.save();
+      for (const band of BAND_PLAN) {
+        if (band.endKhz < windowLowKhz || band.startKhz > windowHighKhz) continue;
+        const cwLeft = Math.max(0, freqToSpectrumX(band.startKhz, windowLowKhz, w));
+        const cwRight = Math.min(w, freqToSpectrumX(band.phoneStartKhz, windowLowKhz, w));
+        if (cwRight > cwLeft) {
+          spectrumCtx.globalAlpha = 0.08;
+          spectrumCtx.fillStyle = '#5b8def';
+          spectrumCtx.fillRect(cwLeft, 0, cwRight - cwLeft, h);
+        }
+        const phoneLeft = Math.max(0, freqToSpectrumX(band.phoneStartKhz, windowLowKhz, w));
+        const phoneRight = Math.min(w, freqToSpectrumX(band.endKhz, windowLowKhz, w));
+        if (phoneRight > phoneLeft) {
+          spectrumCtx.globalAlpha = 0.08;
+          spectrumCtx.fillStyle = '#e8834d';
+          spectrumCtx.fillRect(phoneLeft, 0, phoneRight - phoneLeft, h);
+        }
+        // Only worth labeling once the band's segments are wide enough on
+        // screen to actually read -- at full-band zoom a 200kHz band like
+        // 160m is only a few pixels wide, and a label there would just be
+        // clutter no one can read anyway.
+        const bandLeft = Math.max(0, freqToSpectrumX(band.startKhz, windowLowKhz, w));
+        const bandRight = Math.min(w, freqToSpectrumX(band.endKhz, windowLowKhz, w));
+        if (bandRight - bandLeft > 30) {
+          spectrumCtx.globalAlpha = 0.65;
+          spectrumCtx.fillStyle = spectrumAccent;
+          spectrumCtx.font = '9px monospace';
+          spectrumCtx.textBaseline = 'top';
+          spectrumCtx.fillText(band.name, bandLeft + 2, 2);
+        }
+      }
+      spectrumCtx.restore();
+    }
+
     // Shades the actual receive filter's position/width directly on the
     // spectrum, using the same freq<->pixel mapping tuneFromCanvasClick
     // uses in reverse -- otherwise the width slider/bandwidth presets only
@@ -1260,6 +1331,7 @@ import '../styles/kiwisdr.css';
       const w = spectrumCanvas.width;
       const h = spectrumCanvas.height;
       spectrumCtx.clearRect(0, 0, w, h);
+      drawBandPlanOverlay(w, h);
       drawPassbandOverlay(w, h);
       const n = Math.min(w, bins.length);
 
@@ -1392,6 +1464,35 @@ import '../styles/kiwisdr.css';
     wireWaterfallDrag(canvas);
     wireWaterfallDrag(spectrumCanvas);
 
+    // Scans the most recent waterfall frame (lastBins, kept up to date
+    // regardless of whether the waterfall/spectrum displays themselves are
+    // toggled on) for its loudest column and tunes straight there -- a
+    // faster way to find something to listen to than scanning by hand or
+    // eyeballing the trace. Each bin already covers a known, even slice of
+    // the visible WF_SPAN_KHZ window, so converting "which bin" to "what
+    // frequency" is the same fractional mapping tuneFromCanvasClick uses
+    // for a literal pixel position, just driven by bin index instead of
+    // clientX.
+    jumpStrongestBtn.addEventListener('click', () => {
+      if (!lastBins || lastBins.length === 0) {
+        wfStatus.textContent = 'No live spectrum data yet -- click Start first.';
+        return;
+      }
+      let maxIndex = 0;
+      let maxValue = -1;
+      for (let i = 0; i < lastBins.length; i++) {
+        if (lastBins[i] > maxValue) {
+          maxValue = lastBins[i];
+          maxIndex = i;
+        }
+      }
+      const centerKhz = lastStatus?.freqKhz ?? currentFreqMhz * 1000;
+      const windowLowKhz = centerKhz - WF_SPAN_KHZ / 2;
+      const targetKhz = windowLowKhz + ((maxIndex + 0.5) / lastBins.length) * WF_SPAN_KHZ;
+      currentFreqMhz = targetKhz / 1000;
+      tune(currentFreqMhz, lastStatus?.mode ?? tuneMode.value);
+    });
+
     function clearWaterfall() {
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1424,6 +1525,7 @@ import '../styles/kiwisdr.css';
     let audioCtx: AudioContext | null = null;
     let gainNode: GainNode | null = null;
     let nextPlayTime = 0;
+    let lastBins: Uint8Array | null = null;
 
     // --- Recording -- captures the same raw PCM frames already flowing to
     // the speaker into an in-memory buffer, encoded to a WAV file and
@@ -1537,6 +1639,7 @@ import '../styles/kiwisdr.css';
           return;
         }
         const bins = new Uint8Array(ev.data as ArrayBuffer);
+        lastBins = bins; // kept for "Strongest Signal" to scan even if the display itself is toggled off
         if (wfEnabled) drawWaterfallRow(bins);
         if (spectrumEnabled) drawSpectrum(bins);
       });
@@ -1576,6 +1679,14 @@ import '../styles/kiwisdr.css';
     spectrumEnabledCheckbox.addEventListener('change', () => {
       spectrumEnabled = spectrumEnabledCheckbox.checked;
       syncWaterfallConnection();
+    });
+    let bandPlanEnabled = bandPlanEnabledCheckbox.checked;
+    bandPlanEnabledCheckbox.addEventListener('change', () => {
+      bandPlanEnabled = bandPlanEnabledCheckbox.checked;
+      // Redraw immediately against whatever the last frame was, rather than
+      // leaving the toggle looking like it did nothing until the next live
+      // waterfall frame happens to arrive.
+      if (lastBins && spectrumEnabled) drawSpectrum(lastBins);
     });
     syncWaterfallConnection();
 
