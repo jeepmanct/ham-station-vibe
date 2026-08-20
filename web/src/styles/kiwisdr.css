@@ -162,7 +162,6 @@
 #kiwi-startstop-btn.listening { background: var(--status-good); border-color: var(--status-good); color: #fff; }
 
 .kiwi-waterfall-wrap {
-  position: relative;
   width: 100%;
   margin-top: 1.5rem;
   border-radius: 8px;
@@ -170,19 +169,6 @@
   border: 1px solid var(--border);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent), 0 0 24px -8px color-mix(in srgb, var(--accent) 60%, transparent);
   background: linear-gradient(180deg, #050608, #000);
-}
-.kiwi-pinch-readout {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  padding: 0.2rem 0.55rem;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.65);
-  color: #fff;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  pointer-events: none;
-  z-index: 2;
 }
 #kiwi-spectrum {
   display: block;
