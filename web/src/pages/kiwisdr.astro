@@ -82,6 +82,15 @@ import '../styles/kiwisdr.css';
               <option value="14">Max</option>
             </select>
           </label>
+          <label title="How often the waterfall updates -- KiwiSDR's own protocol only accepts 1-4 (Hz).">
+            WF Speed
+            <select id="kiwi-wf-speed">
+              <option value="1">1 (Slowest)</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4 (Fastest)</option>
+            </select>
+          </label>
         </div>
       </div>
     </details>
@@ -96,10 +105,7 @@ import '../styles/kiwisdr.css';
           <span id="kiwi-axis-high">&mdash;</span>
         </div>
       </div>
-      <div class="kiwi-waterfall-toolbar">
-        <button type="button" class="btn secondary" id="kiwi-jump-strongest" title="Scans the currently visible span and tunes straight to the loudest signal in it">&#127919; Strongest Signal</button>
-        <p class="status-line" id="kiwi-wf-status" style="margin:0;"></p>
-      </div>
+      <p class="status-line" id="kiwi-wf-status" style="margin-top:0.4rem;"></p>
     </div>
 
     <!-- The checkbox itself is the show/hide control -- unchecked, this is
@@ -177,6 +183,36 @@ import '../styles/kiwisdr.css';
           <label class="kiwi-agc-toggle">
             <input type="checkbox" id="kiwi-agc-enabled" checked /> AGC
           </label>
+        </div>
+
+        <!-- The Kiwi ignores manGain entirely while AGC is on -- only shown
+             once AGC is switched off, when it actually does something. -->
+        <div class="kiwi-gain-row" id="kiwi-manual-gain-row" hidden>
+          <label for="kiwi-manual-gain">Manual Gain</label>
+          <input type="range" id="kiwi-manual-gain" min="0" max="100" step="1" value="70" aria-label="Manual gain, only active while AGC is off" />
+          <span class="kiwi-gain-readout" id="kiwi-manual-gain-readout">70</span>
+        </div>
+
+        <!-- A real KiwiSDR DSP feature (impulse/ignition-noise blanker) --
+             see kiwiSdr.ts's nbCommands() for the underlying protocol.
+             Gate/threshold only shown once the blanker itself is on, same
+             checkbox-reveals-controls pattern as the CW Decoder card. -->
+        <div class="kiwi-nb-row">
+          <label class="kiwi-agc-toggle">
+            <input type="checkbox" id="kiwi-nb-enabled" /> Noise Blanker
+          </label>
+        </div>
+        <div class="kiwi-nb-controls" id="kiwi-nb-controls" hidden>
+          <div class="kiwi-gain-row">
+            <label for="kiwi-nb-gate">Gate</label>
+            <input type="range" id="kiwi-nb-gate" min="100" max="5000" step="50" value="100" aria-label="Noise blanker gate time in microseconds" />
+            <span class="kiwi-gain-readout" id="kiwi-nb-gate-readout">100&micro;s</span>
+          </div>
+          <div class="kiwi-gain-row">
+            <label for="kiwi-nb-thresh">Threshold</label>
+            <input type="range" id="kiwi-nb-thresh" min="0" max="100" step="1" value="50" aria-label="Noise blanker threshold percent" />
+            <span class="kiwi-gain-readout" id="kiwi-nb-thresh-readout">50%</span>
+          </div>
         </div>
 
         <!-- Fine-grained alternative to the Narrow/Normal/Wide presets above --
@@ -297,8 +333,21 @@ import '../styles/kiwisdr.css';
       minWidthHz: number;
       maxWidthHz: number;
       agcEnabled: boolean;
+      manualGain: number;
+      manualGainMin: number;
+      manualGainMax: number;
+      nbEnabled: boolean;
+      nbGateUs: number;
+      nbThreshPercent: number;
+      nbGateMinUs: number;
+      nbGateMaxUs: number;
+      nbThreshMinPercent: number;
+      nbThreshMaxPercent: number;
       wfZoom: number;
       maxWfZoom: number;
+      wfSpeed: number;
+      minWfSpeed: number;
+      maxWfSpeed: number;
       listenerCount: number | null;
       listenerMax: number | null;
       source: { isPublic: boolean; label: string };
@@ -353,9 +402,19 @@ import '../styles/kiwisdr.css';
     const widthSlider = document.getElementById('kiwi-width-slider') as HTMLInputElement;
     const widthReadout = document.getElementById('kiwi-width-readout')!;
     const agcCheckbox = document.getElementById('kiwi-agc-enabled') as HTMLInputElement;
+    const manualGainRow = document.getElementById('kiwi-manual-gain-row')!;
+    const manualGainSlider = document.getElementById('kiwi-manual-gain') as HTMLInputElement;
+    const manualGainReadout = document.getElementById('kiwi-manual-gain-readout')!;
+    const nbEnabledCheckbox = document.getElementById('kiwi-nb-enabled') as HTMLInputElement;
+    const nbControls = document.getElementById('kiwi-nb-controls')!;
+    const nbGateSlider = document.getElementById('kiwi-nb-gate') as HTMLInputElement;
+    const nbGateReadout = document.getElementById('kiwi-nb-gate-readout')!;
+    const nbThreshSlider = document.getElementById('kiwi-nb-thresh') as HTMLInputElement;
+    const nbThreshReadout = document.getElementById('kiwi-nb-thresh-readout')!;
     const listenerCountEl = document.getElementById('kiwi-listener-count')!;
     const siteListenersEl = document.getElementById('kiwi-site-listeners')!;
     const wfZoomSelect = document.getElementById('kiwi-wf-zoom') as HTMLSelectElement;
+    const wfSpeedSelect = document.getElementById('kiwi-wf-speed') as HTMLSelectElement;
     const bandSelect = document.getElementById('kiwi-band-select') as HTMLSelectElement;
     const timeSelect = document.getElementById('kiwi-time-select') as HTMLSelectElement;
     const swSelect = document.getElementById('kiwi-sw-select') as HTMLSelectElement;
@@ -369,7 +428,6 @@ import '../styles/kiwisdr.css';
     const bookmarkSaveBtn = document.getElementById('kiwi-bookmark-save') as HTMLButtonElement;
     const bookmarkRemoveBtn = document.getElementById('kiwi-bookmark-remove') as HTMLButtonElement;
     const recordBtn = document.getElementById('kiwi-record-btn') as HTMLButtonElement;
-    const jumpStrongestBtn = document.getElementById('kiwi-jump-strongest') as HTMLButtonElement;
 
     // --- Collapsible sections (Tuning & Filter, Quick Tune & Bookmarks, CW
     // Decoder) -- native <details>/<summary> for the toggle itself (free
@@ -449,7 +507,23 @@ import '../styles/kiwisdr.css';
         widthReadout.textContent = formatWidthHz(s.widthHz);
       }
       if (document.activeElement !== agcCheckbox) agcCheckbox.checked = s.agcEnabled;
+      manualGainRow.hidden = s.agcEnabled; // manGain is ignored by the Kiwi entirely while AGC is on -- see kiwiSdr.ts's agcCommand()
+      if (document.activeElement !== manualGainSlider) {
+        manualGainSlider.value = String(s.manualGain);
+        manualGainReadout.textContent = String(s.manualGain);
+      }
+      if (document.activeElement !== nbEnabledCheckbox) nbEnabledCheckbox.checked = s.nbEnabled;
+      nbControls.hidden = !s.nbEnabled;
+      if (document.activeElement !== nbGateSlider) {
+        nbGateSlider.value = String(s.nbGateUs);
+        nbGateReadout.textContent = `${s.nbGateUs}µs`;
+      }
+      if (document.activeElement !== nbThreshSlider) {
+        nbThreshSlider.value = String(s.nbThreshPercent);
+        nbThreshReadout.textContent = `${s.nbThreshPercent}%`;
+      }
       if (document.activeElement !== wfZoomSelect) wfZoomSelect.value = String(s.wfZoom);
+      if (document.activeElement !== wfSpeedSelect) wfSpeedSelect.value = String(s.wfSpeed);
       WF_SPAN_KHZ = 30000 / 2 ** s.wfZoom;
       updateFreqAxis(s.freqKhz);
       listenerCountEl.textContent =
@@ -716,6 +790,7 @@ import '../styles/kiwisdr.css';
     });
 
     agcCheckbox.addEventListener('change', async () => {
+      manualGainRow.hidden = agcCheckbox.checked; // don't wait for the next poll to reveal/hide it
       const res = await fetch('/api/kiwisdr/agc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -724,11 +799,67 @@ import '../styles/kiwisdr.css';
       if (res.ok) loadStatus();
     });
 
+    // Same input/change split as the width/jog sliders: input previews the
+    // readout locally while dragging, change commits it on release.
+    manualGainSlider.addEventListener('input', () => {
+      manualGainReadout.textContent = manualGainSlider.value;
+    });
+    manualGainSlider.addEventListener('change', async () => {
+      const res = await fetch('/api/kiwisdr/manual-gain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gain: Number(manualGainSlider.value) }),
+      });
+      if (res.ok) loadStatus();
+    });
+
+    nbEnabledCheckbox.addEventListener('change', async () => {
+      nbControls.hidden = !nbEnabledCheckbox.checked;
+      const res = await fetch('/api/kiwisdr/noise-blanker', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: nbEnabledCheckbox.checked }),
+      });
+      if (res.ok) loadStatus();
+    });
+    function commitNb() {
+      return fetch('/api/kiwisdr/noise-blanker', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled: nbEnabledCheckbox.checked,
+          gateUs: Number(nbGateSlider.value),
+          threshPercent: Number(nbThreshSlider.value),
+        }),
+      });
+    }
+    nbGateSlider.addEventListener('input', () => {
+      nbGateReadout.textContent = `${nbGateSlider.value}µs`;
+    });
+    nbGateSlider.addEventListener('change', async () => {
+      if ((await commitNb()).ok) loadStatus();
+    });
+    nbThreshSlider.addEventListener('input', () => {
+      nbThreshReadout.textContent = `${nbThreshSlider.value}%`;
+    });
+    nbThreshSlider.addEventListener('change', async () => {
+      if ((await commitNb()).ok) loadStatus();
+    });
+
     wfZoomSelect.addEventListener('change', async () => {
       const res = await fetch('/api/kiwisdr/zoom', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ zoom: Number(wfZoomSelect.value) }),
+      });
+      if (res.ok) loadStatus();
+    });
+
+    wfSpeedSelect.addEventListener('change', async () => {
+      const res = await fetch('/api/kiwisdr/wf-speed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ speed: Number(wfSpeedSelect.value) }),
       });
       if (res.ok) loadStatus();
     });
@@ -1464,35 +1595,6 @@ import '../styles/kiwisdr.css';
     wireWaterfallDrag(canvas);
     wireWaterfallDrag(spectrumCanvas);
 
-    // Scans the most recent waterfall frame (lastBins, kept up to date
-    // regardless of whether the waterfall/spectrum displays themselves are
-    // toggled on) for its loudest column and tunes straight there -- a
-    // faster way to find something to listen to than scanning by hand or
-    // eyeballing the trace. Each bin already covers a known, even slice of
-    // the visible WF_SPAN_KHZ window, so converting "which bin" to "what
-    // frequency" is the same fractional mapping tuneFromCanvasClick uses
-    // for a literal pixel position, just driven by bin index instead of
-    // clientX.
-    jumpStrongestBtn.addEventListener('click', () => {
-      if (!lastBins || lastBins.length === 0) {
-        wfStatus.textContent = 'No live spectrum data yet -- click Start first.';
-        return;
-      }
-      let maxIndex = 0;
-      let maxValue = -1;
-      for (let i = 0; i < lastBins.length; i++) {
-        if (lastBins[i] > maxValue) {
-          maxValue = lastBins[i];
-          maxIndex = i;
-        }
-      }
-      const centerKhz = lastStatus?.freqKhz ?? currentFreqMhz * 1000;
-      const windowLowKhz = centerKhz - WF_SPAN_KHZ / 2;
-      const targetKhz = windowLowKhz + ((maxIndex + 0.5) / lastBins.length) * WF_SPAN_KHZ;
-      currentFreqMhz = targetKhz / 1000;
-      tune(currentFreqMhz, lastStatus?.mode ?? tuneMode.value);
-    });
-
     function clearWaterfall() {
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1639,7 +1741,7 @@ import '../styles/kiwisdr.css';
           return;
         }
         const bins = new Uint8Array(ev.data as ArrayBuffer);
-        lastBins = bins; // kept for "Strongest Signal" to scan even if the display itself is toggled off
+        lastBins = bins; // lets a Band Plan toggle redraw immediately against the last real frame instead of waiting for the next one
         if (wfEnabled) drawWaterfallRow(bins);
         if (spectrumEnabled) drawSpectrum(bins);
       });

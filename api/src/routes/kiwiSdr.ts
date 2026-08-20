@@ -6,7 +6,10 @@ import {
   setBandwidth,
   setFilterWidth,
   setAgc,
+  setManualGain,
+  setNoiseBlanker,
   setWfZoom,
+  setWfSpeed,
   setKiwiSdrEnabled,
   sampleNoiseFloor,
   switchToPublicReceiver,
@@ -76,10 +79,39 @@ kiwiSdrRoutes.post('/agc', async (c) => {
   return c.json(await getKiwiSdrStatus());
 });
 
+// Only actually takes effect while AGC is off -- see setManualGain()'s comment.
+kiwiSdrRoutes.post('/manual-gain', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (!body || typeof body.gain !== 'number') return c.json({ error: 'gain must be a number' }, 400);
+  const result = setManualGain(body.gain);
+  if (!result.ok) return c.json({ error: result.error }, 400);
+  return c.json(await getKiwiSdrStatus());
+});
+
+kiwiSdrRoutes.post('/noise-blanker', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (!body || typeof body.enabled !== 'boolean') return c.json({ error: 'enabled must be a boolean' }, 400);
+  if (body.gateUs !== undefined && typeof body.gateUs !== 'number') return c.json({ error: 'gateUs must be a number' }, 400);
+  if (body.threshPercent !== undefined && typeof body.threshPercent !== 'number') {
+    return c.json({ error: 'threshPercent must be a number' }, 400);
+  }
+  const result = setNoiseBlanker(body.enabled, body.gateUs, body.threshPercent);
+  if (!result.ok) return c.json({ error: result.error }, 400);
+  return c.json(await getKiwiSdrStatus());
+});
+
 kiwiSdrRoutes.post('/zoom', async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body || typeof body.zoom !== 'number') return c.json({ error: 'Invalid request body' }, 400);
   const result = setWfZoom(body.zoom);
+  if (!result.ok) return c.json({ error: result.error }, 400);
+  return c.json(await getKiwiSdrStatus());
+});
+
+kiwiSdrRoutes.post('/wf-speed', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (!body || typeof body.speed !== 'number') return c.json({ error: 'speed must be a number' }, 400);
+  const result = setWfSpeed(body.speed);
   if (!result.ok) return c.json({ error: result.error }, 400);
   return c.json(await getKiwiSdrStatus());
 });

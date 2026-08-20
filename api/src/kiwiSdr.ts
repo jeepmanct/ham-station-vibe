@@ -50,6 +50,38 @@ let currentBandwidth: BandwidthPreset | null = 'normal';
 let currentAgcEnabled = true;
 let currentWfZoom = DEFAULT_WF_ZOOM;
 
+// Only actually applied while AGC is off -- manGain is otherwise ignored
+// by the Kiwi (see agcCommand()). 70 matches this file's own earlier
+// live measurement of the highest value that still showed zero clipped
+// samples on a strong signal (manGain=80 already clipped).
+const MANUAL_GAIN_MIN = 0;
+const MANUAL_GAIN_MAX = 100;
+let currentManualGain = 70;
+
+// Noise blanker -- a real KiwiSDR DSP feature, off by default. The
+// underlying protocol has two independent stages (a gate/threshold
+// blanker, "type=0", and a separate "click" detector, "type=2"); only
+// the blanker itself is exposed here, same spirit as this file already
+// not exposing every single knob the real protocol has -- the click
+// detector is left permanently disabled (type=2 en=0), matching
+// kiwiclient's own default when its --nb-test flag isn't set. Gate/
+// threshold ranges and defaults ported from kiwiclient's own --nb-gate/
+// --nb-thresh command-line option definitions (100-5000us / 0-100%,
+// confirmed against kiwiclient's own source, not guessed).
+const NB_GATE_MIN_US = 100;
+const NB_GATE_MAX_US = 5000;
+const NB_THRESH_MIN_PERCENT = 0;
+const NB_THRESH_MAX_PERCENT = 100;
+let currentNbEnabled = false;
+let currentNbGateUs = 100;
+let currentNbThreshPercent = 50;
+
+// KiwiSDR's own valid range for waterfall update rate, confirmed against
+// kiwiclient's own _set_wf_speed() (asserts 1 <= speed <= 4).
+const WF_SPEED_MIN = 1;
+const WF_SPEED_MAX = 4;
+let currentWfSpeed = 4;
+
 function getEnabledRow(): { enabled: number } | null {
   return db.query('SELECT enabled FROM kiwisdr_settings WHERE id = 1').get() as { enabled: number } | null;
 }
@@ -189,8 +221,22 @@ export type KiwiSdrStatus = {
   minWidthHz: number;
   maxWidthHz: number;
   agcEnabled: boolean;
+  /** Only actually applied while agcEnabled is false -- see setManualGain()'s comment. */
+  manualGain: number;
+  manualGainMin: number;
+  manualGainMax: number;
+  nbEnabled: boolean;
+  nbGateUs: number;
+  nbThreshPercent: number;
+  nbGateMinUs: number;
+  nbGateMaxUs: number;
+  nbThreshMinPercent: number;
+  nbThreshMaxPercent: number;
   wfZoom: number;
   maxWfZoom: number;
+  wfSpeed: number;
+  minWfSpeed: number;
+  maxWfSpeed: number;
   listenerCount: number | null;
   listenerMax: number | null;
   source: { isPublic: boolean; label: string };
@@ -224,8 +270,21 @@ export async function getKiwiSdrStatus(): Promise<KiwiSdrStatus> {
     minWidthHz: MIN_FILTER_WIDTH_HZ,
     maxWidthHz: MAX_FILTER_WIDTH_HZ,
     agcEnabled: currentAgcEnabled,
+    manualGain: currentManualGain,
+    manualGainMin: MANUAL_GAIN_MIN,
+    manualGainMax: MANUAL_GAIN_MAX,
+    nbEnabled: currentNbEnabled,
+    nbGateUs: currentNbGateUs,
+    nbThreshPercent: currentNbThreshPercent,
+    nbGateMinUs: NB_GATE_MIN_US,
+    nbGateMaxUs: NB_GATE_MAX_US,
+    nbThreshMinPercent: NB_THRESH_MIN_PERCENT,
+    nbThreshMaxPercent: NB_THRESH_MAX_PERCENT,
     wfZoom: currentWfZoom,
     maxWfZoom: MAX_WF_ZOOM,
+    wfSpeed: currentWfSpeed,
+    minWfSpeed: WF_SPEED_MIN,
+    maxWfSpeed: WF_SPEED_MAX,
     listenerCount: listeners?.users ?? null,
     listenerMax: listeners?.usersMax ?? null,
     siteListeners: audioListeners.size,
@@ -290,18 +349,35 @@ export function setFilterWidth(widthHz: number): ConnectResult {
 
 function agcCommand(): string {
   // manGain only takes effect when agc=0 -- it's the fixed gain used in
-  // place of AGC's automatic adjustment, not a separate control (there's no
-  // manual gain slider here, just this off/on toggle). 50 (of 0-100) was
-  // the first value tried and turned out to be far too quiet -- confirmed
-  // live by measuring real PCM RMS amplitude on a known-strong WWV carrier:
+  // place of AGC's automatic adjustment. 50 (of 0-100) was the first
+  // value tried and turned out to be far too quiet -- confirmed live by
+  // measuring real PCM RMS amplitude on a known-strong WWV carrier:
   // manGain=50 measured RMS~310 vs AGC-on's own RMS~2746 on the same
   // signal, roughly a ninth as loud, which reads as "no sound" at normal
-  // listening volume. 70 was the highest value that still measured 0
-  // clipped samples in that same test (manGain=80 already clips), and
-  // lands close to AGC-on's own peak level.
+  // listening volume. 70 (currentManualGain's default) was the highest
+  // value that still measured 0 clipped samples in that same test
+  // (manGain=80 already clips), and lands close to AGC-on's own peak
+  // level -- now adjustable via setManualGain() instead of fixed.
   return currentAgcEnabled
     ? 'SET agc=1 hang=0 thresh=-100 slope=6 decay=1000 manGain=50'
-    : 'SET agc=0 hang=0 thresh=-100 slope=6 decay=1000 manGain=70';
+    : `SET agc=0 hang=0 thresh=-100 slope=6 decay=1000 manGain=${currentManualGain}`;
+}
+
+// Ported verbatim from kiwiclient's own set_noise_blanker() -- "SET nb
+// algo=1" specifically must come first each time, since (per that
+// client's own comment) setting the algorithm clears every NB enable
+// flag on the Kiwi's side. type=2 (the click detector) is always sent
+// disabled here since it isn't exposed as its own control.
+function nbCommands(): string[] {
+  return [
+    'SET nb algo=1',
+    `SET nb type=0 param=0 pval=${currentNbGateUs}`,
+    `SET nb type=0 param=1 pval=${currentNbThreshPercent}`,
+    `SET nb type=0 en=${currentNbEnabled ? 1 : 0}`,
+    'SET nb type=2 param=0 pval=1',
+    'SET nb type=2 param=1 pval=1',
+    'SET nb type=2 en=0',
+  ];
 }
 
 /** Toggles the Kiwi's own automatic gain control for the shared audio stream. */
@@ -310,6 +386,41 @@ export function setAgc(enabled: boolean): ConnectResult {
   currentAgcEnabled = enabled;
   if (sndSocket && status.sndConnected) {
     sndSocket.send(agcCommand());
+  }
+  return { ok: true };
+}
+
+/** Sets the fixed gain used while AGC is off (see agcCommand()'s comment) -- has no effect while AGC is on, but is still accepted and stored either way so switching AGC off later applies whatever was last set. */
+export function setManualGain(gain: number): ConnectResult {
+  if (!getKiwiSdrEnabled()) return { ok: false, error: 'KiwiSDR is currently disabled' };
+  if (!Number.isFinite(gain) || gain < MANUAL_GAIN_MIN || gain > MANUAL_GAIN_MAX) {
+    return { ok: false, error: `Gain must be between ${MANUAL_GAIN_MIN} and ${MANUAL_GAIN_MAX}` };
+  }
+  currentManualGain = gain;
+  if (sndSocket && status.sndConnected && !currentAgcEnabled) {
+    sndSocket.send(agcCommand());
+  }
+  return { ok: true };
+}
+
+/** Toggles the noise blanker and/or adjusts its gate/threshold -- see nbCommands()'s comment for the underlying protocol shape. */
+export function setNoiseBlanker(enabled: boolean, gateUs?: number, threshPercent?: number): ConnectResult {
+  if (!getKiwiSdrEnabled()) return { ok: false, error: 'KiwiSDR is currently disabled' };
+  if (gateUs !== undefined) {
+    if (!Number.isFinite(gateUs) || gateUs < NB_GATE_MIN_US || gateUs > NB_GATE_MAX_US) {
+      return { ok: false, error: `Gate must be between ${NB_GATE_MIN_US} and ${NB_GATE_MAX_US} microseconds` };
+    }
+    currentNbGateUs = gateUs;
+  }
+  if (threshPercent !== undefined) {
+    if (!Number.isFinite(threshPercent) || threshPercent < NB_THRESH_MIN_PERCENT || threshPercent > NB_THRESH_MAX_PERCENT) {
+      return { ok: false, error: `Threshold must be between ${NB_THRESH_MIN_PERCENT} and ${NB_THRESH_MAX_PERCENT} percent` };
+    }
+    currentNbThreshPercent = threshPercent;
+  }
+  currentNbEnabled = enabled;
+  if (sndSocket && status.sndConnected) {
+    for (const cmd of nbCommands()) sndSocket.send(cmd);
   }
   return { ok: true };
 }
@@ -323,6 +434,19 @@ export function setWfZoom(zoom: number): ConnectResult {
   currentWfZoom = zoom;
   if (wfSocket && status.wfConnected) {
     wfSocket.send(`SET zoom=${currentWfZoom} cf=${currentFreqKhz.toFixed(3)}`);
+  }
+  return { ok: true };
+}
+
+/** Adjusts the waterfall's own update rate -- KiwiSDR's protocol only accepts 1-4 (Hz). */
+export function setWfSpeed(speed: number): ConnectResult {
+  if (!getKiwiSdrEnabled()) return { ok: false, error: 'KiwiSDR is currently disabled' };
+  if (!Number.isInteger(speed) || speed < WF_SPEED_MIN || speed > WF_SPEED_MAX) {
+    return { ok: false, error: `Waterfall speed must be an integer between ${WF_SPEED_MIN} and ${WF_SPEED_MAX}` };
+  }
+  currentWfSpeed = speed;
+  if (wfSocket && status.wfConnected) {
+    wfSocket.send(`SET wf_speed=${currentWfSpeed}`);
   }
   return { ok: true };
 }
@@ -615,6 +739,7 @@ function connectSnd(): Promise<ConnectResult> {
           ws.send('SET gen=0 mix=-1');
           ws.send(`SET mod=${currentMode} low_cut=${lowCut} high_cut=${highCut} freq=${currentFreqKhz.toFixed(3)}`);
           ws.send(agcCommand());
+          for (const cmd of nbCommands()) ws.send(cmd);
           ws.send('SET compression=0');
           ws.send('SET keepalive');
           status.sndConnected = true;
@@ -685,7 +810,7 @@ function connectWf(): Promise<ConnectResult> {
       ws.send('SET auth t=kiwi p=');
       ws.send(`SET zoom=${currentWfZoom} cf=${currentFreqKhz.toFixed(3)}`);
       ws.send('SET maxdb=-10 mindb=-110');
-      ws.send('SET wf_speed=4');
+      ws.send(`SET wf_speed=${currentWfSpeed}`);
       ws.send('SET wf_comp=0');
       wfKeepalive = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) ws.send('SET keepalive');
