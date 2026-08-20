@@ -465,7 +465,26 @@ function connectSnd(): Promise<ConnectResult> {
     ws.binaryType = 'arraybuffer';
     sndSocket = ws;
 
+    // Every handler below starts by checking sndSocket !== ws and bailing
+    // out if so -- a switchToPublicReceiver()/switchToOwnReceiver() call
+    // can close THIS socket and start a fresh one (to the new host) while
+    // this connectSnd() call's handshake is still in flight, which
+    // previously still let this stale connection's finish() resolve the
+    // ORIGINAL registerAudioListener() call with ok:false. That deleted
+    // the listener from audioListeners and told the client's WebSocket to
+    // close with an error, even though the NEW connection (already
+    // underway, sharing the same audioListeners set) was about to succeed
+    // -- confirmed live as the exact cause of "switching to a public
+    // receiver connects the waterfall fine but never produces audio"
+    // (waterfall's handshake is faster -- no MSG round-trip needed before
+    // its first frame -- so it usually wins the race and finishes before
+    // a switch lands, while audio's slower handshake is still the one
+    // left holding a now-superseded connection). Leaving this stale call's
+    // promise unresolved is fine: nothing but its own now-irrelevant
+    // .then() awaits it, and the listener stays registered for the new
+    // connection to deliver audio to once it completes its own handshake.
     const timeoutTimer = setTimeout(() => {
+      if (sndSocket !== ws) return;
       finish({ ok: false, error: 'Timed out connecting to the KiwiSDR' });
       ws.close();
     }, CONNECT_TIMEOUT_MS);
@@ -478,6 +497,7 @@ function connectSnd(): Promise<ConnectResult> {
     };
 
     ws.onmessage = (event) => {
+      if (sndSocket !== ws) return;
       const data = new Uint8Array(event.data as ArrayBuffer);
       if (data.length < 3) return;
       const tag = String.fromCharCode(data[0], data[1], data[2]);
@@ -522,20 +542,13 @@ function connectSnd(): Promise<ConnectResult> {
     };
 
     ws.onerror = () => {
+      if (sndSocket !== ws) return;
       finish({ ok: false, error: 'Could not connect to the KiwiSDR' });
     };
 
     ws.onclose = () => {
-      finish({ ok: false, error: 'KiwiSDR connection closed' });
-      // A switchToPublicReceiver()/switchToOwnReceiver() call closes this
-      // socket and opens its replacement in the same tick, but the close
-      // event for the old one only arrives later (async) -- by then
-      // sndSocket already points at the new connection. Without this
-      // check, that stale event would null out the reference to the
-      // (working) new connection and schedule an unnecessary reconnect for
-      // it, which is what made "switch receivers while already listening"
-      // silently drop audio.
       if (sndSocket !== ws) return;
+      finish({ ok: false, error: 'KiwiSDR connection closed' });
       sndSocket = null;
       status.sndConnected = false;
       if (sndKeepalive) {
@@ -571,7 +584,12 @@ function connectWf(): Promise<ConnectResult> {
     ws.binaryType = 'arraybuffer';
     wfSocket = ws;
 
+    // See connectSnd()'s matching comment -- same stale-connection race:
+    // a switch can close this socket and start a fresh one to the new host
+    // while this handshake is still in flight, so every handler here bails
+    // out first if wfSocket no longer points at this ws.
     const timeoutTimer = setTimeout(() => {
+      if (wfSocket !== ws) return;
       finish({ ok: false, error: 'Timed out connecting to the KiwiSDR waterfall' });
       ws.close();
     }, CONNECT_TIMEOUT_MS);
@@ -591,6 +609,7 @@ function connectWf(): Promise<ConnectResult> {
     };
 
     ws.onmessage = (event) => {
+      if (wfSocket !== ws) return;
       const data = new Uint8Array(event.data as ArrayBuffer);
       if (data.length < 3) return;
       const tag = String.fromCharCode(data[0], data[1], data[2]);
@@ -610,15 +629,13 @@ function connectWf(): Promise<ConnectResult> {
     };
 
     ws.onerror = () => {
+      if (wfSocket !== ws) return;
       finish({ ok: false, error: 'Could not connect to the KiwiSDR waterfall' });
     };
 
     ws.onclose = () => {
-      finish({ ok: false, error: 'KiwiSDR waterfall connection closed' });
-      // See connectSnd()'s onclose comment -- same stale-event race when a
-      // receiver switch closes this socket and opens its replacement
-      // before this one's (async) close event arrives.
       if (wfSocket !== ws) return;
+      finish({ ok: false, error: 'KiwiSDR waterfall connection closed' });
       wfSocket = null;
       status.wfConnected = false;
       if (wfKeepalive) {
