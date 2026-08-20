@@ -124,8 +124,8 @@ console.log(`API listening on :${port}`);
 // be friction with no actual access-control benefit.
 type SocketData =
   | { kind: 'radio-audio'; listener?: (pcm: Int16Array) => void }
-  | { kind: 'kiwi-audio'; listener?: (pcm: Int16Array) => void }
-  | { kind: 'kiwi-waterfall'; listener?: (bins: Uint8Array) => void };
+  | { kind: 'kiwi-audio'; listener?: (pcm: Int16Array) => void; onLost?: (error: string) => void }
+  | { kind: 'kiwi-waterfall'; listener?: (bins: Uint8Array) => void; onLost?: (error: string) => void };
 
 export default {
   port,
@@ -170,8 +170,17 @@ export default {
         });
       } else if (ws.data.kind === 'kiwi-audio') {
         const listener = (pcm: Int16Array) => ws.send(pcm.buffer as ArrayBuffer);
+        // Some public receivers send their accept/reject verdict AFTER
+        // already reporting a sample rate (see kiwiSdr.ts's registerAudioListener
+        // comment) -- onLost is how a rejection discovered after the fact
+        // still reaches this browser instead of leaving it connected-but-silent.
+        const onLost = (error: string) => {
+          ws.send(JSON.stringify({ error }));
+          ws.close();
+        };
         ws.data.listener = listener;
-        registerKiwiAudioListener(listener).then((result) => {
+        ws.data.onLost = onLost;
+        registerKiwiAudioListener(listener, onLost).then((result) => {
           if (!result.ok) {
             ws.send(JSON.stringify({ error: result.error }));
             ws.close();
@@ -179,8 +188,13 @@ export default {
         });
       } else if (ws.data.kind === 'kiwi-waterfall') {
         const listener = (bins: Uint8Array) => ws.send(bins.buffer as ArrayBuffer);
+        const onLost = (error: string) => {
+          ws.send(JSON.stringify({ error }));
+          ws.close();
+        };
         ws.data.listener = listener;
-        registerKiwiWaterfallListener(listener).then((result) => {
+        ws.data.onLost = onLost;
+        registerKiwiWaterfallListener(listener, onLost).then((result) => {
           if (!result.ok) {
             ws.send(JSON.stringify({ error: result.error }));
             ws.close();
@@ -191,8 +205,8 @@ export default {
     close(ws: { data: SocketData }) {
       if (!ws.data.listener) return;
       if (ws.data.kind === 'radio-audio') unregisterAudioListener(ws.data.listener);
-      else if (ws.data.kind === 'kiwi-audio') unregisterKiwiAudioListener(ws.data.listener);
-      else if (ws.data.kind === 'kiwi-waterfall') unregisterKiwiWaterfallListener(ws.data.listener);
+      else if (ws.data.kind === 'kiwi-audio') unregisterKiwiAudioListener(ws.data.listener, ws.data.onLost);
+      else if (ws.data.kind === 'kiwi-waterfall') unregisterKiwiWaterfallListener(ws.data.listener, ws.data.onLost);
     },
     message() {
       // No messages expected from the client -- audio/waterfall only flow one way.

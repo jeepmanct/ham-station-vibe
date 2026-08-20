@@ -119,9 +119,13 @@ function wsTimestamp(): number {
 type ConnectResult = { ok: true } | { ok: false; error: string };
 type AudioListener = (pcm: Int16Array) => void;
 type WaterfallListener = (bins: Uint8Array) => void;
+/** Notified when a connection that already reported success later turns out to have been lost/rejected -- see registerAudioListener's comment for why this exists separately from ConnectResult. */
+type LossListener = (error: string) => void;
 
 const audioListeners = new Set<AudioListener>();
 const wfListeners = new Set<WaterfallListener>();
+const audioLossListeners = new Set<LossListener>();
+const wfLossListeners = new Set<LossListener>();
 
 let sndSocket: WebSocket | null = null;
 let wfSocket: WebSocket | null = null;
@@ -503,8 +507,29 @@ function connectSnd(): Promise<ConnectResult> {
       const tag = String.fromCharCode(data[0], data[1], data[2]);
       if (tag === 'MSG') {
         const kv = parseKeyValues(new TextDecoder().decode(data.subarray(4)));
-        if (kv.badp === '1') {
-          finish({ ok: false, error: 'KiwiSDR rejected the connection (bad password, or all free channels are busy)' });
+        // badp is a rejection-reason code, not a boolean -- confirmed live
+        // against a real public receiver sending badp=5 (a multi-receiver
+        // "farm" host, likely rejecting on some non-password-related
+        // ground, e.g. too many connections already from this IP across
+        // its other receivers). Checking only for the literal "1" the
+        // community reference client (kiwiclient) treats as "bad password"
+        // let every OTHER nonzero code slip through unnoticed. Any nonzero
+        // value here means the channel was refused, whatever the reason.
+        if (kv.badp && kv.badp !== '0') {
+          const message = 'KiwiSDR rejected the connection (bad password, all free channels busy, or another access restriction)';
+          // Confirmed live: on this same "farm" host, badp arrives AFTER
+          // sample_rate, not before -- so by the time it shows up, finish()
+          // has already resolved this promise as ok:true (registerAudioListener
+          // already told its caller "connected", nothing is still awaiting
+          // this one). finish() below is then a harmless no-op, and without
+          // the loss-listener push, the rejection would vanish silently:
+          // the client's WebSocket just sits open forever with no audio and
+          // no error, since nothing else was watching for a *later* failure
+          // on an already-"successful" connection. This was the actual
+          // cause of "picking a public receiver shows spectrum/waterfall
+          // but never produces audio" on affected hosts.
+          if (status.sndConnected) for (const cb of audioLossListeners) cb(message);
+          finish({ ok: false, error: message });
           ws.close();
           return;
         }
@@ -615,8 +640,15 @@ function connectWf(): Promise<ConnectResult> {
       const tag = String.fromCharCode(data[0], data[1], data[2]);
       if (tag === 'MSG') {
         const kv = parseKeyValues(new TextDecoder().decode(data.subarray(4)));
-        if (kv.badp === '1') {
-          finish({ ok: false, error: 'KiwiSDR rejected the waterfall connection (bad password, or all free channels are busy)' });
+        // See connectSnd()'s matching comment -- badp is a rejection-reason
+        // code, not strictly "1" for bad password, and can arrive after
+        // this connection already reported success (in which case finish()
+        // below is a no-op and wfLossListeners is what actually informs
+        // the caller).
+        if (kv.badp && kv.badp !== '0') {
+          const message = 'KiwiSDR rejected the waterfall connection (bad password, all free channels busy, or another access restriction)';
+          if (status.wfConnected) for (const cb of wfLossListeners) cb(message);
+          finish({ ok: false, error: message });
           ws.close();
         }
       } else if (tag === 'W/F') {
@@ -647,17 +679,32 @@ function connectWf(): Promise<ConnectResult> {
   });
 }
 
-/** First listener triggers the actual upstream connection; every listener after that shares it. */
-export async function registerAudioListener(listener: AudioListener): Promise<ConnectResult> {
+/**
+ * First listener triggers the actual upstream connection; every listener
+ * after that shares it. `onLost`, if given, fires if the connection this
+ * call reported as successful later turns out to have been rejected or
+ * dropped -- some real KiwiSDR hosts send their accept/reject verdict
+ * (the badp field) AFTER the sample_rate MSG that this function already
+ * treats as "connected", so a rejection can arrive after the ok:true
+ * result has already gone out. Without a way to report that after the
+ * fact, the caller would just believe it's connected forever and never
+ * see any audio.
+ */
+export async function registerAudioListener(listener: AudioListener, onLost?: LossListener): Promise<ConnectResult> {
   if (!getKiwiSdrEnabled()) return { ok: false, error: 'KiwiSDR is currently disabled' };
   audioListeners.add(listener);
+  if (onLost) audioLossListeners.add(onLost);
   const result = await connectSnd();
-  if (!result.ok) audioListeners.delete(listener);
+  if (!result.ok) {
+    audioListeners.delete(listener);
+    if (onLost) audioLossListeners.delete(onLost);
+  }
   return result;
 }
 
-export function unregisterAudioListener(listener: AudioListener) {
+export function unregisterAudioListener(listener: AudioListener, onLost?: LossListener) {
   audioListeners.delete(listener);
+  if (onLost) audioLossListeners.delete(onLost);
   if (audioListeners.size > 0) return;
   if (sndReconnectTimer) {
     clearTimeout(sndReconnectTimer);
@@ -672,16 +719,22 @@ export function unregisterAudioListener(listener: AudioListener) {
   status.sndConnected = false;
 }
 
-export async function registerWaterfallListener(listener: WaterfallListener): Promise<ConnectResult> {
+/** See registerAudioListener's comment -- same "badp can arrive after this already reported success" case applies to the waterfall channel on the same hosts. */
+export async function registerWaterfallListener(listener: WaterfallListener, onLost?: LossListener): Promise<ConnectResult> {
   if (!getKiwiSdrEnabled()) return { ok: false, error: 'KiwiSDR is currently disabled' };
   wfListeners.add(listener);
+  if (onLost) wfLossListeners.add(onLost);
   const result = await connectWf();
-  if (!result.ok) wfListeners.delete(listener);
+  if (!result.ok) {
+    wfListeners.delete(listener);
+    if (onLost) wfLossListeners.delete(onLost);
+  }
   return result;
 }
 
-export function unregisterWaterfallListener(listener: WaterfallListener) {
+export function unregisterWaterfallListener(listener: WaterfallListener, onLost?: LossListener) {
   wfListeners.delete(listener);
+  if (onLost) wfLossListeners.delete(onLost);
   if (wfListeners.size > 0) return;
   if (wfReconnectTimer) {
     clearTimeout(wfReconnectTimer);
