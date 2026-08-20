@@ -1,3 +1,33 @@
+/* Every direct-child card/section under #kiwi-content, spaced evenly --
+   #kiwi-waterfall-section sits above the first of these and keeps its own
+   margin-top (see below), so this only needs to space the cards/sections
+   from each other, not from the waterfall. */
+#kiwi-content > .card,
+#kiwi-content > .kiwi-section {
+  margin-top: 1.5rem;
+}
+
+/* Collapsible sections (Tuning & Filter, Quick Tune & Bookmarks, CW
+   Decoder) -- native <details>/<summary>, styled to read as a proper
+   section header rather than the default disclosure-triangle look. See
+   the script's SECTION_STORAGE_PREFIX comment for why each remembers its
+   own open/closed state. */
+.kiwi-section > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--fg);
+}
+.kiwi-section > summary::-webkit-details-marker { display: none; }
+.kiwi-section > summary::marker { content: ''; }
+.kiwi-section[open] > summary { margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border); }
+.kiwi-chevron { color: var(--muted); font-size: 0.8rem; transition: transform 0.15s ease; }
+.kiwi-section[open] > summary .kiwi-chevron { transform: rotate(90deg); }
+
 .kiwi-freq-display {
   display: inline-flex;
   align-items: baseline;
@@ -100,7 +130,7 @@
 .kiwi-audio-controls input[type="range"] { width: 100px; }
 #kiwi-record-btn.recording { background: var(--status-critical); border-color: var(--status-critical); color: #fff; }
 
-.kiwi-cw-decoder { display: flex; align-items: center; gap: 0.6rem 0.75rem; flex-wrap: wrap; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+.kiwi-cw-decoder { display: flex; align-items: center; gap: 0.6rem 0.75rem; flex-wrap: wrap; }
 .kiwi-cw-toggle { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--muted); }
 .kiwi-cw-toggle input { width: auto; }
 .kiwi-cw-output {
@@ -119,7 +149,6 @@
   word-break: break-word;
 }
 
-.kiwi-quick-tune { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
 .kiwi-bookmark-actions { display: flex; gap: 0.4rem; margin-top: 0.35rem; }
 .kiwi-bookmark-actions .btn { padding: 0.35rem 0.55rem; font-size: 0.75rem; text-transform: none; }
 #kiwi-startstop-btn.listening { background: var(--status-good); border-color: var(--status-good); color: #fff; }

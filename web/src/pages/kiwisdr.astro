@@ -91,6 +91,14 @@ import '../styles/kiwisdr.css';
       <p class="status-line" id="kiwi-wf-status" style="margin-top:0.4rem;"></p>
     </div>
 
+    <!-- Always visible -- the core "what's playing right now" dashboard.
+         Everything else below is grouped into collapsible sections (see
+         kiwi-section/renderCollapsedSections) for controls that are
+         normally set once and then don't need to stay on screen: dial in
+         a filter, get it sounding right, collapse the section to get the
+         space back. Each section remembers its own open/closed state
+         per-browser, same as the colormap/spectrum-style preferences
+         below. -->
     <div class="card">
       <div class="kiwi-freq-display">
         <span id="kiwi-freq" tabindex="0" role="button" title="Click to type an exact frequency">7.2550</span>
@@ -106,49 +114,8 @@ import '../styles/kiwisdr.css';
       </div>
 
       <div class="kiwi-radio-controls">
-        <label>
-          Bandwidth
-          <select id="kiwi-bandwidth">
-            <option value="narrow">Narrow</option>
-            <option value="normal">Normal</option>
-            <option value="wide">Wide</option>
-            <option value="custom" disabled>Custom</option>
-          </select>
-        </label>
-        <label class="kiwi-agc-toggle">
-          <input type="checkbox" id="kiwi-agc-enabled" checked /> AGC
-        </label>
         <span class="status-line" id="kiwi-listener-count" style="margin:0;"></span>
         <span class="kiwi-site-listeners" id="kiwi-site-listeners" title="How many browsers on this site currently have audio open to this receiver"></span>
-      </div>
-
-      <!-- Fine-grained alternative to the Narrow/Normal/Wide presets above --
-           e.g. CW's widest preset is only 600Hz total (built for isolating
-           one signal), nowhere close to AM's 16kHz "wide" (built for
-           scanning past many at once). This dials in anything in between,
-           on a log scale so the low end -- where CW/SSB actually live --
-           isn't squeezed into a few pixels of slider travel. -->
-      <div class="kiwi-width-row">
-        <label for="kiwi-width-slider">Filter Width</label>
-        <input type="range" id="kiwi-width-slider" min="0" max="1000" step="1" value="500" aria-label="Filter width, fine control" />
-        <span class="kiwi-width-readout" id="kiwi-width-readout">&mdash;</span>
-      </div>
-
-      <!-- Only picks which step size the slider below nudges by -- the
-           slider itself already covers both directions (drag left/right),
-           so a separate plus/minus button for each size would just be a
-           second control doing the same thing twice. -->
-      <div class="kiwi-step-group">
-        <button type="button" class="btn secondary kiwi-step" data-step-khz="1000">1MHz</button>
-        <button type="button" class="btn secondary kiwi-step" data-step-khz="100">100kHz</button>
-        <button type="button" class="btn secondary kiwi-step" data-step-khz="10">10kHz</button>
-        <button type="button" class="btn secondary kiwi-step" data-step-khz="1">1kHz</button>
-        <button type="button" class="btn secondary kiwi-step" data-step-khz="0.1">100Hz</button>
-      </div>
-
-      <div class="kiwi-slider-row">
-        <input type="range" id="kiwi-freq-slider" min="-5" max="5" step="1" value="0" aria-label="Fine tune -- drag left or right" />
-        <span class="kiwi-slider-hint" id="kiwi-slider-step-label">10kHz/step</span>
       </div>
 
       <div class="kiwi-smeter">
@@ -166,66 +133,127 @@ import '../styles/kiwisdr.css';
         <button type="button" class="btn secondary" id="kiwi-record-btn" disabled title="Start listening first">&#9210; Record</button>
         <span class="status-line" id="kiwi-audio-status" style="margin:0;"></span>
       </div>
-
-      <div class="kiwi-cw-decoder">
-        <label class="kiwi-cw-toggle" title="Adapts to the sender's speed automatically -- the first character or two after enabling (or after a long gap) may come out garbled while it locks on, same as any adaptive CW decoder.">
-          <input type="checkbox" id="kiwi-cw-enabled" /> CW Decoder
-        </label>
-        <span class="status-line" id="kiwi-cw-status" style="margin:0;"></span>
-        <button type="button" class="btn secondary" id="kiwi-cw-clear" style="padding:0.25rem 0.6rem;font-size:0.75rem;" hidden>Clear</button>
-        <div class="kiwi-cw-output" id="kiwi-cw-output" hidden></div>
-      </div>
-
-      <div class="form-grid kiwi-quick-tune">
-        <label>Ham Band
-          <select id="kiwi-band-select">
-            <option value="">Choose a band&hellip;</option>
-            <option data-freq="1.900" data-mode="lsb">160m</option>
-            <option data-freq="3.750" data-mode="lsb">80m</option>
-            <option data-freq="5.357" data-mode="usb">60m</option>
-            <option data-freq="7.255" data-mode="lsb">40m</option>
-            <option data-freq="10.130" data-mode="cw">30m</option>
-            <option data-freq="14.230" data-mode="usb">20m</option>
-            <option data-freq="18.130" data-mode="usb">17m</option>
-            <option data-freq="21.300" data-mode="usb">15m</option>
-            <option data-freq="24.950" data-mode="usb">12m</option>
-            <option data-freq="28.400" data-mode="usb">10m</option>
-          </select>
-        </label>
-        <label>WWV
-          <select id="kiwi-time-select">
-            <option value="">Choose&hellip;</option>
-            <option data-freq="2.500" data-mode="am">WWV 2.5 MHz</option>
-            <option data-freq="5.000" data-mode="am">WWV 5 MHz</option>
-            <option data-freq="10.000" data-mode="am">WWV 10 MHz</option>
-            <option data-freq="15.000" data-mode="am">WWV 15 MHz</option>
-            <option data-freq="20.000" data-mode="am">WWV 20 MHz</option>
-            <option data-freq="3.330" data-mode="am">CHU 3.33 MHz</option>
-          </select>
-        </label>
-        <label>Shortwave
-          <select id="kiwi-sw-select">
-            <option value="">Choose&hellip;</option>
-            <option data-freq="1.000" data-mode="am">Mediumwave AM</option>
-            <option data-freq="6.070" data-mode="am">49m Broadcast</option>
-            <option data-freq="7.200" data-mode="am">41m Broadcast</option>
-            <option data-freq="9.500" data-mode="am">31m Broadcast</option>
-            <option data-freq="11.700" data-mode="am">25m Broadcast</option>
-            <option data-freq="15.100" data-mode="am">19m Broadcast</option>
-          </select>
-        </label>
-        <label>My Bookmarks
-          <select id="kiwi-bookmarks-select">
-            <option value="">Choose&hellip;</option>
-          </select>
-          <div class="kiwi-bookmark-actions">
-            <button type="button" class="btn secondary" id="kiwi-bookmark-save">&starf; Save Current</button>
-            <button type="button" class="btn secondary" id="kiwi-bookmark-remove" hidden>&#128465; Remove</button>
-          </div>
-        </label>
-        <p id="kiwi-tune-status" class="status-line"></p>
-      </div>
     </div>
+
+    <details class="card kiwi-section" id="kiwi-section-tuning" open>
+      <summary class="kiwi-section-header">Tuning &amp; Filter <span class="kiwi-chevron" aria-hidden="true">&#9656;</span></summary>
+      <div class="kiwi-section-body">
+        <div class="kiwi-radio-controls">
+          <label>
+            Bandwidth
+            <select id="kiwi-bandwidth">
+              <option value="narrow">Narrow</option>
+              <option value="normal">Normal</option>
+              <option value="wide">Wide</option>
+              <option value="custom" disabled>Custom</option>
+            </select>
+          </label>
+          <label class="kiwi-agc-toggle">
+            <input type="checkbox" id="kiwi-agc-enabled" checked /> AGC
+          </label>
+        </div>
+
+        <!-- Fine-grained alternative to the Narrow/Normal/Wide presets above --
+             e.g. CW's widest preset is only 600Hz total (built for isolating
+             one signal), nowhere close to AM's 16kHz "wide" (built for
+             scanning past many at once). This dials in anything in between,
+             on a log scale so the low end -- where CW/SSB actually live --
+             isn't squeezed into a few pixels of slider travel. -->
+        <div class="kiwi-width-row">
+          <label for="kiwi-width-slider">Filter Width</label>
+          <input type="range" id="kiwi-width-slider" min="0" max="1000" step="1" value="500" aria-label="Filter width, fine control" />
+          <span class="kiwi-width-readout" id="kiwi-width-readout">&mdash;</span>
+        </div>
+
+        <!-- Only picks which step size the slider below nudges by (and,
+             since it also governs how the waterfall drag snaps, what "a
+             clean number" means for that too) -- the slider itself already
+             covers both directions (drag left/right), so a separate
+             plus/minus button for each size would just be a second control
+             doing the same thing twice. -->
+        <div class="kiwi-step-group">
+          <button type="button" class="btn secondary kiwi-step" data-step-khz="1000">1MHz</button>
+          <button type="button" class="btn secondary kiwi-step" data-step-khz="100">100kHz</button>
+          <button type="button" class="btn secondary kiwi-step" data-step-khz="10">10kHz</button>
+          <button type="button" class="btn secondary kiwi-step" data-step-khz="1">1kHz</button>
+          <button type="button" class="btn secondary kiwi-step" data-step-khz="0.1">100Hz</button>
+        </div>
+
+        <div class="kiwi-slider-row">
+          <input type="range" id="kiwi-freq-slider" min="-5" max="5" step="1" value="0" aria-label="Fine tune -- drag left or right" />
+          <span class="kiwi-slider-hint" id="kiwi-slider-step-label">10kHz/step</span>
+        </div>
+      </div>
+    </details>
+
+    <details class="card kiwi-section" id="kiwi-section-quicktune" open>
+      <summary class="kiwi-section-header">Quick Tune &amp; Bookmarks <span class="kiwi-chevron" aria-hidden="true">&#9656;</span></summary>
+      <div class="kiwi-section-body">
+        <div class="form-grid kiwi-quick-tune">
+          <label>Ham Band
+            <select id="kiwi-band-select">
+              <option value="">Choose a band&hellip;</option>
+              <option data-freq="1.900" data-mode="lsb">160m</option>
+              <option data-freq="3.750" data-mode="lsb">80m</option>
+              <option data-freq="5.357" data-mode="usb">60m</option>
+              <option data-freq="7.255" data-mode="lsb">40m</option>
+              <option data-freq="10.130" data-mode="cw">30m</option>
+              <option data-freq="14.230" data-mode="usb">20m</option>
+              <option data-freq="18.130" data-mode="usb">17m</option>
+              <option data-freq="21.300" data-mode="usb">15m</option>
+              <option data-freq="24.950" data-mode="usb">12m</option>
+              <option data-freq="28.400" data-mode="usb">10m</option>
+            </select>
+          </label>
+          <label>WWV
+            <select id="kiwi-time-select">
+              <option value="">Choose&hellip;</option>
+              <option data-freq="2.500" data-mode="am">WWV 2.5 MHz</option>
+              <option data-freq="5.000" data-mode="am">WWV 5 MHz</option>
+              <option data-freq="10.000" data-mode="am">WWV 10 MHz</option>
+              <option data-freq="15.000" data-mode="am">WWV 15 MHz</option>
+              <option data-freq="20.000" data-mode="am">WWV 20 MHz</option>
+              <option data-freq="3.330" data-mode="am">CHU 3.33 MHz</option>
+            </select>
+          </label>
+          <label>Shortwave
+            <select id="kiwi-sw-select">
+              <option value="">Choose&hellip;</option>
+              <option data-freq="1.000" data-mode="am">Mediumwave AM</option>
+              <option data-freq="6.070" data-mode="am">49m Broadcast</option>
+              <option data-freq="7.200" data-mode="am">41m Broadcast</option>
+              <option data-freq="9.500" data-mode="am">31m Broadcast</option>
+              <option data-freq="11.700" data-mode="am">25m Broadcast</option>
+              <option data-freq="15.100" data-mode="am">19m Broadcast</option>
+            </select>
+          </label>
+          <label>My Bookmarks
+            <select id="kiwi-bookmarks-select">
+              <option value="">Choose&hellip;</option>
+            </select>
+            <div class="kiwi-bookmark-actions">
+              <button type="button" class="btn secondary" id="kiwi-bookmark-save">&starf; Save Current</button>
+              <button type="button" class="btn secondary" id="kiwi-bookmark-remove" hidden>&#128465; Remove</button>
+            </div>
+          </label>
+          <p id="kiwi-tune-status" class="status-line"></p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card kiwi-section" id="kiwi-section-cw" open>
+      <summary class="kiwi-section-header">CW Decoder <span class="kiwi-chevron" aria-hidden="true">&#9656;</span></summary>
+      <div class="kiwi-section-body">
+        <div class="kiwi-cw-decoder">
+          <label class="kiwi-cw-toggle" title="Adapts to the sender's speed automatically -- the first character or two after enabling (or after a long gap) may come out garbled while it locks on, same as any adaptive CW decoder.">
+            <input type="checkbox" id="kiwi-cw-enabled" /> CW Decoder
+          </label>
+          <span class="status-line" id="kiwi-cw-status" style="margin:0;"></span>
+          <button type="button" class="btn secondary" id="kiwi-cw-clear" style="padding:0.25rem 0.6rem;font-size:0.75rem;" hidden>Clear</button>
+          <div class="kiwi-cw-output" id="kiwi-cw-output" hidden></div>
+        </div>
+      </div>
+    </details>
   </div>
 
   <script>
@@ -320,6 +348,25 @@ import '../styles/kiwisdr.css';
     const bookmarkSaveBtn = document.getElementById('kiwi-bookmark-save') as HTMLButtonElement;
     const bookmarkRemoveBtn = document.getElementById('kiwi-bookmark-remove') as HTMLButtonElement;
     const recordBtn = document.getElementById('kiwi-record-btn') as HTMLButtonElement;
+
+    // --- Collapsible sections (Tuning & Filter, Quick Tune & Bookmarks, CW
+    // Decoder) -- native <details>/<summary> for the toggle itself (free
+    // keyboard/screen-reader support, no ARIA to hand-roll), this just
+    // remembers each one's open/closed state per-browser so a section
+    // stays collapsed across visits once set: dial in a filter, get it
+    // sounding right, collapse it to get the space back, and it stays that
+    // way next time. Defaults to open (nothing hidden until the operator
+    // chooses to hide it) -- same localStorage-per-preference pattern as
+    // the colormap/spectrum-style pickers below. ---
+    const SECTION_STORAGE_PREFIX = 'kiwi_section_open_';
+    document.querySelectorAll<HTMLDetailsElement>('.kiwi-section').forEach((section) => {
+      const key = SECTION_STORAGE_PREFIX + section.id;
+      const saved = localStorage.getItem(key);
+      if (saved !== null) section.open = saved === '1';
+      section.addEventListener('toggle', () => {
+        localStorage.setItem(key, section.open ? '1' : '0');
+      });
+    });
 
     let lastStatus: KiwiSdrStatus | null = null;
     let lastSourceLabel: string | null = null;
