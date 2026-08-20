@@ -37,46 +37,51 @@ import '../styles/kiwisdr.css';
   </div>
 
   <div id="kiwi-content" hidden>
-    <div class="kiwi-viz-controls">
-      <label>
-        Color
-        <select id="kiwi-colormap">
-          <option value="inferno">Inferno</option>
-          <option value="viridis">Viridis</option>
-          <option value="classic">Classic SDR</option>
-          <option value="turbo">Turbo</option>
-          <option value="phosphor">Green Phosphor</option>
-          <option value="ice">Ice</option>
-          <option value="grayscale">Grayscale</option>
-        </select>
-      </label>
-      <label>
-        Style
-        <select id="kiwi-spectrum-style">
-          <option value="line">Line</option>
-          <option value="bars">Bars</option>
-          <option value="peak-hold">Peak Hold</option>
-          <option value="filled">Filled Area</option>
-          <option value="gradient-bars">Gradient Bars</option>
-        </select>
-      </label>
-      <label>
-        <input type="checkbox" id="kiwi-wf-enabled" checked /> Waterfall
-      </label>
-      <label>
-        <input type="checkbox" id="kiwi-spectrum-enabled" checked /> Spectrum
-      </label>
-      <label>
-        Zoom
-        <select id="kiwi-wf-zoom">
-          <option value="0">Full Band</option>
-          <option value="6">Wide</option>
-          <option value="10">Normal</option>
-          <option value="12">Narrow</option>
-          <option value="14">Max</option>
-        </select>
-      </label>
-    </div>
+    <details class="card kiwi-section" id="kiwi-section-display" open>
+      <summary class="kiwi-section-header">Display &amp; Waterfall <span class="kiwi-chevron" aria-hidden="true">&#9656;</span></summary>
+      <div class="kiwi-section-body">
+        <div class="kiwi-viz-controls">
+          <label>
+            Color
+            <select id="kiwi-colormap">
+              <option value="inferno">Inferno</option>
+              <option value="viridis">Viridis</option>
+              <option value="classic">Classic SDR</option>
+              <option value="turbo">Turbo</option>
+              <option value="phosphor">Green Phosphor</option>
+              <option value="ice">Ice</option>
+              <option value="grayscale">Grayscale</option>
+            </select>
+          </label>
+          <label>
+            Style
+            <select id="kiwi-spectrum-style">
+              <option value="line">Line</option>
+              <option value="bars">Bars</option>
+              <option value="peak-hold">Peak Hold</option>
+              <option value="filled">Filled Area</option>
+              <option value="gradient-bars">Gradient Bars</option>
+            </select>
+          </label>
+          <label>
+            <input type="checkbox" id="kiwi-wf-enabled" checked /> Waterfall
+          </label>
+          <label>
+            <input type="checkbox" id="kiwi-spectrum-enabled" checked /> Spectrum
+          </label>
+          <label>
+            Zoom
+            <select id="kiwi-wf-zoom">
+              <option value="0">Full Band</option>
+              <option value="6">Wide</option>
+              <option value="10">Normal</option>
+              <option value="12">Narrow</option>
+              <option value="14">Max</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </details>
 
     <div id="kiwi-waterfall-section">
       <div class="kiwi-waterfall-wrap">
