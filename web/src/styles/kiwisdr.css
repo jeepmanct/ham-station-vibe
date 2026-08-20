@@ -139,6 +139,10 @@
   height: 90px;
   border-bottom: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
   cursor: crosshair;
+  /* Custom pointer-based drag-to-pan handles its own gesture entirely --
+     without this, touchscreens intercept the drag as a page-scroll before
+     our own pointermove handler ever sees it. */
+  touch-action: none;
 }
 #kiwi-waterfall {
   display: block;
@@ -146,7 +150,11 @@
   height: 88px;
   image-rendering: pixelated;
   cursor: crosshair;
+  touch-action: none;
 }
+/* Swapped in for the resting crosshair (see the script's wireWaterfallDrag)
+   once a drag past the click threshold is actually underway. */
+#kiwi-spectrum.kiwi-panning, #kiwi-waterfall.kiwi-panning { cursor: grabbing; }
 /* Overrides the explicit display:block above -- the canvas/waterfall/spectrum
    toggles set this class rather than the `hidden` attribute, since `hidden`'s
    UA-stylesheet display:none loses to the author-origin rules above regardless

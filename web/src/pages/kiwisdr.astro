@@ -1228,6 +1228,77 @@ import '../styles/kiwisdr.css';
     canvas.addEventListener('click', (e) => tuneFromCanvasClick(e, canvas));
     spectrumCanvas.addEventListener('click', (e) => tuneFromCanvasClick(e, spectrumCanvas));
 
+    // --- Drag-to-pan -- grab the waterfall/spectrum and slide it left or
+    // right to scroll through the band, the same "content follows the
+    // cursor" convention every other SDR waterfall uses: dragging right
+    // pulls lower frequencies into view (like dragging a map reveals what
+    // was off-screen to the west), so the tuned center moves DOWN as the
+    // pointer moves right, and up as it moves left. A plain click (no
+    // meaningful movement) still jumps straight to that point, unchanged
+    // -- this only kicks in past DRAG_THRESHOLD_PX, and suppresses the
+    // click-to-tune that would otherwise also fire on release once it
+    // does. Only retunes once, on release (matching the jog/width
+    // sliders' input-preview/change-commit split elsewhere on this page)
+    // -- the waterfall's actual pixels can't preview a frequency nothing's
+    // tuned to yet, so only the big frequency readout updates live while
+    // dragging; the real picture catches up once the retune lands. ---
+    const DRAG_THRESHOLD_PX = 6;
+    function wireWaterfallDrag(canvasEl: HTMLCanvasElement) {
+      let dragPointerId: number | null = null;
+      let didDrag = false;
+      let startClientX = 0;
+      let startCenterKhz = 0;
+
+      function targetKhzFor(clientX: number): number {
+        const rect = canvasEl.getBoundingClientRect();
+        const deltaKhz = (-(clientX - startClientX) / rect.width) * WF_SPAN_KHZ;
+        return Math.max(0, startCenterKhz + deltaKhz);
+      }
+      function onMove(e: PointerEvent) {
+        if (e.pointerId !== dragPointerId) return;
+        if (!didDrag && Math.abs(e.clientX - startClientX) > DRAG_THRESHOLD_PX) {
+          didDrag = true;
+          canvasEl.classList.add('kiwi-panning');
+        }
+        if (!didDrag) return;
+        freqEl.textContent = (targetKhzFor(e.clientX) / 1000).toFixed(4);
+      }
+      function onUp(e: PointerEvent) {
+        if (e.pointerId !== dragPointerId) return;
+        dragPointerId = null;
+        canvasEl.classList.remove('kiwi-panning');
+        if (didDrag) {
+          currentFreqMhz = targetKhzFor(e.clientX) / 1000;
+          tune(currentFreqMhz, lastStatus?.mode ?? tuneMode.value);
+        }
+      }
+      canvasEl.addEventListener('pointerdown', (e) => {
+        dragPointerId = e.pointerId;
+        didDrag = false;
+        startClientX = e.clientX;
+        startCenterKhz = lastStatus?.freqKhz ?? currentFreqMhz * 1000;
+      });
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
+      // Capture phase, so this runs before tuneFromCanvasClick's own
+      // bubble-phase click listener -- a real drag's pointerup still fires
+      // a native click on release, which would otherwise also jump the
+      // tuning to wherever the drag ended.
+      canvasEl.addEventListener(
+        'click',
+        (e) => {
+          if (didDrag) {
+            e.stopImmediatePropagation();
+            didDrag = false;
+          }
+        },
+        true,
+      );
+    }
+    wireWaterfallDrag(canvas);
+    wireWaterfallDrag(spectrumCanvas);
+
     function clearWaterfall() {
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
