@@ -112,6 +112,8 @@ import '../styles/kiwisdr.css';
           <span id="kiwi-axis-center">&mdash;</span>
           <span id="kiwi-axis-high">&mdash;</span>
         </div>
+        <!-- Only shown mid-pinch, see wireWaterfallDrag's pinch-to-zoom handling. -->
+        <span class="kiwi-pinch-readout" id="kiwi-pinch-readout" hidden></span>
       </div>
       <p class="status-line" id="kiwi-wf-status" style="margin-top:0.4rem;"></p>
     </div>
@@ -428,6 +430,7 @@ import '../styles/kiwisdr.css';
     const wfSpeedSelect = document.getElementById('kiwi-wf-speed') as HTMLSelectElement;
     const wfContrastSlider = document.getElementById('kiwi-wf-contrast') as HTMLInputElement;
     const wfContrastReadout = document.getElementById('kiwi-wf-contrast-readout')!;
+    const pinchReadout = document.getElementById('kiwi-pinch-readout')!;
     const bandSelect = document.getElementById('kiwi-band-select') as HTMLSelectElement;
     const timeSelect = document.getElementById('kiwi-time-select') as HTMLSelectElement;
     const swSelect = document.getElementById('kiwi-sw-select') as HTMLSelectElement;
@@ -1707,11 +1710,36 @@ import '../styles/kiwisdr.css';
     // already matches what release will actually land on -- nothing
     // visibly jumps at the end. ---
     const DRAG_THRESHOLD_PX = 6;
+    // Pinch spread (CSS px) per +1 zoom level -- picked by feel, not
+    // protocol-derived; smaller means a pinch reaches max zoom faster.
+    const PINCH_PX_PER_ZOOM_LEVEL = 55;
     function wireWaterfallDrag(canvasEl: HTMLCanvasElement) {
       let dragPointerId: number | null = null;
       let didDrag = false;
       let startClientX = 0;
       let startCenterKhz = 0;
+
+      // Pinch-to-zoom -- tracks every pointer currently down on THIS canvas
+      // so a second finger joining mid-pan can cleanly hand off from
+      // panning to pinching instead of the two gestures fighting over the
+      // same pointermove stream. Known limitation: a pinch started with one
+      // finger on the spectrum canvas and the other on the waterfall canvas
+      // (two separate elements, each with its own instance of this
+      // tracking) isn't recognized as a pinch by either -- an accepted gap,
+      // not worth the extra cross-instance coordination for how rarely two
+      // fingers would land on different 90px/88px-tall stacked canvases.
+      const activePointers = new Map<number, { x: number; y: number }>();
+      let pinchActive = false;
+      let pinchStartDist = 0;
+      let pinchStartZoom = 0;
+      let pinchLiveZoom = 0;
+
+      function pinchDistance(): number {
+        const pts = [...activePointers.values()];
+        const dx = pts[0].x - pts[1].x;
+        const dy = pts[0].y - pts[1].y;
+        return Math.sqrt(dx * dx + dy * dy);
+      }
 
       function targetKhzFor(clientX: number): number {
         const rect = canvasEl.getBoundingClientRect();
@@ -1719,7 +1747,33 @@ import '../styles/kiwisdr.css';
         const rawKhz = Math.max(0, startCenterKhz + deltaKhz);
         return Math.round(rawKhz / activeStepKhz) * activeStepKhz;
       }
+
+      async function commitPinch() {
+        pinchActive = false;
+        pinchReadout.hidden = true;
+        if (pinchLiveZoom === pinchStartZoom) return;
+        const res = await fetch('/api/kiwisdr/zoom', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ zoom: pinchLiveZoom }),
+        });
+        if (res.ok) loadStatus();
+      }
+
       function onMove(e: PointerEvent) {
+        if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        if (pinchActive) {
+          if (activePointers.size !== 2) return;
+          const dist = pinchDistance();
+          const maxZoom = lastStatus?.maxWfZoom ?? 14;
+          const deltaLevels = Math.round((dist - pinchStartDist) / PINCH_PX_PER_ZOOM_LEVEL);
+          pinchLiveZoom = Math.max(0, Math.min(maxZoom, pinchStartZoom + deltaLevels));
+          pinchReadout.textContent = `Zoom ${pinchLiveZoom}`;
+          pinchReadout.hidden = false;
+          return;
+        }
+
         if (e.pointerId !== dragPointerId) return;
         if (!didDrag && Math.abs(e.clientX - startClientX) > DRAG_THRESHOLD_PX) {
           didDrag = true;
@@ -1729,6 +1783,13 @@ import '../styles/kiwisdr.css';
         freqEl.textContent = (targetKhzFor(e.clientX) / 1000).toFixed(4);
       }
       function onUp(e: PointerEvent) {
+        activePointers.delete(e.pointerId);
+
+        if (pinchActive) {
+          if (activePointers.size < 2) commitPinch();
+          return;
+        }
+
         if (e.pointerId !== dragPointerId) return;
         dragPointerId = null;
         canvasEl.classList.remove('kiwi-panning');
@@ -1738,6 +1799,22 @@ import '../styles/kiwisdr.css';
         }
       }
       canvasEl.addEventListener('pointerdown', (e) => {
+        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        if (activePointers.size === 2) {
+          // Second finger just joined -- hand off from panning to pinching,
+          // abandoning whatever pan was in progress without committing a retune.
+          dragPointerId = null;
+          didDrag = false;
+          canvasEl.classList.remove('kiwi-panning');
+          pinchActive = true;
+          pinchStartDist = pinchDistance();
+          pinchStartZoom = lastStatus?.wfZoom ?? Number(wfZoomSelect.value);
+          pinchLiveZoom = pinchStartZoom;
+          return;
+        }
+        if (activePointers.size > 2) return; // three+ fingers: ignore
+
         dragPointerId = e.pointerId;
         didDrag = false;
         startClientX = e.clientX;
