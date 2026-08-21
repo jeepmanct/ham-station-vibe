@@ -51,6 +51,7 @@ import '../styles/kiwisdr.css';
               <option value="phosphor">Green Phosphor</option>
               <option value="ice">Ice</option>
               <option value="grayscale">Grayscale</option>
+              <option value="nightvision">Night Vision</option>
             </select>
           </label>
           <label>
@@ -1117,7 +1118,7 @@ import '../styles/kiwisdr.css';
     // scale -- the one non-warm-toned, non-rainbow option), and a plain
     // Grayscale for a minimal look. Choice is a personal viewing
     // preference, not a site-wide setting -- saved per-browser. ---
-    type ColormapKey = 'inferno' | 'viridis' | 'classic' | 'turbo' | 'phosphor' | 'ice' | 'grayscale';
+    type ColormapKey = 'inferno' | 'viridis' | 'classic' | 'turbo' | 'phosphor' | 'ice' | 'grayscale' | 'nightvision';
     const COLORMAP_STOPS: Record<ColormapKey, [number, number, number, number][]> = {
       inferno: [
         [0, 0, 0, 4],
@@ -1170,6 +1171,18 @@ import '../styles/kiwisdr.css';
       grayscale: [
         [0, 0, 0, 0],
         [1, 255, 255, 255],
+      ],
+      // Green and blue channels stay at 0 through the entire ramp -- real
+      // red-only light (like a night-vision-preserving flashlight or
+      // cockpit lighting) doesn't bleach your eyes' dark adaptation the way
+      // white/green/blue light does, so unlike every other palette here
+      // (all of which end in a bright white or colored peak), this one
+      // deliberately never leaves red at any brightness.
+      nightvision: [
+        [0, 0, 0, 0],
+        [0.5, 110, 0, 0],
+        [0.8, 200, 0, 0],
+        [1, 255, 0, 0],
       ],
     };
 
