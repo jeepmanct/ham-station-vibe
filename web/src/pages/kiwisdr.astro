@@ -249,6 +249,16 @@ import '../styles/kiwisdr.css';
           </div>
         </div>
 
+        <!-- FM-only, so only shown while the current mode is NBFM -- see
+             kiwiSdr.ts's setDeEmphasis() comment for how this was verified
+             to actually do something (unlike squelch, which turned out not
+             to). -->
+        <div class="kiwi-nb-row" id="kiwi-deemp-row" hidden>
+          <label class="kiwi-agc-toggle">
+            <input type="checkbox" id="kiwi-deemp-enabled" /> FM De-emphasis
+          </label>
+        </div>
+
         <!-- Fine-grained alternative to the Narrow/Normal/Wide presets above --
              e.g. CW's widest preset is only 600Hz total (built for isolating
              one signal), nowhere close to AM's 16kHz "wide" (built for
@@ -353,6 +363,7 @@ import '../styles/kiwisdr.css';
       manualGainMin: number;
       manualGainMax: number;
       nbEnabled: boolean;
+      deEmphasisEnabled: boolean;
       nbGateUs: number;
       nbThreshPercent: number;
       nbGateMinUs: number;
@@ -431,6 +442,8 @@ import '../styles/kiwisdr.css';
     const nbGateReadout = document.getElementById('kiwi-nb-gate-readout')!;
     const nbThreshSlider = document.getElementById('kiwi-nb-thresh') as HTMLInputElement;
     const nbThreshReadout = document.getElementById('kiwi-nb-thresh-readout')!;
+    const deEmpRow = document.getElementById('kiwi-deemp-row')!;
+    const deEmpCheckbox = document.getElementById('kiwi-deemp-enabled') as HTMLInputElement;
     const listenerCountEl = document.getElementById('kiwi-listener-count')!;
     const siteListenersEl = document.getElementById('kiwi-site-listeners')!;
     const wfZoomSelect = document.getElementById('kiwi-wf-zoom') as HTMLSelectElement;
@@ -549,6 +562,8 @@ import '../styles/kiwisdr.css';
         nbThreshSlider.value = String(s.nbThreshPercent);
         nbThreshReadout.textContent = `${s.nbThreshPercent}%`;
       }
+      deEmpRow.hidden = s.mode !== 'nbfm'; // FM-only, see the row's own comment in the markup
+      if (document.activeElement !== deEmpCheckbox) deEmpCheckbox.checked = s.deEmphasisEnabled;
       if (document.activeElement !== wfZoomSelect) wfZoomSelect.value = String(s.wfZoom);
       if (document.activeElement !== wfSpeedSelect) wfSpeedSelect.value = String(s.wfSpeed);
       if (document.activeElement !== wfContrastSlider) {
@@ -867,6 +882,14 @@ import '../styles/kiwisdr.css';
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: nbEnabledCheckbox.checked }),
+      });
+      if (res.ok) loadStatus();
+    });
+    deEmpCheckbox.addEventListener('change', async () => {
+      const res = await fetch('/api/kiwisdr/de-emphasis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: deEmpCheckbox.checked }),
       });
       if (res.ok) loadStatus();
     });

@@ -240,6 +240,7 @@ export type KiwiSdrStatus = {
   manualGainMin: number;
   manualGainMax: number;
   nbEnabled: boolean;
+  deEmphasisEnabled: boolean;
   nbGateUs: number;
   nbThreshPercent: number;
   nbGateMinUs: number;
@@ -292,6 +293,7 @@ export async function getKiwiSdrStatus(): Promise<KiwiSdrStatus> {
     manualGainMin: MANUAL_GAIN_MIN,
     manualGainMax: MANUAL_GAIN_MAX,
     nbEnabled: currentNbEnabled,
+    deEmphasisEnabled: currentDeEmphasisEnabled,
     nbGateUs: currentNbGateUs,
     nbThreshPercent: currentNbThreshPercent,
     nbGateMinUs: NB_GATE_MIN_US,
@@ -399,6 +401,29 @@ function nbCommands(): string[] {
     'SET nb type=2 param=1 pval=1',
     'SET nb type=2 en=0',
   ];
+}
+
+// FM de-emphasis -- verified live against a real signal (not just trusted
+// from the protocol source, which never actually exercises this command
+// itself): AM audio's high-frequency energy (RMS of the sample-to-sample
+// difference, a crude HF proxy) dropped to ~61% of its de_emp=0 baseline
+// with de_emp=1 set, confirming this genuinely does something rather than
+// being a silent no-op the way SET squelch=1 turned out to be on this same
+// firmware (tested across an extreme range of thresholds with zero
+// measurable effect at any of them -- deliberately not implemented here;
+// see the session notes on why). Only meaningful for FM -- the UI only
+// shows this control while mode is nbfm, but the command itself is sent
+// regardless of mode, same as agcCommand()/nbCommands() above.
+let currentDeEmphasisEnabled = false;
+
+/** Toggles FM de-emphasis -- see the comment above this for how "does it actually do anything" was confirmed. */
+export function setDeEmphasis(enabled: boolean): ConnectResult {
+  if (!getKiwiSdrEnabled()) return { ok: false, error: 'KiwiSDR is currently disabled' };
+  currentDeEmphasisEnabled = enabled;
+  if (sndSocket && status.sndConnected) {
+    sndSocket.send(`SET de_emp=${currentDeEmphasisEnabled ? 1 : 0}`);
+  }
+  return { ok: true };
 }
 
 /** Toggles the Kiwi's own automatic gain control for the shared audio stream. */
@@ -810,6 +835,7 @@ function connectSnd(): Promise<ConnectResult> {
           ws.send(`SET mod=${currentMode} low_cut=${lowCut} high_cut=${highCut} freq=${currentFreqKhz.toFixed(3)}`);
           ws.send(agcCommand());
           for (const cmd of nbCommands()) ws.send(cmd);
+          ws.send(`SET de_emp=${currentDeEmphasisEnabled ? 1 : 0}`);
           ws.send('SET compression=0');
           ws.send('SET keepalive');
           status.sndConnected = true;

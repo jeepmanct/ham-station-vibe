@@ -8,6 +8,7 @@ import {
   setAgc,
   setManualGain,
   setNoiseBlanker,
+  setDeEmphasis,
   setWfZoom,
   setWfSpeed,
   setWfContrast,
@@ -97,6 +98,14 @@ kiwiSdrRoutes.post('/noise-blanker', async (c) => {
     return c.json({ error: 'threshPercent must be a number' }, 400);
   }
   const result = setNoiseBlanker(body.enabled, body.gateUs, body.threshPercent);
+  if (!result.ok) return c.json({ error: result.error }, 400);
+  return c.json(await getKiwiSdrStatus());
+});
+
+kiwiSdrRoutes.post('/de-emphasis', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (!body || typeof body.enabled !== 'boolean') return c.json({ error: 'enabled must be a boolean' }, 400);
+  const result = setDeEmphasis(body.enabled);
   if (!result.ok) return c.json({ error: result.error }, 400);
   return c.json(await getKiwiSdrStatus());
 });
