@@ -87,7 +87,7 @@ const insertStmt = db.query(`
     my_gridsquare = excluded.my_gridsquare,
     state = COALESCE(excluded.state, qsos.state),
     continent = COALESCE(excluded.continent, qsos.continent),
-    cqz = excluded.cqz,
+    cqz = COALESCE(excluded.cqz, qsos.cqz),
     cnty = COALESCE(excluded.cnty, qsos.cnty),
     iota = COALESCE(excluded.iota, qsos.iota)
 `);
