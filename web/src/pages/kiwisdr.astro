@@ -187,6 +187,7 @@ import '../styles/kiwisdr.css';
         <div class="bar-track"><div class="bar-fill" id="kiwi-smeter-fill"></div></div>
         <span class="reading" id="kiwi-smeter-reading">&mdash;</span>
       </div>
+      <p class="kiwi-adc-overload" id="kiwi-adc-overload" title="The receiver's own front-end is clipping -- distinct from this app's AGC/Manual Gain, which only shape the signal after this point. If this keeps showing, the incoming signal itself is too hot for the Kiwi's ADC; there's no control on this page that fixes it (it's set at the receiver hardware/antenna input)." hidden>&#9888; ADC Overload -- signal too strong for the receiver's front-end</p>
 
       <div class="kiwi-audio-controls">
         <button type="button" class="btn" id="kiwi-startstop-btn">Start</button>
@@ -339,6 +340,7 @@ import '../styles/kiwisdr.css';
       mode: string;
       sampleRate: number | null;
       smeterDbm: number | null;
+      adcOverload: boolean;
       bandwidth: 'narrow' | 'normal' | 'wide' | null;
       widthHz: number;
       lowCutHz: number;
@@ -398,6 +400,7 @@ import '../styles/kiwisdr.css';
     const freqEl = document.getElementById('kiwi-freq')!;
     const smeterFill = document.getElementById('kiwi-smeter-fill')!;
     const smeterReading = document.getElementById('kiwi-smeter-reading')!;
+    const adcOverloadEl = document.getElementById('kiwi-adc-overload')!;
     const startStopBtn = document.getElementById('kiwi-startstop-btn') as HTMLButtonElement;
     const volumeSlider = document.getElementById('kiwi-volume') as HTMLInputElement;
     const audioStatus = document.getElementById('kiwi-audio-status')!;
@@ -568,6 +571,7 @@ import '../styles/kiwisdr.css';
         smeterFill.style.width = `${pct}%`;
         smeterReading.textContent = `${dbmToSUnit(s.smeterDbm)} (${s.smeterDbm.toFixed(0)}dBm)`;
       }
+      adcOverloadEl.hidden = !s.adcOverload;
       updateTabTitle();
     }
 

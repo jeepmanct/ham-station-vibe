@@ -27,6 +27,7 @@
 // oversight.
 import { db } from './db';
 import { getKiwiSdrHost } from './serviceCredentials';
+import { getStationCallsign } from './stationLocation';
 
 const DEFAULT_PORT = 8073;
 const DEFAULT_FREQ_KHZ = 7255;
@@ -224,6 +225,8 @@ export type KiwiSdrStatus = {
   mode: string;
   sampleRate: number | null;
   smeterDbm: number | null;
+  /** Recently-latched, not instantaneous -- see ADC_OVERLOAD_HOLD_MS's comment. */
+  adcOverload: boolean;
   /** null means a custom width from the fine slider is active, not one of the three named presets. */
   bandwidth: BandwidthPreset | null;
   widthHz: number;
@@ -277,6 +280,7 @@ export async function getKiwiSdrStatus(): Promise<KiwiSdrStatus> {
     mode: currentMode,
     sampleRate: status.sampleRate,
     smeterDbm: status.smeterDbm,
+    adcOverload: Date.now() - lastAdcOverloadAt < ADC_OVERLOAD_HOLD_MS,
     bandwidth: currentBandwidth,
     widthHz: highCutHz - lowCutHz,
     lowCutHz,
@@ -510,6 +514,10 @@ function forceReconnect() {
   }
   wfLo = null;
   wfHi = null;
+  // Same reasoning -- a "recently overloaded" flag belongs to whichever
+  // receiver's RF front-end actually triggered it, not whatever this app
+  // switches to next.
+  lastAdcOverloadAt = 0;
   // Also scoped to the PREVIOUS receiver (see fetchListenerCount's
   // comment below) -- without clearing it here, /status can keep
   // reporting the old receiver's channel usage for up to
@@ -579,6 +587,20 @@ async function fetchListenerCount(): Promise<{ users: number; usersMax: number }
   }
 }
 
+// SND_FLAG_ADC_OVFL, ported from kiwiclient's own client.py -- bit 0x02 of
+// the flags byte means the receiver's own front-end is clipping (signal too
+// hot for its ADC), independent of anything this app's AGC/manual gain
+// controls do downstream of that point. A single frame's flag is a
+// transient blip, not something worth surfacing raw (SND frames arrive far
+// faster than getKiwiSdrStatus() is polled, so a per-frame boolean would
+// almost always read back false even seconds after a real overload) --
+// instead this latches "recently overloaded" for a few seconds after the
+// last flagged frame, same spirit as drawSpectrumPeaks' decay on the
+// frontend.
+const ADC_OVERLOAD_FLAG = 0x02;
+const ADC_OVERLOAD_HOLD_MS = 4000;
+let lastAdcOverloadAt = 0;
+
 // SND frame layout (confirmed live): 3-byte tag, then flags(1) seq(4 LE)
 // smeter(2 BE), then audio data -- no extra skip byte here, unlike MSG/W-F
 // below. Requested uncompressed (SET compression=0) specifically so this
@@ -587,6 +609,15 @@ async function fetchListenerCount(): Promise<{ users: number; usersMax: number }
 // save isn't a real concern here.
 function handleSndFrame(data: Uint8Array) {
   if (data.length < 10) return;
+  // data[0:3] is still the 'SND' tag here (unlike the MSG/W-F handlers
+  // elsewhere in this file, this one's caller passes the frame through
+  // untouched) -- the flags byte is at index 3, right before the 4-byte
+  // seq that leads into smeter at [8:10]. Confirmed the hard way: reading
+  // data[0] instead tests a bit of the ASCII 'S' (0x53) rather than the
+  // real flags byte, which happens to always be truthy -- caught live
+  // when adcOverload read true on a -94dBm signal that clearly wasn't
+  // overloading anything.
+  if (data[3] & ADC_OVERLOAD_FLAG) lastAdcOverloadAt = Date.now();
   const smeterRaw = (data[8] << 8) | data[9];
   status.smeterDbm = 0.1 * smeterRaw - 127;
   const audioBytes = data.subarray(10);
@@ -707,6 +738,17 @@ function connectSnd(): Promise<ConnectResult> {
 
     ws.onopen = () => {
       ws.send('SET auth t=kiwi p=');
+      // Courtesy identification -- only sent to someone else's receiver
+      // (never our own, where it'd be meaningless), so a public operator
+      // watching their own connection log sees a real callsign instead of
+      // an anonymous connection. Fire-and-forget, no ack expected (ported
+      // from kiwiclient's own set_name(), which doesn't check for one
+      // either) -- if it's silently ignored by a given host, this is purely
+      // cosmetic and nothing else here depends on it landing.
+      if (publicOverride) {
+        const callsign = getStationCallsign();
+        if (callsign) ws.send(`SET ident_user=${callsign}`);
+      }
       sndKeepalive = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) ws.send('SET keepalive');
       }, KEEPALIVE_INTERVAL_MS);
@@ -836,6 +878,12 @@ function connectWf(): Promise<ConnectResult> {
       // (confirmed live) -- no need to wait for a sample_rate-style ack
       // first.
       ws.send('SET auth t=kiwi p=');
+      // See connectSnd()'s matching comment -- separate channel/connection
+      // on the Kiwi, so it gets its own identification too.
+      if (publicOverride) {
+        const callsign = getStationCallsign();
+        if (callsign) ws.send(`SET ident_user=${callsign}`);
+      }
       ws.send(`SET zoom=${currentWfZoom} cf=${currentFreqKhz.toFixed(3)}`);
       ws.send('SET maxdb=-10 mindb=-110');
       ws.send(`SET wf_speed=${currentWfSpeed}`);

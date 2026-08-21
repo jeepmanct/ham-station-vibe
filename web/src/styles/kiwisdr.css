@@ -148,6 +148,17 @@
 }
 .kiwi-smeter .reading { font-family: var(--font-mono); font-size: 0.85rem; white-space: nowrap; min-width: 5.5rem; text-align: right; }
 
+.kiwi-adc-overload {
+  margin: 0.5rem 0 0;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--status-warning) 18%, transparent);
+  border: 1px solid var(--status-warning);
+  color: var(--status-warning);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
 .kiwi-audio-controls { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
 .kiwi-audio-controls input[type="range"] { width: 100px; }
 #kiwi-record-btn.recording { background: var(--status-critical); border-color: var(--status-critical); color: #fff; }
