@@ -58,8 +58,19 @@ const insertStmt = db.query(`
   INSERT INTO qsos (call, qso_date, time_on, band, mode, freq, rst_sent, rst_rcvd, gridsquare, country, lotw_qsl_rcvd, lotw_qsl_rcvd_date, raw_adif, lat, lon, my_lat, my_lon, my_gridsquare, state, continent, cqz, cnty, iota)
   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(call, qso_date, time_on, band, mode) DO UPDATE SET
-    lotw_qsl_rcvd = excluded.lotw_qsl_rcvd,
-    lotw_qsl_rcvd_date = excluded.lotw_qsl_rcvd_date,
+    -- Sticky once confirmed: LoTW's own "everything on file" report
+    -- (qso_qsl=no) has been confirmed live to contain TWO records for the
+    -- same QSO in thousands of cases -- an early DXCC-match-batch entry
+    -- showing Y, and the regular chronological listing further down
+    -- showing N for the very same contact. Import order isn't guaranteed
+    -- to put the true/latest status last, so a plain "excluded wins"
+    -- overwrite let a late N in the same file silently un-confirm QSOs
+    -- that really were confirmed (caught live: a single full resync
+    -- dropped the confirmed count by 1,705). A real LoTW confirmation
+    -- doesn't get revoked in practice, so once a row is Y it stays Y
+    -- regardless of what a later import (this batch or a future one) says.
+    lotw_qsl_rcvd = CASE WHEN qsos.lotw_qsl_rcvd = 'Y' THEN qsos.lotw_qsl_rcvd ELSE excluded.lotw_qsl_rcvd END,
+    lotw_qsl_rcvd_date = CASE WHEN qsos.lotw_qsl_rcvd = 'Y' THEN qsos.lotw_qsl_rcvd_date ELSE excluded.lotw_qsl_rcvd_date END,
     country = excluded.country,
     lat = excluded.lat,
     lon = excluded.lon,
