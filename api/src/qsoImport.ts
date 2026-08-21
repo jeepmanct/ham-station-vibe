@@ -71,14 +71,22 @@ const insertStmt = db.query(`
     -- regardless of what a later import (this batch or a future one) says.
     lotw_qsl_rcvd = CASE WHEN qsos.lotw_qsl_rcvd = 'Y' THEN qsos.lotw_qsl_rcvd ELSE excluded.lotw_qsl_rcvd END,
     lotw_qsl_rcvd_date = CASE WHEN qsos.lotw_qsl_rcvd = 'Y' THEN qsos.lotw_qsl_rcvd_date ELSE excluded.lotw_qsl_rcvd_date END,
-    country = excluded.country,
+    -- Sticky toward non-null, not toward "whatever's already there" -- a
+    -- sparser re-import (e.g. a LoTW-only record falling back to a
+    -- callsign-prefix guess, see importAdifRecords' fallback comment
+    -- below) should never blank out a real value a richer source (QRZ)
+    -- already gave this row, but a source that DOES supply a value should
+    -- still be able to correct a wrong one. Unlike lotw_qsl_rcvd above,
+    -- there's no single "more true" direction here, so this only guards
+    -- against regressing to unknown, not against being overwritten at all.
+    country = COALESCE(excluded.country, qsos.country),
     lat = excluded.lat,
     lon = excluded.lon,
     my_lat = excluded.my_lat,
     my_lon = excluded.my_lon,
     my_gridsquare = excluded.my_gridsquare,
-    state = excluded.state,
-    continent = excluded.continent,
+    state = COALESCE(excluded.state, qsos.state),
+    continent = COALESCE(excluded.continent, qsos.continent),
     cqz = excluded.cqz,
     cnty = excluded.cnty,
     iota = excluded.iota
