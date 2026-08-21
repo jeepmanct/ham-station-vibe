@@ -468,6 +468,11 @@ import '../styles/kiwisdr.css';
 
     let lastStatus: KiwiSdrStatus | null = null;
     let lastSourceLabel: string | null = null;
+    // Captured lazily on the first Start (not at page load) so this reads
+    // whatever Base.astro's own async callsign fetch already settled it to
+    // ("KiwiSDR · N1AH"), not the build-time placeholder that's briefly
+    // there before that fetch resolves -- see updateTabTitle()/stopAll().
+    let baseTitle: string | null = null;
     // Tracks the current frequency in MHz for the controls that need to read
     // it back (mode-only retune, step buttons, click-to-tune) now that there's
     // no visible frequency text field to read from directly.
@@ -563,6 +568,22 @@ import '../styles/kiwisdr.css';
         smeterFill.style.width = `${pct}%`;
         smeterReading.textContent = `${dbmToSUnit(s.smeterDbm)} (${s.smeterDbm.toFixed(0)}dBm)`;
       }
+      updateTabTitle();
+    }
+
+    // Frequency/mode first in the string (not "KiwiSDR: 7.2000 LSB") since a
+    // narrow tab truncates from the right -- the part that actually changes
+    // needs to be the part that survives truncation, or a backgrounded tab
+    // showing a bunch of identical-looking "KiwiSDR…" titles defeats the
+    // point. Only while actually listening -- otherwise this is live-
+    // updating a tab title for audio nobody's hearing, more distracting
+    // than useful (see stopAll(), which reverts it immediately on Stop
+    // rather than waiting for the next poll tick).
+    function updateTabTitle() {
+      if (!running || !lastStatus) return;
+      if (baseTitle === null) baseTitle = document.title;
+      const freqMhz = (lastStatus.freqKhz / 1000).toFixed(4);
+      document.title = `${freqMhz} ${lastStatus.mode.toUpperCase()} · ${baseTitle}`;
     }
     loadStatus();
     pollWhileVisible(loadStatus, 3000);
@@ -1979,6 +2000,7 @@ import '../styles/kiwisdr.css';
       audioStatus.textContent = message;
       recordBtn.disabled = true;
       recordBtn.title = 'Start listening first';
+      if (baseTitle !== null) document.title = baseTitle; // undo updateTabTitle()'s freq/mode prefix immediately, don't wait for the next poll
       syncWaterfallConnection();
     }
 
