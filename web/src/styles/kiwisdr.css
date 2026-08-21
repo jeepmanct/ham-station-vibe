@@ -80,6 +80,9 @@
 }
 
 .kiwi-step-group { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.6rem; }
+/* First child of its own card now (see kiwisdr.astro's tuning strip), not
+   preceded by other Tuning & Filter controls the way it used to be. */
+.kiwi-tuning-strip > .kiwi-step-group { margin-top: 0; }
 .kiwi-step-group .btn { padding: 0.35rem 0.55rem; font-size: 0.78rem; }
 .kiwi-step.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 
@@ -139,6 +142,13 @@
 #kiwi-record-btn.recording { background: var(--status-critical); border-color: var(--status-critical); color: #fff; }
 
 .kiwi-cw-decoder { display: flex; align-items: center; gap: 0.6rem 0.75rem; flex-wrap: wrap; }
+/* .card's default padding (1.25rem 1.5rem) is sized for the decoder actually
+   running -- toggle row plus a multi-line output panel. Unchecked, that's
+   just one short label row rattling around in the same space, so shrink the
+   card itself down to a slim strip until it's actually turned on. */
+.kiwi-cw-decoder:not(:has(#kiwi-cw-enabled:checked)) {
+  padding: 0.6rem 0.9rem;
+}
 .kiwi-cw-toggle { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--muted); }
 .kiwi-cw-toggle input { width: auto; }
 .kiwi-cw-output {

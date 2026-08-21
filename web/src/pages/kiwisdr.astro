@@ -116,6 +116,30 @@ import '../styles/kiwisdr.css';
       <p class="status-line" id="kiwi-wf-status" style="margin-top:0.4rem;"></p>
     </div>
 
+    <!-- Right under the waterfall (not buried in Tuning & Filter below the
+         freq display) so nudging the frequency and watching the waterfall
+         react don't require scrolling back and forth between them. -->
+    <div class="card kiwi-tuning-strip">
+      <!-- Only picks which step size the slider below nudges by (and,
+           since it also governs how the waterfall drag snaps, what "a
+           clean number" means for that too) -- the slider itself already
+           covers both directions (drag left/right), so a separate
+           plus/minus button for each size would just be a second control
+           doing the same thing twice. -->
+      <div class="kiwi-step-group">
+        <button type="button" class="btn secondary kiwi-step" data-step-khz="1000">1MHz</button>
+        <button type="button" class="btn secondary kiwi-step" data-step-khz="100">100kHz</button>
+        <button type="button" class="btn secondary kiwi-step" data-step-khz="10">10kHz</button>
+        <button type="button" class="btn secondary kiwi-step" data-step-khz="1">1kHz</button>
+        <button type="button" class="btn secondary kiwi-step" data-step-khz="0.1">100Hz</button>
+      </div>
+
+      <div class="kiwi-slider-row">
+        <input type="range" id="kiwi-freq-slider" min="-5" max="5" step="1" value="0" aria-label="Fine tune -- drag left or right" />
+        <span class="kiwi-slider-hint" id="kiwi-slider-step-label">10kHz/step</span>
+      </div>
+    </div>
+
     <!-- The checkbox itself is the show/hide control -- unchecked, this is
          just the one label row; checking it is what reveals the actual
          output panel below (see cwSyncStatus()), so there's no separate
@@ -233,25 +257,6 @@ import '../styles/kiwisdr.css';
           <label for="kiwi-width-slider">Filter Width</label>
           <input type="range" id="kiwi-width-slider" min="0" max="1000" step="1" value="500" aria-label="Filter width, fine control" />
           <span class="kiwi-width-readout" id="kiwi-width-readout">&mdash;</span>
-        </div>
-
-        <!-- Only picks which step size the slider below nudges by (and,
-             since it also governs how the waterfall drag snaps, what "a
-             clean number" means for that too) -- the slider itself already
-             covers both directions (drag left/right), so a separate
-             plus/minus button for each size would just be a second control
-             doing the same thing twice. -->
-        <div class="kiwi-step-group">
-          <button type="button" class="btn secondary kiwi-step" data-step-khz="1000">1MHz</button>
-          <button type="button" class="btn secondary kiwi-step" data-step-khz="100">100kHz</button>
-          <button type="button" class="btn secondary kiwi-step" data-step-khz="10">10kHz</button>
-          <button type="button" class="btn secondary kiwi-step" data-step-khz="1">1kHz</button>
-          <button type="button" class="btn secondary kiwi-step" data-step-khz="0.1">100Hz</button>
-        </div>
-
-        <div class="kiwi-slider-row">
-          <input type="range" id="kiwi-freq-slider" min="-5" max="5" step="1" value="0" aria-label="Fine tune -- drag left or right" />
-          <span class="kiwi-slider-hint" id="kiwi-slider-step-label">10kHz/step</span>
         </div>
       </div>
     </details>
