@@ -185,7 +185,7 @@ import '../styles/map.css';
     // rendered in a plain <canvas>, no WebGL/3D library. Reuses the same
     // QSO arc data the 2D map already fetches/computes rather than
     // running its own separate query. ---
-    type GlobeArc = { points: [number, number][]; color: string; destLat: number; destLon: number };
+    type GlobeArc = { points: [number, number][]; color: string; destLat: number; destLon: number; isApproximate: boolean };
     let lastGlobeData: { home: { lat: number; lon: number }; arcs: GlobeArc[] } | null = null;
     let globeActive = false;
     let landPolygons: [number, number][][] | null = null;
@@ -300,6 +300,10 @@ import '../styles/map.css';
         for (const arc of lastGlobeData.arcs) {
           globeCtx.strokeStyle = arc.color;
           globeCtx.lineWidth = 1.2;
+          // Same "approximate" cue as the 2D map's dashed/hollow markers --
+          // dashed here since fillOpacity:0 has no canvas equivalent for a
+          // line, then reset to solid so it doesn't leak onto the next arc.
+          globeCtx.setLineDash(arc.isApproximate ? [3, 3] : []);
           globeCtx.beginPath();
           let prev: { x: number; y: number; z: number } | null = null;
           for (const [lat, lon] of arc.points) {
@@ -311,13 +315,20 @@ import '../styles/map.css';
             prev = pt;
           }
           globeCtx.stroke();
+          globeCtx.setLineDash([]);
 
           const dest = toScreen(arc.destLat, arc.destLon, R, cx, cy);
           if (dest.z > 0) {
             globeCtx.beginPath();
             globeCtx.arc(dest.x, dest.y, 2.5, 0, Math.PI * 2);
-            globeCtx.fillStyle = arc.color;
-            globeCtx.fill();
+            if (arc.isApproximate) {
+              globeCtx.strokeStyle = arc.color;
+              globeCtx.lineWidth = 1;
+              globeCtx.stroke();
+            } else {
+              globeCtx.fillStyle = arc.color;
+              globeCtx.fill();
+            }
           }
         }
 
@@ -457,34 +468,50 @@ import '../styles/map.css';
       // being computed for the 2D map's polylines, just kept around
       // instead of thrown away, so switching views doesn't mean
       // re-running greatCircleArc's spherical-slerp math a second time.
-      const globeArcs: { points: [number, number][]; color: string; destLat: number; destLon: number }[] = [];
+      const globeArcs: GlobeArc[] = [];
 
+      let approximateCount = 0;
       for (const p of data.points) {
         const arc = greatCircleArc(data.home.lat, data.home.lon, p.lat, p.lon, 16);
         const color = colorForBand(p.band);
-        globeArcs.push({ points: arc, color, destLat: p.lat, destLon: p.lon });
-        const tooltipText = `${escapeHtml(p.call)} · ${escapeHtml(p.band ?? '—')} · ${escapeHtml(p.mode ?? '—')}`;
+        // No gridsquare means this QSO's location came from a country-level
+        // fallback (cty.dat's single reference point for that DXCC entity,
+        // see qsoImport.ts), not the actual station -- could be hundreds of
+        // km off. Drawn hollow/dashed rather than solid so that's visible on
+        // the map itself instead of only discoverable by clicking through.
+        const isApproximate = !p.gridsquare;
+        if (isApproximate) approximateCount++;
+        globeArcs.push({ points: arc, color, destLat: p.lat, destLon: p.lon, isApproximate });
+        const tooltipText = `${escapeHtml(p.call)} · ${escapeHtml(p.band ?? '—')} · ${escapeHtml(p.mode ?? '—')}${isApproximate ? ' · ~approx.' : ''}`;
         const popupHtml = `<div class="qso-popup">
             <strong>${escapeHtml(p.call)}</strong><br/>
             ${formatDate(p.qsoDate)} · ${escapeHtml(p.band ?? '—')} · ${escapeHtml(p.mode ?? '—')}<br/>
             ${p.country || p.state || p.gridsquare ? `${escapeHtml(p.country ?? '')}${p.state ? `, ${escapeHtml(p.state)}` : ''}${p.gridsquare ? ` (${escapeHtml(p.gridsquare)})` : ''}<br/>` : ''}
+            ${isApproximate ? `<span style="color:var(--muted);">~ Approximate location (no gridsquare on file — positioned at this country's general reference point, not the actual station)</span><br/>` : ''}
             ${formatSolar(p) ? `<span style="color:var(--muted);">${escapeHtml(formatSolar(p))}</span><br/>` : ''}
             <a class="btn" href="https://www.qrz.com/db/${encodeURIComponent(p.call)}" target="_blank" rel="noopener">View on QRZ.com ↗</a>
             <a class="btn" href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${p.lat},${p.lon}" target="_blank" rel="noopener">Street View ↗</a>
           </div>`;
 
-        const line = L.polyline(arc, { color, weight: 1.5, opacity: 0.65, renderer });
+        const line = L.polyline(arc, {
+          color,
+          weight: 1.5,
+          opacity: isApproximate ? 0.35 : 0.65,
+          dashArray: isApproximate ? '4 4' : undefined,
+          renderer,
+        });
         line.bindTooltip(tooltipText, { sticky: true });
         line.bindPopup(popupHtml);
         dataLayer.addLayer(line);
 
         // A small dot at the destination — an easier click/hover target than the thin line.
+        // Hollow (fillOpacity 0) for approximate points, solid for real fixes.
         const dot = L.circleMarker([p.lat, p.lon], {
           radius: 4,
           color,
           fillColor: color,
-          fillOpacity: 1,
-          weight: 1,
+          fillOpacity: isApproximate ? 0 : 1,
+          weight: isApproximate ? 1.5 : 1,
           renderer,
         });
         dot.bindTooltip(tooltipText, { sticky: true });
@@ -492,7 +519,10 @@ import '../styles/map.css';
         dataLayer.addLayer(dot);
       }
 
-      mapStatus.textContent = `Showing ${data.points.length} contacts`;
+      mapStatus.textContent =
+        approximateCount > 0
+          ? `Showing ${data.points.length} contacts (${approximateCount} at approximate/country-level locations — hollow markers)`
+          : `Showing ${data.points.length} contacts`;
       lastGlobeData = { home: data.home, arcs: globeArcs };
       if (globeActive) requestGlobeRedraw();
     }
