@@ -88,8 +88,8 @@ const insertStmt = db.query(`
     state = COALESCE(excluded.state, qsos.state),
     continent = COALESCE(excluded.continent, qsos.continent),
     cqz = excluded.cqz,
-    cnty = excluded.cnty,
-    iota = excluded.iota
+    cnty = COALESCE(excluded.cnty, qsos.cnty),
+    iota = COALESCE(excluded.iota, qsos.iota)
 `);
 
 /** Upserts ADIF-parsed QSO records (from an LoTW file or the QRZ Logbook API) into the qsos table. */
