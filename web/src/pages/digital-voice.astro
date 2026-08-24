@@ -47,6 +47,23 @@ import '../styles/lastHeardTable.css';
     <p style="margin:1rem 0 0.4rem;color:var(--muted);font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;">Standard CTCSS Tones (Hz)</p>
     <p class="ctcss-tones">67.0, 69.3, 71.9, 74.4, 77.0, 79.7, 82.5, 85.4, 88.5, 91.5, 94.8, 97.4, 100.0, 103.5, 107.2, 110.9, 114.8, 118.8, 123.0, 127.3, 131.8, 136.5, 141.3, 146.2, 151.4, 156.7, 159.8, 162.2, 165.5, 167.9, 171.3, 173.8, 177.3, 179.9, 183.5, 186.2, 189.9, 192.8, 196.6, 199.5, 203.5, 206.5, 210.7, 218.1, 225.7, 229.1, 233.6, 241.8, 250.3, 254.1</p>
   </div>
+
+  <div class="tool-card" data-tile-id="dmr-id-lookup" style="margin-top:1.5rem;">
+    <h2><span>DMR ID Lookup</span></h2>
+    <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.8rem;">Callsign &harr; DMR radio ID, via <a href="https://radioid.net" target="_blank" rel="noopener">radioid.net</a>'s public user database.</p>
+    <div style="display:flex;gap:0.5rem;">
+      <div class="tool-field" style="flex:1;">
+        <label for="dmrid-query">Callsign or DMR ID</label>
+        <input type="text" id="dmrid-query" placeholder="e.g. N1AH or 3213839" />
+      </div>
+    </div>
+    <button type="button" class="btn secondary" id="dmrid-lookup-btn" style="margin-top:0.6rem;">Look Up</button>
+    <div class="tool-result" id="dmrid-result" hidden>
+      <div class="big" id="dmrid-result-value">&mdash;</div>
+      <div class="sub" id="dmrid-result-sub"></div>
+    </div>
+    <p class="status-line" id="dmrid-status" style="margin-top:0.6rem;"></p>
+  </div>
   </div>
 
   <script>
@@ -161,6 +178,49 @@ import '../styles/lastHeardTable.css';
     }
     rptBand.addEventListener('change', computeRepeaterOffset);
     rptOutput.addEventListener('input', computeRepeaterOffset);
+
+    // --- DMR ID lookup -- explicit button click (Enter key too), not
+    // live-as-you-type, out of courtesy to radioid.net's own "be gentle,
+    // excessive requests will be blocked" API guidance. ---
+    type DmrResult = { callsign: string; id: number; fname: string; surname: string; city: string; state: string; country: string };
+    const dmridQuery = document.getElementById('dmrid-query') as HTMLInputElement;
+    const dmridBtn = document.getElementById('dmrid-lookup-btn') as HTMLButtonElement;
+    const dmridResult = document.getElementById('dmrid-result')!;
+    const dmridResultValue = document.getElementById('dmrid-result-value')!;
+    const dmridResultSub = document.getElementById('dmrid-result-sub')!;
+    const dmridStatus = document.getElementById('dmrid-status')!;
+
+    async function runDmrLookup() {
+      const q = dmridQuery.value.trim();
+      dmridResult.hidden = true;
+      if (!q) { dmridStatus.textContent = ''; return; }
+      dmridStatus.textContent = 'Looking up…';
+      try {
+        const res = await fetch(`/api/dmrid/lookup?q=${encodeURIComponent(q)}`);
+        const body: { results?: DmrResult[]; error?: string } = await res.json();
+        if (!res.ok || !body.results) {
+          dmridStatus.textContent = body.error ?? 'Lookup failed.';
+          return;
+        }
+        if (body.results.length === 0) {
+          dmridStatus.textContent = `No DMR ID found for "${q}".`;
+          return;
+        }
+        const r = body.results[0];
+        const fullName = [r.fname, r.surname].filter(Boolean).join(' ');
+        const location = [r.city, r.state, r.country].filter(Boolean).join(', ');
+        dmridStatus.textContent = '';
+        dmridResult.hidden = false;
+        dmridResultValue.textContent = `${r.callsign} — ${r.id}`;
+        dmridResultSub.textContent = [fullName, location].filter(Boolean).join(' · ');
+      } catch {
+        dmridStatus.textContent = 'Could not reach radioid.net right now.';
+      }
+    }
+    dmridBtn.addEventListener('click', runDmrLookup);
+    dmridQuery.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') runDmrLookup();
+    });
 
     document.querySelectorAll<HTMLButtonElement>('.tool-reset-btn').forEach((button) => {
       const card = button.closest('.tool-card')!;

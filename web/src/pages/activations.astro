@@ -4,8 +4,9 @@ import '../styles/activations.css';
 ---
 <Base title="Activations" active="activations">
   <h1>Activations</h1>
-  <p class="lede">Parks on the Air (POTA) activity, pulled live from pota.app.</p>
+  <p class="lede">Parks on the Air (POTA) and Summits On The Air (SOTA) activity, pulled live from pota.app and sotl.as.</p>
 
+  <h2 style="margin-top:0;">Parks on the Air (POTA)</h2>
   <div id="pota-content">
     <div class="activation-stats">
       <div class="activation-tile"><div class="label">Activations</div><div class="value" id="pota-activations">&mdash;</div></div>
@@ -28,6 +29,21 @@ import '../styles/activations.css';
     </div>
   </div>
   <p id="pota-status" class="status-line" hidden>Could not load POTA data right now.</p>
+
+  <h2 style="margin-top:2.5rem;">Summits On The Air (SOTA)</h2>
+  <div id="sota-content">
+    <div class="activation-stats">
+      <div class="activation-tile"><div class="label">Score</div><div class="value" id="sota-score">&mdash;</div></div>
+      <div class="activation-tile"><div class="label">Activation Logs</div><div class="value" id="sota-activations">&mdash;</div></div>
+      <div class="activation-tile"><div class="label">Avg Points / Activation</div><div class="value" id="sota-avg-points">&mdash;</div></div>
+    </div>
+
+    <div class="card" style="margin-top:1.5rem;">
+      <h2>Recent Activations</h2>
+      <div class="activation-list" id="sota-activation-list"></div>
+    </div>
+  </div>
+  <p id="sota-status" class="status-line" hidden>No SOTA activator activity on file yet.</p>
 
   <script>
     import { escapeHtml } from '../lib/escapeHtml';
@@ -104,6 +120,49 @@ import '../styles/activations.css';
       .catch(() => {
         document.getElementById('pota-content')!.hidden = true;
         document.getElementById('pota-status')!.hidden = false;
+      });
+
+    type SotaStats = { points: number; score: number; summits: number; avgPoints: number } | null;
+    type SotaActivation = {
+      date: string;
+      qsos: number;
+      points: number;
+      bonus: number;
+      summit: { code: string; name: string; altitude: number };
+    };
+    type SotaProfile = { stats: SotaStats; activations: SotaActivation[] } | null;
+
+    fetch('/api/sota/profile')
+      .then((r) => r.json())
+      .then((profile: SotaProfile) => {
+        if (!profile || !profile.stats) {
+          document.getElementById('sota-content')!.hidden = true;
+          document.getElementById('sota-status')!.hidden = false;
+          return;
+        }
+        document.getElementById('sota-score')!.textContent = String(profile.stats.score);
+        document.getElementById('sota-activations')!.textContent = String(profile.stats.summits);
+        document.getElementById('sota-avg-points')!.textContent = profile.stats.avgPoints.toFixed(2);
+
+        const activationList = document.getElementById('sota-activation-list')!;
+        if (!profile.activations.length) {
+          activationList.innerHTML = '<p class="status-line">No activations yet.</p>';
+        } else {
+          for (const a of profile.activations) {
+            const row = document.createElement('div');
+            row.className = 'activation-row';
+            const points = a.points + a.bonus;
+            row.innerHTML = `
+              <span><span class="park">${escapeHtml(a.summit.name)}</span> (${escapeHtml(a.summit.code)})<div class="meta">${a.summit.altitude}m &middot; ${formatDate(a.date)}</div></span>
+              <span class="count">${a.qsos} QSO${a.qsos === 1 ? '' : 's'} &middot; ${points} pt${points === 1 ? '' : 's'}</span>
+            `;
+            activationList.appendChild(row);
+          }
+        }
+      })
+      .catch(() => {
+        document.getElementById('sota-content')!.hidden = true;
+        document.getElementById('sota-status')!.hidden = false;
       });
   </script>
 </Base>
