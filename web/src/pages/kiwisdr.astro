@@ -1862,6 +1862,10 @@ import '../styles/kiwisdr.css';
     let audioCtx: AudioContext | null = null;
     let gainNode: GainNode | null = null;
     let nextPlayTime = 0;
+    // How far nextPlayTime is allowed to drift ahead of audioCtx.currentTime
+    // before getting snapped back -- see the drift-cap comment down in the
+    // message handler for why this exists at all.
+    const MAX_AUDIO_LEAD_SEC = 0.5;
     let lastBins: Uint8Array | null = null;
 
     // --- Recording -- captures the same raw PCM frames already flowing to
@@ -2108,7 +2112,19 @@ import '../styles/kiwisdr.css';
         const source = audioCtx.createBufferSource();
         source.buffer = buffer;
         source.connect(gainNode);
-        const startAt = Math.max(nextPlayTime, audioCtx.currentTime + 0.05);
+        let startAt = Math.max(nextPlayTime, audioCtx.currentTime + 0.05);
+        // nextPlayTime accumulates each chunk's duration to keep playback
+        // gapless, but has no way to notice if it's drifted ahead of real
+        // time -- unlike falling behind (which the currentTime+0.05 floor
+        // above already corrects), nothing was pulling a forward drift back
+        // down. Confirmed live as the cause of a real report: after a tab
+        // sat open for hours, retuning could take several seconds for audio
+        // to "catch up," because nextPlayTime had quietly drifted that far
+        // ahead (tab-backgrounding throttle, GC pauses, bursty delivery --
+        // small nudges that compound over a long session) and a retune
+        // doesn't reset it on its own. Capping the lead re-syncs to real
+        // time before it can compound instead of drifting unbounded.
+        if (startAt - audioCtx.currentTime > MAX_AUDIO_LEAD_SEC) startAt = audioCtx.currentTime + 0.05;
         source.start(startAt);
         nextPlayTime = startAt + buffer.duration;
       });
