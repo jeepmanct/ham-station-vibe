@@ -6,7 +6,8 @@ import { importAdifRecords } from '../qsoImport';
 import { syncFromQrz, pushQsoToQrz } from '../qrz';
 import { syncFromEqsl } from '../eqsl';
 import { syncFromLotw } from '../lotw';
-import { getQrzApiKey, getEqslCredentials, getLotwCredentials } from '../serviceCredentials';
+import { pushQsoToClubLog } from '../clublog';
+import { getQrzApiKey, getEqslCredentials, getLotwCredentials, getClublogCredentials } from '../serviceCredentials';
 import { resolveCallsignEntity } from '../dxccPrefixes';
 import { resolveLatLon } from '../maidenhead';
 import { DXCC_ENTITIES } from '../dxccEntities';
@@ -571,7 +572,22 @@ qsoRoutes.post('/manual', requireAuth, async (c) => {
     }
   }
 
-  return c.json({ imported, resolvedEntity: resolved?.entity ?? null, qrz });
+  let clublog: { sent: boolean; message?: string; error?: string } = { sent: false };
+  if (body.sendToClublog) {
+    const creds = getClublogCredentials();
+    if (!creds) {
+      clublog = { sent: false, error: 'Club Log credentials are not fully configured — set them under Admin' };
+    } else {
+      try {
+        const res = await pushQsoToClubLog(creds, call, buildAdifRecord(record));
+        clublog = { sent: res.ok, message: res.message };
+      } catch (err) {
+        clublog = { sent: false, error: err instanceof Error ? err.message : 'Club Log push failed' };
+      }
+    }
+  }
+
+  return c.json({ imported, resolvedEntity: resolved?.entity ?? null, qrz, clublog });
 });
 
 /**

@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { db } from '../db';
 import { getStationLocation } from '../stationLocation';
 import { ttlCached } from '../ttlCache';
+import { ADIF_DXCC_CODE_TO_ENTITY } from '../data/adifDxccCodes';
 
 export const statsRoutes = new Hono();
 
@@ -329,4 +330,120 @@ statsRoutes.get('/qsl-velocity', (c) => {
     daysToMilestone: daysToMilestone != null ? Math.round(daysToMilestone) : null,
     estimatedDate,
   });
+});
+
+// Milestone QSO numbers -- a curated round-number list rather than every
+// power of ten, so e.g. a log that's currently at 15,412 gets a "15,000th"
+// entry instead of nothing between 10,000 and 20,000.
+const MILESTONE_STEPS = [1, 100, 500, 1000, 2500, 5000, 7500, 10000, 12500, 15000, 17500, 20000, 25000, 30000, 40000, 50000];
+
+const SOLO_CATCH_SAMPLE_SIZE = 8;
+const RAREST_DXCC_SAMPLE_SIZE = 8;
+const TOUGH_CONDITIONS_SAMPLE_SIZE = 5;
+
+/**
+ * "Notable QSOs" -- a curated highlight reel distinct from the raw log
+ * (/log) and the achievement-progress cards (/awards): milestone contacts
+ * (the Nth QSO ever), the rarest DXCC entities actually worked (by Club
+ * Log's real global demand ranking, not just alphabetical), one-and-done
+ * "solo catches" (a grid/IOTA group/county worked exactly once and never
+ * again), and QSOs made during the worst logged geomagnetic conditions --
+ * each a different kind of "worth remembering" that pure counts don't
+ * surface on their own.
+ */
+function computeNotable() {
+  const total = db.query('SELECT COUNT(*) as n FROM qsos').get() as { n: number };
+
+  const orderedRows = db.query(`SELECT call, qso_date, band, mode, country FROM qsos ORDER BY qso_date ASC, time_on ASC, id ASC`).all() as {
+    call: string;
+    qso_date: string;
+    band: string | null;
+    mode: string | null;
+    country: string | null;
+  }[];
+  const milestones = MILESTONE_STEPS.filter((n) => n <= orderedRows.length).map((n) => {
+    const row = orderedRows[n - 1];
+    return { n, call: row.call, qsoDate: row.qso_date, band: row.band, mode: row.mode, country: row.country };
+  });
+
+  // Rarest DXCC actually worked -- cross-references the log's worked
+  // entities against Club Log's global demand ranking (same source/mapping
+  // /awards' Most-Wanted card uses for NEEDED entities), just applied to
+  // entities already in the log instead. Lower rank = more wanted/rarer
+  // worldwide. Entities Club Log doesn't rank are simply excluded here
+  // (unlike Most-Wanted's alphabetical fallback for unranked entities) --
+  // there's no honest way to call something "notable for rarity" without a
+  // real rank to back it up.
+  const rankRows = db.query('SELECT adif_code, rank FROM clublog_most_wanted').all() as { adif_code: number; rank: number }[];
+  const rankByEntity = new Map<string, number>();
+  for (const row of rankRows) {
+    const entity = ADIF_DXCC_CODE_TO_ENTITY[row.adif_code];
+    if (entity) rankByEntity.set(entity, row.rank);
+  }
+  const dxccRows = db
+    .query(`SELECT country, COUNT(*) as qsoCount, MIN(qso_date) as firstWorked FROM qsos WHERE country IS NOT NULL GROUP BY country`)
+    .all() as { country: string; qsoCount: number; firstWorked: string }[];
+  const rarestDxcc = dxccRows
+    .map((r) => ({ country: r.country, qsoCount: r.qsoCount, firstWorked: r.firstWorked, rank: rankByEntity.get(r.country) ?? null }))
+    .filter((r): r is typeof r & { rank: number } => r.rank != null)
+    .sort((a, b) => a.rank - b.rank)
+    .slice(0, RAREST_DXCC_SAMPLE_SIZE);
+
+  // Solo catches -- a grid/IOTA group/county worked exactly once and never
+  // repeated. Since each group here has exactly one row (HAVING c = 1),
+  // MAX(call)/MAX(qso_date) just reads back that one row's own values --
+  // no real aggregation happening, just a convenient way to pull a single
+  // group's row without a window function. Same 4-char grid bucketing
+  // /awards' VUCC card uses (a full 6-char gridsquare is finer than the
+  // standard VUCC/notable-catch unit).
+  function soloCatches(rows: { key: string; call: string; qsoDate: string; c: number }[]) {
+    const sorted = [...rows]
+      .sort((a, b) => (a.qsoDate < b.qsoDate ? 1 : a.qsoDate > b.qsoDate ? -1 : 0))
+      .map(({ key, call, qsoDate }) => ({ key, call, qsoDate }));
+    return { count: sorted.length, samples: sorted.slice(0, SOLO_CATCH_SAMPLE_SIZE) };
+  }
+  const soloGridRows = db
+    .query(
+      `SELECT SUBSTR(gridsquare, 1, 4) as key, MAX(call) as call, MAX(qso_date) as qsoDate, COUNT(*) as c
+       FROM qsos WHERE gridsquare IS NOT NULL AND LENGTH(gridsquare) >= 4 GROUP BY key HAVING c = 1`,
+    )
+    .all() as { key: string; call: string; qsoDate: string; c: number }[];
+  const soloIotaRows = db
+    .query(`SELECT iota as key, MAX(call) as call, MAX(qso_date) as qsoDate, COUNT(*) as c FROM qsos WHERE iota IS NOT NULL GROUP BY key HAVING c = 1`)
+    .all() as { key: string; call: string; qsoDate: string; c: number }[];
+  const soloCountyRows = db
+    .query(`SELECT cnty as key, MAX(call) as call, MAX(qso_date) as qsoDate, COUNT(*) as c FROM qsos WHERE cnty IS NOT NULL GROUP BY key HAVING c = 1`)
+    .all() as { key: string; call: string; qsoDate: string; c: number }[];
+  const soloGrids = soloCatches(soloGridRows);
+  const soloIota = soloCatches(soloIotaRows);
+  const soloCounties = soloCatches(soloCountyRows);
+
+  // Toughest conditions -- QSOs made on the days with the highest logged
+  // planetary K-index (worse geomagnetic conditions generally mean worse
+  // HF propagation), a fun "worked anyway" flex distinct from the
+  // longest-distance leaderboard already on /stats (that one's about
+  // geography, this one's about timing/conditions).
+  const toughConditions = db
+    .query(
+      `SELECT q.call, q.qso_date as qsoDate, q.band, q.mode, s.k_index as kIndex, s.a_index as aIndex
+       FROM qsos q JOIN solar_data s ON s.date = q.qso_date
+       WHERE s.k_index IS NOT NULL
+       ORDER BY s.k_index DESC, q.qso_date DESC
+       LIMIT ?`,
+    )
+    .all(TOUGH_CONDITIONS_SAMPLE_SIZE) as { call: string; qsoDate: string; band: string | null; mode: string | null; kIndex: number; aIndex: number | null }[];
+
+  return {
+    totalQsos: total.n,
+    milestones,
+    rarestDxcc,
+    soloCatches: { grids: soloGrids, iota: soloIota, counties: soloCounties },
+    toughConditions,
+  };
+}
+
+statsRoutes.get('/notable', async (c) => {
+  c.header('Cache-Control', 'no-store');
+  const result = await ttlCached('stats:notable', 5 * 60 * 1000, async () => computeNotable())();
+  return c.json(result);
 });

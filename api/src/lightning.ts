@@ -26,6 +26,7 @@ import { distanceKm } from './maidenhead';
 import { getAlertConfig } from './alertConfig';
 import { sendAlertEmail } from './alertEmail';
 import { sendNtfyAlert } from './alertNtfy';
+import { sendDiscordAlert } from './alertDiscord';
 import { sendWebPushAlert } from './alertWebPush';
 
 const BROKER_URL = 'mqtt://blitzortung.ha.sed.pl:1883';
@@ -125,8 +126,9 @@ async function maybeAlert(strike: Strike) {
   if (!cfg.lightningEnabled) return;
   const emailOn = cfg.email?.enabled ?? false;
   const ntfyOn = cfg.ntfy?.enabled ?? false;
+  const discordOn = cfg.discord?.enabled ?? false;
   const webPushOn = cfg.webPushEnabled ?? false;
-  if (!emailOn && !ntfyOn && !webPushOn) return;
+  if (!emailOn && !ntfyOn && !webPushOn && !discordOn) return;
   if (Date.now() - lastAlertAt < ALERT_COOLDOWN_MS) return;
   lastAlertAt = Date.now();
 
@@ -142,6 +144,13 @@ async function maybeAlert(strike: Strike) {
   if (ntfyOn) {
     try {
       await sendNtfyAlert(subject, text);
+    } catch {
+      // Same.
+    }
+  }
+  if (discordOn) {
+    try {
+      await sendDiscordAlert(subject, text);
     } catch {
       // Same.
     }

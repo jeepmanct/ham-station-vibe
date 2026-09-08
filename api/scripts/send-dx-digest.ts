@@ -12,6 +12,7 @@ import { distanceKm } from '../src/maidenhead';
 import { resolveWorkedEntities } from '../src/dxccEntities';
 import { sendAlertEmail } from '../src/alertEmail';
 import { sendNtfyAlert } from '../src/alertNtfy';
+import { sendDiscordAlert } from '../src/alertDiscord';
 import { sendWebPushAlert } from '../src/alertWebPush';
 import { formatDistance } from '../src/siteSettings';
 
@@ -28,8 +29,9 @@ async function main() {
   }
   const emailOn = cfg.email?.enabled ?? false;
   const ntfyOn = cfg.ntfy?.enabled ?? false;
+  const discordOn = cfg.discord?.enabled ?? false;
   const webPushOn = cfg.webPushEnabled ?? false;
-  if (!emailOn && !ntfyOn && !webPushOn) {
+  if (!emailOn && !ntfyOn && !webPushOn && !discordOn) {
     console.log('DX Digest enabled, but no delivery channel (email/push) is on — set one up under Admin.');
     return;
   }
@@ -93,6 +95,16 @@ async function main() {
       // Condensed -- a push notification isn't the place for the full
       // multi-line digest the email gets.
       await sendNtfyAlert(subject, lines[0]);
+      console.log('Sent DX Digest push.');
+    } catch (err) {
+      console.log('DX Digest push failed:', err instanceof Error ? err.message : err);
+    }
+  }
+  if (discordOn) {
+    try {
+      // Condensed -- a push notification isn't the place for the full
+      // multi-line digest the email gets.
+      await sendDiscordAlert(subject, lines[0]);
       console.log('Sent DX Digest push.');
     } catch (err) {
       console.log('DX Digest push failed:', err instanceof Error ? err.message : err);

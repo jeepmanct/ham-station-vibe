@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
 import { db } from '../db';
-import { resolveCallsignEntity } from '../dxccPrefixes';
+import { resolveCallsignEntity, getDxccEntityLocation } from '../dxccPrefixes';
 import { workedEntitiesByCallsign, normalizeNg3kEntity } from '../dxNeeded';
-import { getStationLocation, getStationCallsign } from '../stationLocation';
+import { getStationLocation, getStationCallsign, getEffectiveHomeLocation } from '../stationLocation';
+import { latLonToGrid } from '../maidenhead';
 import { ttlCached } from '../ttlCache';
 
 // These proxy routes previously hit their upstream (dxheat.com, PSK
@@ -379,5 +380,94 @@ conditionsRoutes.get('/dxpeditions', async (c) => {
     return c.json(await ttlCached('conditions:dxpeditions', CALENDAR_FEED_TTL_MS, fetchDxpeditions)());
   } catch {
     return c.json([]);
+  }
+});
+
+// Point-to-point propagation predictor -- "will I likely be able to work
+// this specific station/grid right now" is a genuinely different question
+// from the global MUF map above (that answers "how are conditions
+// everywhere," this answers "how are conditions on THIS specific path").
+// Deliberately NOT reimplemented from raw SFI/K-index the way everything
+// else on this site is -- real point-to-point HF prediction needs an
+// actual ionospheric model (ray tracing against real ionosonde data), the
+// same class of "don't reinvent real domain science" call already made for
+// the MUF map itself. prop.kc2g.com's own public /ptp/ page calls this
+// exact `/api/ptp.json` endpoint client-side with no auth/key, found by
+// reading their (open-source, github.com/arodland/prop) frontend directly
+// rather than guessing -- this proxies the same call server-side, same
+// "avoid a third-party fetch from the browser, fail gracefully behind our
+// own API" reasoning as every other proxy route in this file.
+const PTP_GRID_RE = /^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2})?$/;
+const HF_BANDS: { band: string; mhz: number }[] = [
+  { band: '160M', mhz: 1.9 },
+  { band: '80M', mhz: 3.75 },
+  { band: '40M', mhz: 7.15 },
+  { band: '30M', mhz: 10.1 },
+  { band: '20M', mhz: 14.15 },
+  { band: '17M', mhz: 18.1 },
+  { band: '15M', mhz: 21.2 },
+  { band: '12M', mhz: 24.9 },
+  { band: '10M', mhz: 28.4 },
+];
+
+async function fetchPtp(fromGrid: string, toGrid: string) {
+  const url = `https://prop.kc2g.com/api/ptp.json?from_grid=${encodeURIComponent(fromGrid)}&to_grid=${encodeURIComponent(toGrid)}&path=both&debug=0`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+  if (!res.ok) throw new Error(`prop.kc2g.com HTTP ${res.status}`);
+  const rows = (await res.json()) as { ts: number; metrics: { luf_sp?: number; muf_sp?: number; luf_lp?: number; muf_lp?: number } }[];
+  return rows.map((r) => {
+    const openBandsSp = HF_BANDS.filter((b) => r.metrics.luf_sp != null && r.metrics.muf_sp != null && b.mhz >= r.metrics.luf_sp && b.mhz <= r.metrics.muf_sp).map((b) => b.band);
+    const openBandsLp =
+      r.metrics.luf_lp != null && r.metrics.muf_lp != null
+        ? HF_BANDS.filter((b) => b.mhz >= r.metrics.luf_lp! && b.mhz <= r.metrics.muf_lp!).map((b) => b.band)
+        : null;
+    return {
+      ts: r.ts,
+      mufShortPath: r.metrics.muf_sp ?? null,
+      lufShortPath: r.metrics.luf_sp ?? null,
+      openBandsShortPath: openBandsSp,
+      mufLongPath: r.metrics.muf_lp ?? null,
+      lufLongPath: r.metrics.luf_lp ?? null,
+      openBandsLongPath: openBandsLp,
+    };
+  });
+}
+
+conditionsRoutes.get('/ptp', async (c) => {
+  c.header('Cache-Control', 'no-store');
+  const target = c.req.query('to')?.trim();
+  if (!target) return c.json({ error: 'to (a grid square or callsign) is required' }, 400);
+
+  const home = getEffectiveHomeLocation();
+  if (!home) return c.json({ error: 'No home station location on file — set Station Location under Admin first.' }, 500);
+  const fromGrid = home.grid && PTP_GRID_RE.test(home.grid) ? home.grid.slice(0, 6) : latLonToGrid(home.lat, home.lon);
+  if (!fromGrid) return c.json({ error: 'Could not resolve home station to a grid square.' }, 500);
+
+  let toGrid: string | null = null;
+  let resolvedVia: 'grid' | 'callsign' | null = null;
+  if (PTP_GRID_RE.test(target)) {
+    toGrid = target;
+    resolvedVia = 'grid';
+  } else {
+    // Not a grid-shaped input -- treat it as a callsign and resolve to its
+    // DXCC entity's reference coordinate (same fallback the DXCC map uses
+    // for never-worked entities with no real QSO to average a position
+    // from) since there's no gridsquare available for a station that
+    // hasn't been logged.
+    const resolved = resolveCallsignEntity(target);
+    const loc = resolved ? getDxccEntityLocation(resolved.entity) : null;
+    if (loc) {
+      toGrid = latLonToGrid(loc.lat, loc.lon);
+      resolvedVia = 'callsign';
+    }
+  }
+  if (!toGrid) return c.json({ error: `Could not resolve "${target}" to a location — try a grid square (e.g. JO65) instead.` }, 400);
+
+  const cacheKey = `conditions:ptp:${fromGrid}:${toGrid}`;
+  try {
+    const hours = await ttlCached(cacheKey, 15 * 60 * 1000, async () => fetchPtp(fromGrid!, toGrid!))();
+    return c.json({ fromGrid, toGrid, resolvedVia, hours });
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : 'Point-to-point prediction failed' }, 502);
   }
 });

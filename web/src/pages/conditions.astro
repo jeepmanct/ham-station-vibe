@@ -70,6 +70,30 @@ import '../styles/lastHeardTable.css';
     <img id="muf-map" alt="Live worldwide MUF map" style="width:100%;border-radius:var(--radius);border:1px solid var(--border);display:block;" />
   </div>
 
+  <div class="card" style="margin-top:1.5rem;" data-tile-id="ptp-predictor">
+    <h2>Point-to-Point Predictor</h2>
+    <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
+      Which bands are likely open to a specific station right now, via a real ionospheric model (<a href="https://prop.kc2g.com/ptp/" target="_blank" rel="noopener">prop.kc2g.com</a>'s own point-to-point predictor, same source as the MUF map above) &mdash; not a rough estimate from just SFI/K-index.
+    </p>
+    <form id="ptp-form" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:flex-end;">
+      <label style="flex:1;min-width:180px;">Target callsign or grid square
+        <input type="text" id="ptp-target" placeholder="e.g. VK6II or JO65" required />
+      </label>
+      <button type="submit" class="btn">Predict</button>
+    </form>
+    <p id="ptp-status" class="status-line" style="margin-top:0.5rem;"></p>
+    <div id="ptp-result" hidden style="margin-top:0.75rem;">
+      <p class="chart-desc" id="ptp-summary" style="margin:0 0 0.5rem;"></p>
+      <div style="overflow-x:auto;">
+        <table id="ptp-table" style="font-size:0.78rem;">
+          <thead><tr id="ptp-table-head"></tr></thead>
+          <tbody id="ptp-table-body"></tbody>
+        </table>
+      </div>
+      <p style="margin:0.5rem 0 0;color:var(--muted);font-size:0.78rem;">Green = band likely open that hour (UTC), by short-path MUF/LUF. Times are the next 24 hours from now.</p>
+    </div>
+  </div>
+
   <div class="card" style="margin-top:1.5rem;" data-tile-id="ncdxf-beacons">
     <h2>NCDXF/IARU Beacons</h2>
     <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Which of the 18 <a href="https://www.ncdxf.org/beacon/" target="_blank" rel="noopener">NCDXF/IARU beacons</a> is on each band right now &mdash; computed client-side from the fixed schedule, no live data pulled.</p>
@@ -191,6 +215,7 @@ import '../styles/lastHeardTable.css';
     import { pollWhileVisible } from '../lib/polling';
     import { greatCircleArc } from '../lib/geo';
     import { gridToLatLon } from '../lib/maidenhead';
+    import { cartoTileUrl, applyCartoKey } from '../lib/basemap';
     import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
 
     const conditionsTileContainers = ['conditions-tiles-propagation', 'conditions-tiles-sky', 'conditions-tiles-activity'].map(
@@ -720,11 +745,13 @@ import '../styles/lastHeardTable.css';
       if (lightningMap) return;
       lightningMap = L.map('lightning-map').setView([lat, lon], 7);
       const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      L.tileLayer(`https://{s}.basemaps.cartocdn.com/${isDark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
+      const lightningMapStyle = isDark ? 'dark_all' : 'light_all';
+      const lightningTileLayer = L.tileLayer(cartoTileUrl(lightningMapStyle), {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
         subdomains: 'abcd',
         maxZoom: 18,
       }).addTo(lightningMap);
+      applyCartoKey(lightningTileLayer, lightningMapStyle);
       const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#5eead4';
       L.marker([lat, lon]).addTo(lightningMap).bindTooltip('Station QTH');
       L.circle([lat, lon], { radius: alertRadiusKm * 1000, color: accent, fill: false, weight: 2 }).addTo(lightningMap);
@@ -795,31 +822,35 @@ import '../styles/lastHeardTable.css';
     // square, redrawn every time each load*Reports() refreshes (60s cycle). ---
     const pskMap = L.map('psk-map', { worldCopyJump: true }).setView([20, 0], 2);
     const pskIsDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${pskIsDark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
+    const pskMapStyle = pskIsDark ? 'dark_all' : 'light_all';
+    const pskTileLayer = L.tileLayer(cartoTileUrl(pskMapStyle), {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
       subdomains: 'abcd',
       maxZoom: 18,
     }).addTo(pskMap);
+    applyCartoKey(pskTileLayer, pskMapStyle);
     const pskRenderer = L.canvas({ padding: 0.5 });
     const pskLayer = L.layerGroup().addTo(pskMap);
     const pskAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#5eead4';
 
     const wsprMap = L.map('wspr-map', { worldCopyJump: true }).setView([20, 0], 2);
-    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${pskIsDark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
+    const wsprTileLayer = L.tileLayer(cartoTileUrl(pskMapStyle), {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
       subdomains: 'abcd',
       maxZoom: 18,
     }).addTo(wsprMap);
+    applyCartoKey(wsprTileLayer, pskMapStyle);
     const wsprRenderer = L.canvas({ padding: 0.5 });
     const wsprLayer = L.layerGroup().addTo(wsprMap);
     const wsprAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent-2').trim() || '#f5a962';
 
     const rbnMap = L.map('rbn-map', { worldCopyJump: true }).setView([20, 0], 2);
-    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${pskIsDark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
+    const rbnTileLayer = L.tileLayer(cartoTileUrl(pskMapStyle), {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
       subdomains: 'abcd',
       maxZoom: 18,
     }).addTo(rbnMap);
+    applyCartoKey(rbnTileLayer, pskMapStyle);
     const rbnRenderer = L.canvas({ padding: 0.5 });
     const rbnLayer = L.layerGroup().addTo(rbnMap);
     const rbnAccent = getComputedStyle(document.documentElement).getPropertyValue('--band-3').trim() || '#199e70';
@@ -1002,5 +1033,52 @@ import '../styles/lastHeardTable.css';
     }
     loadPskReports();
     pollWhileVisible(loadPskReports, 60000);
+
+    // --- Point-to-Point Predictor ---
+    type PtpResp = {
+      fromGrid: string;
+      toGrid: string;
+      resolvedVia: 'grid' | 'callsign';
+      hours: { ts: number; mufShortPath: number | null; lufShortPath: number | null; openBandsShortPath: string[] }[];
+    };
+    const PTP_BANDS = ['160M', '80M', '40M', '30M', '20M', '17M', '15M', '12M', '10M'];
+    document.getElementById('ptp-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const target = (document.getElementById('ptp-target') as HTMLInputElement).value.trim();
+      if (!target) return;
+      const status = document.getElementById('ptp-status')!;
+      const result = document.getElementById('ptp-result')!;
+      result.hidden = true;
+      status.textContent = 'Predicting…';
+      try {
+        const res = await fetch(`/api/conditions/ptp?to=${encodeURIComponent(target)}`);
+        const data = (await res.json()) as PtpResp & { error?: string };
+        if (!res.ok || data.error) {
+          status.textContent = data.error ?? 'Prediction failed.';
+          return;
+        }
+        status.textContent = '';
+        document.getElementById('ptp-summary')!.textContent =
+          `${data.fromGrid} → ${data.toGrid}${data.resolvedVia === 'callsign' ? ` (approximate location for ${target.toUpperCase()})` : ''}`;
+
+        const head = document.getElementById('ptp-table-head')!;
+        head.innerHTML = '<th style="text-align:left;">Band</th>' + data.hours.map((h) => `<th>${new Date(h.ts * 1000).toLocaleTimeString(undefined, { hour: '2-digit', hour12: false, timeZone: 'UTC' })}z</th>`).join('');
+
+        const body = document.getElementById('ptp-table-body')!;
+        body.innerHTML = PTP_BANDS.map((band) => {
+          const cells = data.hours
+            .map((h) => {
+              const open = h.openBandsShortPath.includes(band);
+              return `<td style="text-align:center;background:${open ? 'var(--status-good)' : 'transparent'};color:${open ? '#fff' : 'var(--muted)'};">${open ? '●' : '·'}</td>`;
+            })
+            .join('');
+          return `<tr><td style="font-weight:600;white-space:nowrap;">${band}</td>${cells}</tr>`;
+        }).join('');
+
+        result.hidden = false;
+      } catch {
+        status.textContent = 'Prediction failed.';
+      }
+    });
   </script>
 </Base>

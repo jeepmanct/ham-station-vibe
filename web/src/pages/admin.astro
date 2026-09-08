@@ -218,6 +218,12 @@ import Base from '../layouts/Base.astro';
           <label>HamQTH Username<input type="text" id="cr-hamqth-user" placeholder="W1AW" /></label>
           <label>HamQTH Password<input type="password" id="cr-hamqth-pass" placeholder="leave blank to keep existing" autocomplete="new-password" /></label>
           <p style="grid-column:1 / -1;margin:-0.4rem 0 0;color:var(--muted);font-size:0.78rem;">Free account at <a href="https://www.hamqth.com/authenticate.php" target="_blank" rel="noopener">hamqth.com</a> &mdash; powers the public Callsign Lookup tool on /tools.</p>
+          <label>Club Log Email<input type="text" id="cr-clublog-email" placeholder="you@example.com" /></label>
+          <label>Club Log Password<input type="password" id="cr-clublog-pass" placeholder="leave blank to keep existing" autocomplete="new-password" /></label>
+          <label>Club Log API Key<input type="password" id="cr-clublog-key" placeholder="leave blank to keep existing" autocomplete="new-password" /></label>
+          <p style="grid-column:1 / -1;margin:-0.4rem 0 0;color:var(--muted);font-size:0.78rem;">All three are required together. The API key isn't self-service &mdash; request one from <a href="mailto:support@clublog.org">support@clublog.org</a> (or their <a href="https://clublog.freshdesk.com" target="_blank" rel="noopener">help desk</a>) for this account. Powers the log upload below.</p>
+          <label>Map Basemap (CARTO) API Key<input type="text" id="cr-carto-key" placeholder="not set — map tiles will show a watermark" /></label>
+          <p style="grid-column:1 / -1;margin:-0.4rem 0 0;color:var(--muted);font-size:0.78rem;">CARTO now requires a free key for the map tiles used on QSO Map/Satellites/Awards/Conditions &mdash; request one instantly (no approval queue) at <a href="https://carto.com/basemaps/apikey/" target="_blank" rel="noopener">carto.com/basemaps/apikey</a>. Not a secret (every visitor's browser uses it directly), so it's shown here in plain text like the IP/host fields below, not masked.</p>
           <p id="creds-status" class="status-line"></p>
           <div style="grid-column:1 / -1;">
             <button type="submit" class="btn">Save</button>
@@ -313,6 +319,15 @@ import Base from '../layouts/Base.astro';
 
     <section>
       <div class="card">
+        <h2>Upload to Club Log</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Pushes the entire log to Club Log so DXpeditions and other hams can see they've already worked you &mdash; always merges into whatever's already there, never replaces or clears it. Safe to run more than once; Club Log treats an already-uploaded QSO as a duplicate rather than a problem.</p>
+        <button type="button" id="clublog-upload" class="btn">Upload full log now</button>
+        <p id="clublog-upload-status" class="status-line"></p>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
         <h2>Import LoTW ADIF</h2>
         <form id="adif-form" style="display:flex;flex-direction:column;gap:0.75rem;">
           <input type="file" id="adif-file" accept=".adi,.adif" required />
@@ -392,6 +407,23 @@ import Base from '../layouts/Base.astro';
           <div style="grid-column:1 / -1;display:flex;gap:0.75rem;flex-wrap:wrap;">
             <button type="submit" class="btn">Save</button>
             <button type="button" id="alert-ntfy-test" class="btn secondary">Send test push</button>
+          </div>
+        </form>
+
+        <h3 style="margin:1.75rem 0 0.5rem;font-size:0.95rem;">Discord</h3>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">
+          Posts alerts into a Discord channel via an incoming webhook &mdash; in Discord, go to a channel's Settings &gt; Integrations &gt; Webhooks &gt; New Webhook, then paste its URL below.
+          Treat the URL like a password: anyone who has it can post into that channel.
+        </p>
+        <form id="alert-discord-form" class="form-grid">
+          <label class="form-grid-wide">Webhook URL
+            <input type="url" id="ad-webhook-url" placeholder="https://discord.com/api/webhooks/..." />
+          </label>
+          <label class="form-grid-checkbox"><input type="checkbox" id="ad-enabled" /> Discord alerts enabled</label>
+          <p id="alert-discord-status" class="status-line"></p>
+          <div style="grid-column:1 / -1;display:flex;gap:0.75rem;flex-wrap:wrap;">
+            <button type="submit" class="btn">Save</button>
+            <button type="button" id="alert-discord-test" class="btn secondary">Send test message</button>
           </div>
         </form>
 
@@ -875,6 +907,10 @@ import Base from '../layouts/Base.astro';
       hamqthPasswordConfigured: boolean;
       brandmeisterTalkgroups: string;
       kiwisdrHost: string;
+      clublogEmail: string;
+      clublogPasswordConfigured: boolean;
+      clublogApiKeyConfigured: boolean;
+      cartoApiKey: string;
     };
 
     const crQrzKey = document.getElementById('cr-qrz-key') as HTMLInputElement;
@@ -891,6 +927,10 @@ import Base from '../layouts/Base.astro';
     const crOrRadius = document.getElementById('cr-or-radius') as HTMLInputElement;
     const crDmrTgs = document.getElementById('cr-dmr-tgs') as HTMLInputElement;
     const crKiwiHost = document.getElementById('cr-kiwi-host') as HTMLInputElement;
+    const crClublogEmail = document.getElementById('cr-clublog-email') as HTMLInputElement;
+    const crClublogPass = document.getElementById('cr-clublog-pass') as HTMLInputElement;
+    const crClublogKey = document.getElementById('cr-clublog-key') as HTMLInputElement;
+    const crCartoKey = document.getElementById('cr-carto-key') as HTMLInputElement;
     const credsStatus = document.getElementById('creds-status')!;
     const flexConfigStatus = document.getElementById('flex-config-status')!;
     const orConfigStatus = document.getElementById('or-config-status')!;
@@ -917,6 +957,10 @@ import Base from '../layouts/Base.astro';
       crHamqthPass.placeholder = cfg.hamqthPasswordConfigured ? 'leave blank to keep existing' : 'not yet set';
       crDmrTgs.value = cfg.brandmeisterTalkgroups;
       crKiwiHost.value = cfg.kiwisdrHost;
+      crClublogEmail.value = cfg.clublogEmail;
+      crClublogPass.placeholder = cfg.clublogPasswordConfigured ? 'leave blank to keep existing' : 'not yet set';
+      crClublogKey.placeholder = cfg.clublogApiKeyConfigured ? 'leave blank to keep existing' : 'not yet set';
+      crCartoKey.value = cfg.cartoApiKey;
     }
 
     async function saveServiceCredentials(body: Record<string, unknown>, statusEl: HTMLElement) {
@@ -940,6 +984,10 @@ import Base from '../layouts/Base.astro';
         crHamqthPass.placeholder = cfg.hamqthPasswordConfigured ? 'leave blank to keep existing' : 'not yet set';
         crDmrTgs.value = cfg.brandmeisterTalkgroups;
         crKiwiHost.value = cfg.kiwisdrHost;
+        crClublogEmail.value = cfg.clublogEmail;
+        crClublogPass.placeholder = cfg.clublogPasswordConfigured ? 'leave blank to keep existing' : 'not yet set';
+        crClublogKey.placeholder = cfg.clublogApiKeyConfigured ? 'leave blank to keep existing' : 'not yet set';
+        crCartoKey.value = cfg.cartoApiKey;
         statusEl.textContent = 'Saved.';
       } else {
         const errBody = await res.json().catch(() => ({}));
@@ -958,6 +1006,10 @@ import Base from '../layouts/Base.astro';
           lotwPassword: crLotwPass.value || undefined,
           hamqthUsername: crHamqthUser.value || undefined,
           hamqthPassword: crHamqthPass.value || undefined,
+          clublogEmail: crClublogEmail.value || undefined,
+          clublogPassword: crClublogPass.value || undefined,
+          clublogApiKey: crClublogKey.value || undefined,
+          cartoApiKey: crCartoKey.value || undefined,
         },
         credsStatus,
       );
@@ -965,6 +1017,8 @@ import Base from '../layouts/Base.astro';
       crEqslPass.value = '';
       crLotwPass.value = '';
       crHamqthPass.value = '';
+      crClublogPass.value = '';
+      crClublogKey.value = '';
     });
 
     document.getElementById('flex-config-form')!.addEventListener('submit', async (e) => {
@@ -1319,6 +1373,22 @@ import Base from '../layouts/Base.astro';
     document.getElementById('lotw-sync')!.addEventListener('click', () => syncFromLotw(false));
     document.getElementById('lotw-full-sync')!.addEventListener('click', () => syncFromLotw(true));
 
+    document.getElementById('clublog-upload')!.addEventListener('click', async () => {
+      const status = document.getElementById('clublog-upload-status')!;
+      status.textContent = 'Uploading…';
+      const res = await fetch('/api/clublog/upload', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (res.ok) {
+        const { qsoCount, message } = await res.json();
+        status.textContent = `Uploaded ${qsoCount.toLocaleString()} QSOs — ${message}`;
+      } else {
+        const body = await res.json().catch(() => ({}));
+        status.textContent = body.error ?? 'Club Log upload failed.';
+      }
+    });
+
     async function syncSolarData(full: boolean) {
       const status = document.getElementById('solar-status')!;
       status.textContent = 'Syncing…';
@@ -1471,6 +1541,7 @@ import Base from '../layouts/Base.astro';
     type AlertConfigPublic = {
       email: { smtpHost: string; smtpPort: number; smtpUser: string; alertTo: string; enabled: boolean; passwordConfigured: boolean };
       ntfy: { topic: string; enabled: boolean };
+      discord: { webhookUrlConfigured: boolean; enabled: boolean };
       webPushEnabled: boolean;
       vhfEnabled: boolean;
       flareEnabled: boolean;
@@ -1496,6 +1567,10 @@ import Base from '../layouts/Base.astro';
     const anTopic = document.getElementById('an-topic') as HTMLInputElement;
     const anEnabled = document.getElementById('an-enabled') as HTMLInputElement;
     const alertNtfyStatus = document.getElementById('alert-ntfy-status')!;
+
+    const adWebhookUrl = document.getElementById('ad-webhook-url') as HTMLInputElement;
+    const adEnabled = document.getElementById('ad-enabled') as HTMLInputElement;
+    const alertDiscordStatus = document.getElementById('alert-discord-status')!;
 
     const awpEnabled = document.getElementById('awp-enabled') as HTMLInputElement;
     const alertWebPushStatus = document.getElementById('alert-webpush-status')!;
@@ -1545,6 +1620,8 @@ import Base from '../layouts/Base.astro';
       aePass.placeholder = cfg.email.passwordConfigured ? 'leave blank to keep existing' : 'app-specific password';
       anTopic.value = cfg.ntfy.topic;
       anEnabled.checked = cfg.ntfy.enabled;
+      adWebhookUrl.placeholder = cfg.discord.webhookUrlConfigured ? 'leave blank to keep existing' : 'https://discord.com/api/webhooks/...';
+      adEnabled.checked = cfg.discord.enabled;
       awpEnabled.checked = cfg.webPushEnabled;
       refreshWebPushSubscriptionStatus();
       avEnabled.checked = cfg.vhfEnabled;
@@ -1599,6 +1676,39 @@ import Base from '../layouts/Base.astro';
       } else {
         const body = await res.json().catch(() => ({}));
         alertEmailStatus.textContent = body.error ?? 'Test email failed.';
+      }
+    });
+
+    document.getElementById('alert-discord-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertDiscordStatus.textContent = 'Saving…';
+      const res = await fetch('/api/alert-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify({ discord: { webhookUrl: adWebhookUrl.value.trim() || undefined, enabled: adEnabled.checked } }),
+      });
+      if (res.ok) {
+        const cfg: AlertConfigPublic = await res.json();
+        adWebhookUrl.value = '';
+        adWebhookUrl.placeholder = cfg.discord.webhookUrlConfigured ? 'leave blank to keep existing' : 'https://discord.com/api/webhooks/...';
+        alertDiscordStatus.textContent = 'Saved.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alertDiscordStatus.textContent = body.error ?? 'Save failed.';
+      }
+    });
+
+    document.getElementById('alert-discord-test')!.addEventListener('click', async () => {
+      alertDiscordStatus.textContent = 'Sending test message…';
+      const res = await fetch('/api/alert-config/test-discord', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+      });
+      if (res.ok) {
+        alertDiscordStatus.textContent = 'Test message sent — check the Discord channel.';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alertDiscordStatus.textContent = body.error ?? 'Test message failed.';
       }
     });
 

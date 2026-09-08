@@ -26,6 +26,10 @@ serviceCredentialsRoutes.post('/', requireAuth, async (c) => {
     hamqthPassword: body.hamqthPassword ? String(body.hamqthPassword) : undefined,
     brandmeisterTalkgroups: body.brandmeisterTalkgroups !== undefined ? String(body.brandmeisterTalkgroups).trim() : undefined,
     kiwisdrHost: body.kiwisdrHost !== undefined ? String(body.kiwisdrHost).trim() : undefined,
+    clublogEmail: body.clublogEmail !== undefined ? String(body.clublogEmail).trim() : undefined,
+    clublogPassword: body.clublogPassword ? String(body.clublogPassword) : undefined,
+    clublogApiKey: body.clublogApiKey ? String(body.clublogApiKey).trim() : undefined,
+    cartoApiKey: body.cartoApiKey !== undefined ? String(body.cartoApiKey).trim() : undefined,
   });
   return c.json(getServiceCredentialsPublic());
 });

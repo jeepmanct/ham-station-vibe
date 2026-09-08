@@ -15,12 +15,16 @@ type Row = {
   hamqth_password: string | null;
   brandmeister_talkgroups: string | null;
   kiwisdr_host: string | null;
+  clublog_email: string | null;
+  clublog_password: string | null;
+  clublog_api_key: string | null;
+  carto_api_key: string | null;
 };
 
 function getRow(): Row | null {
   return db
     .query(
-      'SELECT qrz_api_key, eqsl_username, eqsl_password, lotw_username, lotw_password, flex_radio_ip, open_repeater_api_key, open_repeater_lat, open_repeater_lng, open_repeater_radius_km, hamqth_username, hamqth_password, brandmeister_talkgroups, kiwisdr_host FROM service_credentials WHERE id = 1',
+      'SELECT qrz_api_key, eqsl_username, eqsl_password, lotw_username, lotw_password, flex_radio_ip, open_repeater_api_key, open_repeater_lat, open_repeater_lng, open_repeater_radius_km, hamqth_username, hamqth_password, brandmeister_talkgroups, kiwisdr_host, clublog_email, clublog_password, clublog_api_key, carto_api_key FROM service_credentials WHERE id = 1',
     )
     .get() as Row | null;
 }
@@ -78,6 +82,24 @@ export function getKiwiSdrHost(): string | null {
   return getRow()?.kiwisdr_host || null;
 }
 
+// No .env-based predecessor -- this is a new integration, DB-only. Club Log
+// requires all three (account email/password + a separately-issued API
+// key, requested from their support desk, not self-serve like QRZ's) or
+// the upload/push calls will just get a 403 -- see clublog.ts.
+export function getClublogCredentials(): { email: string; password: string; apiKey: string } | null {
+  const row = getRow();
+  return row?.clublog_email && row.clublog_password && row.clublog_api_key
+    ? { email: row.clublog_email, password: row.clublog_password, apiKey: row.clublog_api_key }
+    : null;
+}
+
+// NOT a secret -- see db.ts's carto_api_key comment. Returned as its
+// actual value (not a configured-only flag) from GET /api/settings so
+// every visitor's browser can use it directly in map tile URLs.
+export function getCartoApiKey(): string | null {
+  return getRow()?.carto_api_key || null;
+}
+
 // No API key involved at all -- just which talkgroup(s) to filter
 // BrandMeister's public live-activity feed down to.
 export function getBrandmeisterTalkgroups(): number[] {
@@ -109,6 +131,12 @@ export function getServiceCredentialsPublic() {
     hamqthPasswordConfigured: !!row?.hamqth_password,
     brandmeisterTalkgroups: row?.brandmeister_talkgroups || '',
     kiwisdrHost: row?.kiwisdr_host || '',
+    clublogEmail: row?.clublog_email || '',
+    clublogPasswordConfigured: !!row?.clublog_password,
+    clublogApiKeyConfigured: !!row?.clublog_api_key,
+    // Not secret (see db.ts) -- shown as the actual value on the admin
+    // form, same as flexRadioIp above, unlike every *Configured flag.
+    cartoApiKey: row?.carto_api_key || '',
   };
 }
 
@@ -128,6 +156,10 @@ export function setServiceCredentials(cfg: {
   hamqthPassword?: string;
   brandmeisterTalkgroups?: string;
   kiwisdrHost?: string;
+  clublogEmail?: string;
+  clublogPassword?: string;
+  clublogApiKey?: string;
+  cartoApiKey?: string;
 }) {
   const existing = getRow();
   const qrzApiKey = cfg.qrzApiKey ? cfg.qrzApiKey : (existing?.qrz_api_key ?? null);
@@ -146,9 +178,13 @@ export function setServiceCredentials(cfg: {
   const brandmeisterTalkgroups =
     cfg.brandmeisterTalkgroups !== undefined ? cfg.brandmeisterTalkgroups || null : (existing?.brandmeister_talkgroups ?? null);
   const kiwisdrHost = cfg.kiwisdrHost !== undefined ? cfg.kiwisdrHost || null : (existing?.kiwisdr_host ?? null);
+  const clublogEmail = cfg.clublogEmail !== undefined ? cfg.clublogEmail || null : (existing?.clublog_email ?? null);
+  const clublogPassword = cfg.clublogPassword ? cfg.clublogPassword : (existing?.clublog_password ?? null);
+  const clublogApiKey = cfg.clublogApiKey ? cfg.clublogApiKey : (existing?.clublog_api_key ?? null);
+  const cartoApiKey = cfg.cartoApiKey !== undefined ? cfg.cartoApiKey || null : (existing?.carto_api_key ?? null);
 
   db.query(
-    `INSERT INTO service_credentials (id, qrz_api_key, eqsl_username, eqsl_password, lotw_username, lotw_password, flex_radio_ip, open_repeater_api_key, open_repeater_lat, open_repeater_lng, open_repeater_radius_km, hamqth_username, hamqth_password, brandmeister_talkgroups, kiwisdr_host) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO service_credentials (id, qrz_api_key, eqsl_username, eqsl_password, lotw_username, lotw_password, flex_radio_ip, open_repeater_api_key, open_repeater_lat, open_repeater_lng, open_repeater_radius_km, hamqth_username, hamqth_password, brandmeister_talkgroups, kiwisdr_host, clublog_email, clublog_password, clublog_api_key, carto_api_key) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        qrz_api_key = excluded.qrz_api_key,
        eqsl_username = excluded.eqsl_username,
@@ -163,7 +199,11 @@ export function setServiceCredentials(cfg: {
        hamqth_username = excluded.hamqth_username,
        hamqth_password = excluded.hamqth_password,
        brandmeister_talkgroups = excluded.brandmeister_talkgroups,
-       kiwisdr_host = excluded.kiwisdr_host`,
+       kiwisdr_host = excluded.kiwisdr_host,
+       clublog_email = excluded.clublog_email,
+       clublog_password = excluded.clublog_password,
+       clublog_api_key = excluded.clublog_api_key,
+       carto_api_key = excluded.carto_api_key`,
   ).run(
     qrzApiKey,
     eqslUsername,
@@ -179,5 +219,9 @@ export function setServiceCredentials(cfg: {
     hamqthPassword,
     brandmeisterTalkgroups,
     kiwisdrHost,
+    clublogEmail,
+    clublogPassword,
+    clublogApiKey,
+    cartoApiKey,
   );
 }

@@ -20,6 +20,11 @@ export type NtfyConfig = {
   enabled: boolean;
 };
 
+export type DiscordConfig = {
+  webhookUrl: string;
+  enabled: boolean;
+};
+
 type Row = {
   smtp_host: string | null;
   smtp_port: number | null;
@@ -29,6 +34,8 @@ type Row = {
   enabled: number;
   ntfy_topic: string | null;
   ntfy_enabled: number;
+  discord_webhook_url: string | null;
+  discord_enabled: number;
   webpush_enabled: number;
   vhf_enabled: number;
   flare_enabled: number;
@@ -46,7 +53,7 @@ type Row = {
 function getRow(): Row | null {
   return db
     .query(
-      'SELECT smtp_host, smtp_port, smtp_user, smtp_pass, alert_to, enabled, ntfy_topic, ntfy_enabled, webpush_enabled, vhf_enabled, flare_enabled, wind_enabled, dx_us_spotters_only, vhf_us_spotters_only, kp_enabled, tropo_enabled, sat_pass_enabled, lightning_enabled, dxcc_confirmed_enabled, dx_digest_enabled FROM alert_email_config WHERE id = 1',
+      'SELECT smtp_host, smtp_port, smtp_user, smtp_pass, alert_to, enabled, ntfy_topic, ntfy_enabled, discord_webhook_url, discord_enabled, webpush_enabled, vhf_enabled, flare_enabled, wind_enabled, dx_us_spotters_only, vhf_us_spotters_only, kp_enabled, tropo_enabled, sat_pass_enabled, lightning_enabled, dxcc_confirmed_enabled, dx_digest_enabled FROM alert_email_config WHERE id = 1',
     )
     .get() as Row | null;
 }
@@ -55,6 +62,7 @@ function getRow(): Row | null {
 export function getAlertConfig(): {
   email: EmailConfig | null;
   ntfy: NtfyConfig | null;
+  discord: DiscordConfig | null;
   webPushEnabled: boolean;
   vhfEnabled: boolean;
   flareEnabled: boolean;
@@ -81,9 +89,11 @@ export function getAlertConfig(): {
         }
       : null;
   const ntfy = row?.ntfy_topic ? { topic: row.ntfy_topic, enabled: row.ntfy_enabled === 1 } : null;
+  const discord = row?.discord_webhook_url ? { webhookUrl: row.discord_webhook_url, enabled: row.discord_enabled === 1 } : null;
   return {
     email,
     ntfy,
+    discord,
     webPushEnabled: row?.webpush_enabled === 1,
     vhfEnabled: row?.vhf_enabled === 1,
     flareEnabled: row?.flare_enabled === 1,
@@ -118,6 +128,14 @@ export function getAlertConfigPublic() {
       topic: row?.ntfy_topic ?? '',
       enabled: row?.ntfy_enabled === 1,
     },
+    discord: {
+      // A webhook URL is a bearer credential (anyone with it can post to
+      // the channel) same as the SMTP password -- returned as a
+      // configured-only flag, never the URL itself, same convention as
+      // email.passwordConfigured above.
+      webhookUrlConfigured: !!row?.discord_webhook_url,
+      enabled: row?.discord_enabled === 1,
+    },
     webPushEnabled: row?.webpush_enabled === 1,
     vhfEnabled: row?.vhf_enabled === 1,
     flareEnabled: row?.flare_enabled === 1,
@@ -144,6 +162,7 @@ export function getAlertConfigPublic() {
 export function setAlertConfig(cfg: {
   email?: Omit<EmailConfig, 'smtpPass'> & { smtpPass?: string };
   ntfy?: NtfyConfig;
+  discord?: Omit<DiscordConfig, 'webhookUrl'> & { webhookUrl?: string };
   webPushEnabled?: boolean;
   vhfEnabled?: boolean;
   flareEnabled?: boolean;
@@ -160,6 +179,7 @@ export function setAlertConfig(cfg: {
   const existing = getRow();
   const email = cfg.email;
   const ntfy = cfg.ntfy;
+  const discord = cfg.discord;
 
   const smtpHost = email ? email.smtpHost : (existing?.smtp_host ?? null);
   const smtpPort = email ? email.smtpPort : (existing?.smtp_port ?? null);
@@ -169,6 +189,10 @@ export function setAlertConfig(cfg: {
   const enabled = email ? (email.enabled ? 1 : 0) : (existing?.enabled ?? 0);
   const ntfyTopic = ntfy ? ntfy.topic : (existing?.ntfy_topic ?? null);
   const ntfyEnabled = ntfy ? (ntfy.enabled ? 1 : 0) : (existing?.ntfy_enabled ?? 0);
+  // Blank webhookUrl on save = keep whatever's already stored, same
+  // "leave blank to keep existing" convention as email.smtpPass.
+  const discordWebhookUrl = discord ? discord.webhookUrl || (existing?.discord_webhook_url ?? null) : (existing?.discord_webhook_url ?? null);
+  const discordEnabled = discord ? (discord.enabled ? 1 : 0) : (existing?.discord_enabled ?? 0);
   const webPushEnabled = cfg.webPushEnabled !== undefined ? (cfg.webPushEnabled ? 1 : 0) : (existing?.webpush_enabled ?? 0);
   const vhfEnabled = cfg.vhfEnabled !== undefined ? (cfg.vhfEnabled ? 1 : 0) : (existing?.vhf_enabled ?? 0);
   const flareEnabled = cfg.flareEnabled !== undefined ? (cfg.flareEnabled ? 1 : 0) : (existing?.flare_enabled ?? 0);
@@ -184,8 +208,8 @@ export function setAlertConfig(cfg: {
   const dxDigestEnabled = cfg.dxDigestEnabled !== undefined ? (cfg.dxDigestEnabled ? 1 : 0) : (existing?.dx_digest_enabled ?? 0);
 
   db.query(
-    `INSERT INTO alert_email_config (id, smtp_host, smtp_port, smtp_user, smtp_pass, alert_to, enabled, ntfy_topic, ntfy_enabled, webpush_enabled, vhf_enabled, flare_enabled, wind_enabled, dx_us_spotters_only, vhf_us_spotters_only, kp_enabled, tropo_enabled, sat_pass_enabled, lightning_enabled, dxcc_confirmed_enabled, dx_digest_enabled)
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO alert_email_config (id, smtp_host, smtp_port, smtp_user, smtp_pass, alert_to, enabled, ntfy_topic, ntfy_enabled, discord_webhook_url, discord_enabled, webpush_enabled, vhf_enabled, flare_enabled, wind_enabled, dx_us_spotters_only, vhf_us_spotters_only, kp_enabled, tropo_enabled, sat_pass_enabled, lightning_enabled, dxcc_confirmed_enabled, dx_digest_enabled)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        smtp_host = excluded.smtp_host,
        smtp_port = excluded.smtp_port,
@@ -195,6 +219,8 @@ export function setAlertConfig(cfg: {
        enabled = excluded.enabled,
        ntfy_topic = excluded.ntfy_topic,
        ntfy_enabled = excluded.ntfy_enabled,
+       discord_webhook_url = excluded.discord_webhook_url,
+       discord_enabled = excluded.discord_enabled,
        webpush_enabled = excluded.webpush_enabled,
        vhf_enabled = excluded.vhf_enabled,
        flare_enabled = excluded.flare_enabled,
@@ -216,6 +242,8 @@ export function setAlertConfig(cfg: {
     enabled,
     ntfyTopic,
     ntfyEnabled,
+    discordWebhookUrl,
+    discordEnabled,
     webPushEnabled,
     vhfEnabled,
     flareEnabled,

@@ -98,6 +98,28 @@ import '../styles/stats.css';
     </div>
   </div>
 
+  <div class="chart-section" data-tile-id="notable">
+    <h2>Notable QSOs</h2>
+    <p class="chart-desc">Milestone contacts, the rarest DXCC entities actually worked, one-and-done catches, and contacts made despite rough conditions.</p>
+
+    <p class="chart-desc" style="margin:1rem 0 0.4rem;">Milestone Contacts</p>
+    <div id="notable-milestones"></div>
+
+    <p class="chart-desc" style="margin:1.25rem 0 0.4rem;">Rarest DXCC Worked <span style="font-weight:400;">(by Club Log's global demand ranking)</span></p>
+    <div id="notable-rarest-dxcc"></div>
+
+    <div class="chart-row" style="margin-top:1.25rem;">
+      <div>
+        <p class="chart-desc" style="margin-bottom:0.4rem;">Toughest Conditions <span style="font-weight:400;">(highest logged K-index)</span></p>
+        <div id="notable-tough-conditions"></div>
+      </div>
+      <div>
+        <p class="chart-desc" style="margin-bottom:0.4rem;">Solo Catches <span style="font-weight:400;">(worked exactly once, never again)</span></p>
+        <div id="notable-solo-catches"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="chart-section" data-tile-id="solar-cycle-history">
     <h2>Solar Cycle History</h2>
     <p class="chart-desc">Yearly averages, 1947&ndash;present (Solar Flux Index has been recorded since 1947; K-index since 1932).</p>
@@ -192,6 +214,87 @@ import '../styles/stats.css';
           `;
           leaderboard.appendChild(row);
         });
+      });
+
+    // --- Notable QSOs ---
+    type NotableResp = {
+      totalQsos: number;
+      milestones: { n: number; call: string; qsoDate: string; band: string | null; mode: string | null; country: string | null }[];
+      rarestDxcc: { country: string; qsoCount: number; firstWorked: string; rank: number }[];
+      soloCatches: {
+        grids: { count: number; samples: { key: string; call: string; qsoDate: string }[] };
+        iota: { count: number; samples: { key: string; call: string; qsoDate: string }[] };
+        counties: { count: number; samples: { key: string; call: string; qsoDate: string }[] };
+      };
+      toughConditions: { call: string; qsoDate: string; band: string | null; mode: string | null; kIndex: number; aIndex: number | null }[];
+    };
+
+    function leaderboardRow(rank: string, call: string, subtitle: string, value: string): HTMLDivElement {
+      const row = document.createElement('div');
+      row.className = 'leaderboard-row';
+      row.innerHTML = `
+        <span class="rank">${rank}</span>
+        <span><a class="call" href="https://www.qrz.com/db/${encodeURIComponent(call)}" target="_blank" rel="noopener">${call}</a><span class="band"> &middot; ${subtitle}</span></span>
+        <span class="km">${value}</span>
+      `;
+      return row;
+    }
+
+    fetch('/api/stats/notable')
+      .then((r) => r.json())
+      .then((d: NotableResp) => {
+        const milestones = document.getElementById('notable-milestones')!;
+        for (const m of d.milestones) {
+          milestones.appendChild(
+            leaderboardRow(
+              m.n.toLocaleString(),
+              m.call,
+              `${m.band ?? '—'} · ${m.mode ?? '—'} · ${m.country ?? '—'} · ${formatDate(m.qsoDate)}`,
+              m.n === 1 ? 'First QSO' : `${m.n.toLocaleString()}th`,
+            ),
+          );
+        }
+
+        const rarest = document.getElementById('notable-rarest-dxcc')!;
+        if (!d.rarestDxcc.length) {
+          rarest.innerHTML = '<p class="chart-desc">No Club Log demand ranking data synced yet.</p>';
+        }
+        d.rarestDxcc.forEach((r, i) => {
+          rarest.appendChild(
+            leaderboardRow(String(i + 1), r.country, `${r.qsoCount} QSO${r.qsoCount === 1 ? '' : 's'} · first worked ${formatDate(r.firstWorked)}`, `Rank #${r.rank}`),
+          );
+        });
+
+        const tough = document.getElementById('notable-tough-conditions')!;
+        if (!d.toughConditions.length) {
+          tough.innerHTML = '<p class="chart-desc">No solar data on file to compare against yet.</p>';
+        }
+        d.toughConditions.forEach((r, i) => {
+          tough.appendChild(
+            leaderboardRow(String(i + 1), r.call, `${r.band ?? '—'} · ${r.mode ?? '—'} · ${formatDate(r.qsoDate)}`, `K ${r.kIndex.toFixed(1)}`),
+          );
+        });
+
+        // Solo catches -- a compact summary line per category (the full
+        // count) plus a handful of recent examples, rather than another
+        // full leaderboard-style list -- the interesting fact here is
+        // mostly the count itself ("426 grids worked exactly once"), with
+        // the samples just making it concrete.
+        const solo = document.getElementById('notable-solo-catches')!;
+        const categories: { label: string; data: NotableResp['soloCatches']['grids'] }[] = [
+          { label: 'grid squares', data: d.soloCatches.grids },
+          { label: 'IOTA groups', data: d.soloCatches.iota },
+          { label: 'counties', data: d.soloCatches.counties },
+        ];
+        solo.innerHTML = categories
+          .map(({ label, data }) => {
+            const examples = data.samples
+              .slice(0, 4)
+              .map((s) => `${s.key} (${s.call})`)
+              .join(', ');
+            return `<p style="margin:0 0 0.6rem;font-size:0.85rem;"><strong>${data.count.toLocaleString()}</strong> ${label} worked exactly once${examples ? ` — e.g. ${examples}` : ''}</p>`;
+          })
+          .join('');
       });
 
     // --- Activity heatmap + streaks ---

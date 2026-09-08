@@ -160,6 +160,7 @@ import '../styles/awards.css';
     import { downloadOrShareImage } from '../lib/downloadImage';
     import { formatDate } from '../lib/dates';
     import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
+    import { cartoTileUrl, applyCartoKey } from '../lib/basemap';
 
     const awardsTileContainers = ['awards-tiles-top', 'awards-tiles-grid'].map((id) => document.getElementById(id)!);
     for (const container of awardsTileContainers) {
@@ -185,11 +186,13 @@ import '../styles/awards.css';
     type DxccMapEntry = { country: string; lat: number; lon: number; qsoCount: number; confirmed: boolean; worked: boolean };
     const dxccMap = L.map('dxcc-map', { worldCopyJump: true }).setView([20, 0], 2);
     const dxccMapIsDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dxccMapIsDark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
+    const dxccMapStyle = dxccMapIsDark ? 'dark_all' : 'light_all';
+    const dxccMapTileLayer = L.tileLayer(cartoTileUrl(dxccMapStyle), {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
       subdomains: 'abcd',
       maxZoom: 18,
     }).addTo(dxccMap);
+    applyCartoKey(dxccMapTileLayer, dxccMapStyle);
     const dxccMapRenderer = L.canvas({ padding: 0.5 });
     const dxccMapGoodColor = getComputedStyle(document.documentElement).getPropertyValue('--status-good').trim() || '#22c55e';
     const dxccMapWarningColor = getComputedStyle(document.documentElement).getPropertyValue('--status-warning').trim() || '#eab308';

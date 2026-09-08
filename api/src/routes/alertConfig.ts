@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
 import { requireAuth } from '../auth';
-import { getAlertConfigPublic, setAlertConfig } from '../alertConfig';
+import { getAlertConfig, getAlertConfigPublic, setAlertConfig } from '../alertConfig';
 import { sendAlertEmail } from '../alertEmail';
 import { sendNtfyAlert } from '../alertNtfy';
+import { sendDiscordAlert } from '../alertDiscord';
 import { sendWebPushAlert } from '../alertWebPush';
 import { seedDxccConfirmationBaseline } from '../dxccConfirmedAlert';
 
@@ -18,6 +19,7 @@ alertConfigRoutes.post('/', requireAuth, async (c) => {
   if (
     !body?.email &&
     !body?.ntfy &&
+    !body?.discord &&
     body?.webPushEnabled === undefined &&
     body?.vhfEnabled === undefined &&
     body?.flareEnabled === undefined &&
@@ -34,7 +36,7 @@ alertConfigRoutes.post('/', requireAuth, async (c) => {
     return c.json(
       {
         error:
-          'email, ntfy, webPushEnabled, vhfEnabled, flareEnabled, windEnabled, kpEnabled, tropoEnabled, satPassEnabled, lightningEnabled, dxccConfirmedEnabled, dxDigestEnabled, dxUsSpottersOnly, or vhfUsSpottersOnly is required',
+          'email, ntfy, discord, webPushEnabled, vhfEnabled, flareEnabled, windEnabled, kpEnabled, tropoEnabled, satPassEnabled, lightningEnabled, dxccConfirmedEnabled, dxDigestEnabled, dxUsSpottersOnly, or vhfUsSpottersOnly is required',
       },
       400,
     );
@@ -47,6 +49,12 @@ alertConfigRoutes.post('/', requireAuth, async (c) => {
   }
   if (body.ntfy && !body.ntfy.topic) {
     return c.json({ error: 'ntfy.topic is required' }, 400);
+  }
+  // Blank webhookUrl is allowed here (means "keep whatever's already
+  // stored", same as ntfy would if it had that convention) -- but if
+  // there's nothing stored yet either, there's no URL to save at all.
+  if (body.discord && !body.discord.webhookUrl && !getAlertConfig().discord) {
+    return c.json({ error: 'discord.webhookUrl is required' }, 400);
   }
 
   // Seed BEFORE saving -- reads the pre-update enabled state so this only
@@ -66,6 +74,9 @@ alertConfigRoutes.post('/', requireAuth, async (c) => {
         }
       : undefined,
     ntfy: body.ntfy ? { topic: String(body.ntfy.topic).trim(), enabled: !!body.ntfy.enabled } : undefined,
+    discord: body.discord
+      ? { webhookUrl: body.discord.webhookUrl ? String(body.discord.webhookUrl).trim() : undefined, enabled: !!body.discord.enabled }
+      : undefined,
     webPushEnabled: body.webPushEnabled !== undefined ? !!body.webPushEnabled : undefined,
     vhfEnabled: body.vhfEnabled !== undefined ? !!body.vhfEnabled : undefined,
     flareEnabled: body.flareEnabled !== undefined ? !!body.flareEnabled : undefined,
@@ -105,6 +116,15 @@ alertConfigRoutes.post('/test-email', requireAuth, async (c) => {
 alertConfigRoutes.post('/test-ntfy', requireAuth, async (c) => {
   try {
     await sendNtfyAlert('Test alert', "This is a test push from your site's needed-DX alert configuration. If you received this, it's working.");
+    return c.json({ ok: true });
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : 'Send failed' }, 502);
+  }
+});
+
+alertConfigRoutes.post('/test-discord', requireAuth, async (c) => {
+  try {
+    await sendDiscordAlert('Test alert', "This is a test message from your site's Discord alert configuration. If you received this, it's working.");
     return c.json({ ok: true });
   } catch (err) {
     return c.json({ error: err instanceof Error ? err.message : 'Send failed' }, 502);

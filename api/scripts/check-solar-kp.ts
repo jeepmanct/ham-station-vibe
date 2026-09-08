@@ -20,6 +20,7 @@
 import { db } from '../src/db';
 import { sendAlertEmail } from '../src/alertEmail';
 import { sendNtfyAlert } from '../src/alertNtfy';
+import { sendDiscordAlert } from '../src/alertDiscord';
 import { sendWebPushAlert } from '../src/alertWebPush';
 import { getAlertConfig } from '../src/alertConfig';
 import { fetchJsonLenient } from '../src/fetchJson';
@@ -53,12 +54,13 @@ async function main() {
   const cfg = getAlertConfig();
   const emailOn = cfg.email?.enabled ?? false;
   const ntfyOn = cfg.ntfy?.enabled ?? false;
+  const discordOn = cfg.discord?.enabled ?? false;
   const webPushOn = cfg.webPushEnabled ?? false;
   if (!cfg.kpEnabled) {
     console.log('Geomagnetic storm alerts disabled — turn it on under Admin.');
     return;
   }
-  if (!emailOn && !ntfyOn && !webPushOn) {
+  if (!emailOn && !ntfyOn && !webPushOn && !discordOn) {
     console.log('Geomagnetic storm alerts enabled, but no delivery channel (email/push) is on — set one up under Admin.');
     return;
   }
@@ -113,6 +115,15 @@ async function main() {
       delivered = true;
     } catch (err) {
       console.log('ntfy alert failed:', err instanceof Error ? err.message : err);
+    }
+  }
+  if (discordOn) {
+    try {
+      await sendDiscordAlert(subject, text);
+      console.log('Sent Discord geomagnetic storm push.');
+      delivered = true;
+    } catch (err) {
+      console.log('Discord alert failed:', err instanceof Error ? err.message : err);
     }
   }
   if (webPushOn) {

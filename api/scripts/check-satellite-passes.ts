@@ -19,6 +19,7 @@ import { getAlertConfig } from '../src/alertConfig';
 import { getStationLocation } from '../src/stationLocation';
 import { sendAlertEmail } from '../src/alertEmail';
 import { sendNtfyAlert } from '../src/alertNtfy';
+import { sendDiscordAlert } from '../src/alertDiscord';
 import { sendWebPushAlert } from '../src/alertWebPush';
 import { findUpcomingPasses, observerFromLatLon } from '../src/satellitePasses';
 import * as satellite from 'satellite.js';
@@ -30,12 +31,13 @@ async function main() {
   const cfg = getAlertConfig();
   const emailOn = cfg.email?.enabled ?? false;
   const ntfyOn = cfg.ntfy?.enabled ?? false;
+  const discordOn = cfg.discord?.enabled ?? false;
   const webPushOn = cfg.webPushEnabled ?? false;
   if (!cfg.satPassEnabled) {
     console.log('Satellite pass alerts disabled — turn it on under Admin.');
     return;
   }
-  if (!emailOn && !ntfyOn && !webPushOn) {
+  if (!emailOn && !ntfyOn && !webPushOn && !discordOn) {
     console.log('Satellite pass alerts enabled, but no delivery channel (email/push) is on — set one up under Admin.');
     return;
   }
@@ -114,6 +116,15 @@ async function main() {
         delivered = true;
       } catch (err) {
         console.log(`ntfy alert failed for ${sat.name}:`, err instanceof Error ? err.message : err);
+      }
+    }
+    if (discordOn) {
+      try {
+        await sendDiscordAlert(subject, text);
+        console.log(`Sent Discord push for ${sat.name}.`);
+        delivered = true;
+      } catch (err) {
+        console.log(`Discord alert failed for ${sat.name}:`, err instanceof Error ? err.message : err);
       }
     }
     if (webPushOn) {

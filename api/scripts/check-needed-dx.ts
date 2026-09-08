@@ -13,6 +13,7 @@ import { resolveCallsignEntity, isUsSpotterCallsign } from '../src/dxccPrefixes'
 import { workedEntitiesByCallsign } from '../src/dxNeeded';
 import { sendAlertEmail } from '../src/alertEmail';
 import { sendNtfyAlert } from '../src/alertNtfy';
+import { sendDiscordAlert } from '../src/alertDiscord';
 import { sendWebPushAlert } from '../src/alertWebPush';
 import { getAlertConfig, getSiteUrl } from '../src/alertConfig';
 
@@ -24,8 +25,9 @@ async function main() {
   const cfg = getAlertConfig();
   const emailOn = cfg.email?.enabled ?? false;
   const ntfyOn = cfg.ntfy?.enabled ?? false;
+  const discordOn = cfg.discord?.enabled ?? false;
   const webPushOn = cfg.webPushEnabled ?? false;
-  if (!emailOn && !ntfyOn && !webPushOn) {
+  if (!emailOn && !ntfyOn && !webPushOn && !discordOn) {
     console.log('Needed-DX alerts disabled or not configured — set it up under Admin.');
     return;
   }
@@ -98,6 +100,15 @@ async function main() {
       delivered = true;
     } catch (err) {
       console.log('ntfy alert failed:', err instanceof Error ? err.message : err);
+    }
+  }
+  if (discordOn) {
+    try {
+      await sendDiscordAlert(subject, text);
+      console.log('Sent Discord push alert.');
+      delivered = true;
+    } catch (err) {
+      console.log('Discord alert failed:', err instanceof Error ? err.message : err);
     }
   }
   if (webPushOn) {

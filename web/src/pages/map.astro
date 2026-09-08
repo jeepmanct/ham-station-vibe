@@ -31,6 +31,25 @@ import '../styles/map.css';
   </div>
   <p id="map-status" class="status-line" style="margin-top:0.5rem;"></p>
 
+  <div class="card" style="margin-top:1.25rem;">
+    <h2 style="margin-top:0;font-size:1rem;">Log Growth Time-Lapse</h2>
+    <p class="lede" style="margin-top:0;">Watch the whole log fill in month by month, from your first QSO to today &mdash; independent of the filters above.</p>
+    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
+      <button type="button" class="btn" id="timelapse-play">&#9654; Play</button>
+      <button type="button" class="btn secondary" id="timelapse-pause" disabled>&#9208; Pause</button>
+      <button type="button" class="btn secondary" id="timelapse-reset">Reset</button>
+      <label style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.9rem;">
+        Speed
+        <select id="timelapse-speed">
+          <option value="500">Slow</option>
+          <option value="200" selected>Normal</option>
+          <option value="80">Fast</option>
+        </select>
+      </label>
+    </div>
+    <p id="timelapse-status" class="status-line" style="margin-top:0.5rem;"></p>
+  </div>
+
   <script>
     import 'leaflet/dist/leaflet.css';
     import L from 'leaflet';
@@ -40,6 +59,7 @@ import '../styles/map.css';
     import { terminatorPoints, subsolarPoint } from '../lib/grayline';
     import { escapeHtml } from '../lib/escapeHtml';
     import { projectPoint, loadLandPolygons } from '../lib/globe';
+    import { cartoTileUrl, applyCartoKey } from '../lib/basemap';
 
     type Point = {
       call: string;
@@ -90,11 +110,12 @@ import '../styles/map.css';
     const map = L.map('qso-map', { worldCopyJump: true }).setView([20, 0], 2);
     const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const cartoStyle = isDarkMode ? 'dark_all' : 'light_all';
-    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${cartoStyle}/{z}/{x}/{y}{r}.png`, {
+    const baseTileLayer = L.tileLayer(cartoTileUrl(cartoStyle), {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
       subdomains: 'abcd',
       maxZoom: 18,
     }).addTo(map);
+    applyCartoKey(baseTileLayer, cartoStyle);
 
     const renderer = L.canvas({ padding: 0.5 });
     let dataLayer = L.layerGroup().addTo(map);
@@ -528,5 +549,115 @@ import '../styles/map.css';
     }
 
     initQsoFilters(loadData, { colorForBand, startUnselected: true });
+
+    // --- Log growth time-lapse -- reveals the whole (unfiltered) log month
+    // by month, oldest first. Independent of the filter panel above: it
+    // fetches its own full /api/qsos/geo (no query params = no filter, see
+    // that route's inClause() behavior) once and caches it, rather than
+    // reusing whatever the filter panel currently has loaded, since a
+    // time-lapse of "just 20M" isn't really what "log growth" means.
+    // Renders on its own layer group so starting/stopping it never
+    // interacts with the filter-driven dataLayer above.
+    const timelapseLayer = L.layerGroup();
+    let timelapseMonths: { key: string; points: Point[] }[] | null = null;
+    let timelapseHome: { lat: number; lon: number } | null = null;
+    let timelapseIndex = 0;
+    let timelapseTimer: ReturnType<typeof setInterval> | undefined;
+    let timelapseTotalShown = 0;
+
+    const tlPlayBtn = document.getElementById('timelapse-play') as HTMLButtonElement;
+    const tlPauseBtn = document.getElementById('timelapse-pause') as HTMLButtonElement;
+    const tlResetBtn = document.getElementById('timelapse-reset') as HTMLButtonElement;
+    const tlSpeedSelect = document.getElementById('timelapse-speed') as HTMLSelectElement;
+    const tlStatus = document.getElementById('timelapse-status')!;
+
+    function monthLabel(key: string): string {
+      const year = Number(key.slice(0, 4));
+      const month = Number(key.slice(4, 6)) - 1;
+      return new Date(Date.UTC(year, month, 1)).toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    }
+
+    async function ensureTimelapseData(): Promise<boolean> {
+      if (timelapseMonths) return true;
+      tlStatus.textContent = 'Loading full log…';
+      const res = await fetch('/api/qsos/geo');
+      const data: GeoResponse = await res.json();
+      if (!data.home || !data.points.length) {
+        tlStatus.textContent = 'No geolocated contacts to animate.';
+        return false;
+      }
+      const sorted = [...data.points].sort((a, b) => (a.qsoDate < b.qsoDate ? -1 : a.qsoDate > b.qsoDate ? 1 : 0));
+      const byMonth = new Map<string, Point[]>();
+      for (const p of sorted) {
+        const key = p.qsoDate.slice(0, 6);
+        const bucket = byMonth.get(key);
+        if (bucket) bucket.push(p);
+        else byMonth.set(key, [p]);
+      }
+      timelapseMonths = [...byMonth.entries()].map(([key, points]) => ({ key, points }));
+      timelapseHome = data.home;
+      return true;
+    }
+
+    function drawTimelapseMonth(month: { key: string; points: Point[] }) {
+      if (!timelapseHome) return;
+      for (const p of month.points) {
+        const arc = greatCircleArc(timelapseHome.lat, timelapseHome.lon, p.lat, p.lon, 16);
+        const color = colorForBand(p.band);
+        const tooltipText = `${escapeHtml(p.call)} · ${escapeHtml(formatDate(p.qsoDate))} · ${escapeHtml(p.band ?? '—')}`;
+        L.polyline(arc, { color, weight: 1.2, opacity: 0.55, renderer }).bindTooltip(tooltipText, { sticky: true }).addTo(timelapseLayer);
+        L.circleMarker([p.lat, p.lon], { radius: 3, color, fillColor: color, fillOpacity: 1, weight: 1, renderer })
+          .bindTooltip(tooltipText, { sticky: true })
+          .addTo(timelapseLayer);
+      }
+      timelapseTotalShown += month.points.length;
+    }
+
+    function timelapseTick() {
+      if (!timelapseMonths || timelapseIndex >= timelapseMonths.length) {
+        stopTimelapse();
+        tlStatus.textContent = `Complete — ${timelapseTotalShown.toLocaleString()} contacts shown, ${monthLabel(timelapseMonths?.[0]?.key ?? '')} to ${monthLabel(timelapseMonths?.[timelapseMonths.length - 1]?.key ?? '')}.`;
+        return;
+      }
+      const month = timelapseMonths[timelapseIndex];
+      drawTimelapseMonth(month);
+      tlStatus.textContent = `${monthLabel(month.key)} — ${timelapseTotalShown.toLocaleString()} contacts so far`;
+      timelapseIndex++;
+    }
+
+    function stopTimelapse() {
+      clearInterval(timelapseTimer);
+      timelapseTimer = undefined;
+      tlPlayBtn.disabled = false;
+      tlPauseBtn.disabled = true;
+    }
+
+    tlPlayBtn.addEventListener('click', async () => {
+      if (globeActive) activate2dView();
+      const ok = await ensureTimelapseData();
+      if (!ok || !timelapseMonths) return;
+      if (!map.hasLayer(timelapseLayer)) timelapseLayer.addTo(map);
+      // A fresh start (index 0, nothing drawn yet) clears any leftover
+      // polylines from a prior full run before replaying from the beginning.
+      if (timelapseIndex === 0) {
+        timelapseLayer.clearLayers();
+        timelapseTotalShown = 0;
+      }
+      tlPlayBtn.disabled = true;
+      tlPauseBtn.disabled = false;
+      const intervalMs = Number(tlSpeedSelect.value) || 200;
+      timelapseTimer = setInterval(timelapseTick, intervalMs);
+    });
+
+    tlPauseBtn.addEventListener('click', stopTimelapse);
+
+    tlResetBtn.addEventListener('click', () => {
+      stopTimelapse();
+      timelapseLayer.clearLayers();
+      map.removeLayer(timelapseLayer);
+      timelapseIndex = 0;
+      timelapseTotalShown = 0;
+      tlStatus.textContent = '';
+    });
   </script>
 </Base>

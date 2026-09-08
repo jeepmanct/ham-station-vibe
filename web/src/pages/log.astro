@@ -39,6 +39,7 @@ import FilterPanel from '../components/FilterPanel.astro';
             <label>Grid Square<input type="text" id="mq-grid" placeholder="optional" autocapitalize="characters" /></label>
             <label class="form-grid-wide">Comment<input type="text" id="mq-comment" placeholder="optional" /></label>
             <label class="form-grid-checkbox"><input type="checkbox" id="mq-send-qrz" checked /> Also send to QRZ.com logbook</label>
+            <label class="form-grid-checkbox"><input type="checkbox" id="mq-send-clublog" /> Also send to Club Log</label>
             <p id="manual-status" class="status-line"></p>
             <button type="submit" class="btn" style="align-self:flex-start;">Log QSO</button>
           </form>
@@ -482,6 +483,7 @@ import FilterPanel from '../components/FilterPanel.astro';
         gridsquare: (document.getElementById('mq-grid') as HTMLInputElement).value.trim() || undefined,
         comment: (document.getElementById('mq-comment') as HTMLInputElement).value.trim() || undefined,
         sendToQrz: (document.getElementById('mq-send-qrz') as HTMLInputElement).checked,
+        sendToClublog: (document.getElementById('mq-send-clublog') as HTMLInputElement).checked,
       };
       status.textContent = 'Logging…';
       const res = await fetch('/api/qsos/manual', {
@@ -490,12 +492,16 @@ import FilterPanel from '../components/FilterPanel.astro';
         body: JSON.stringify(body),
       });
       if (res.ok) {
-        const { resolvedEntity, qrz } = await res.json();
+        const { resolvedEntity, qrz, clublog } = await res.json();
         let msg = resolvedEntity ? `Logged ${call} (${resolvedEntity}).` : `Logged ${call}.`;
         if (body.sendToQrz) {
           if (qrz?.sent) msg += ' Sent to QRZ.com ✓';
           else if (qrz?.result === 'FAIL' && qrz?.reason) msg += ` QRZ: ${qrz.reason}`;
           else msg += ` QRZ: ${qrz?.error ?? 'not sent'}`;
+        }
+        if (body.sendToClublog) {
+          if (clublog?.sent) msg += ' Sent to Club Log ✓';
+          else msg += ` Club Log: ${clublog?.error ?? clublog?.message ?? 'not sent'}`;
         }
         status.textContent = msg;
         (document.getElementById('mq-call') as HTMLInputElement).value = '';

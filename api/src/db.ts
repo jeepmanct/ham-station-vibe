@@ -516,6 +516,12 @@ for (const [name, type] of [
   // store here; which devices actually receive it lives in
   // push_subscriptions instead.
   ['webpush_enabled', 'INTEGER NOT NULL DEFAULT 0'],
+  // Fourth delivery channel -- a Discord incoming webhook URL. Same
+  // "channel has its own config value + enabled flag" shape as ntfy_topic/
+  // ntfy_enabled, not email's fuller shape, since a webhook URL is the only
+  // credential Discord's side needs (no separate host/port/user/pass).
+  ['discord_webhook_url', 'TEXT'],
+  ['discord_enabled', 'INTEGER NOT NULL DEFAULT 0'],
 ] as const) {
   if (!alertConfigColumns.has(name)) {
     db.exec(`ALTER TABLE alert_email_config ADD COLUMN ${name} ${type}`);
@@ -635,6 +641,23 @@ for (const [name, type] of [
   // (optional) connect password inline in the SET auth command, and this
   // station's Kiwi has none set, so there's nothing else to store here.
   ['kiwisdr_host', 'TEXT'],
+  // Club Log log upload (real-time single-QSO push + full-log backfill,
+  // see clublog.ts) -- unlike QRZ's self-service API key, Club Log's
+  // upload API key must be requested from their support desk against a
+  // specific account email/password, so all three are required together
+  // (see getClublogCredentials()) rather than an API-key-only setup.
+  ['clublog_email', 'TEXT'],
+  ['clublog_password', 'TEXT'],
+  ['clublog_api_key', 'TEXT'],
+  // CARTO's basemap tiles (used by every Leaflet map on the site) started
+  // requiring a free API key as of late Aug 2026 -- watermarking
+  // "API KEY REQUIRED" over every tile without one. Unlike every other
+  // field in this table, this key is NOT a secret (it has to be readable
+  // by every visitor's browser to actually fetch map tiles, the same way a
+  // Google Maps JS key is client-visible) -- see getCartoApiKey() and
+  // GET /api/settings, which returns it as a plain value rather than a
+  // configured-only boolean.
+  ['carto_api_key', 'TEXT'],
 ] as const) {
   if (!serviceCredColumns.has(name)) {
     db.exec(`ALTER TABLE service_credentials ADD COLUMN ${name} ${type}`);
