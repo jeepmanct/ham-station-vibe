@@ -1,13 +1,14 @@
 import { Hono } from 'hono';
 import { db } from '../db';
 import { requireAuth } from '../auth';
-import { parseAdif, buildAdifRecord } from '../adif';
+import { parseAdif, buildAdifRecord, formatAdifLatLon } from '../adif';
 import { importAdifRecords } from '../qsoImport';
 import { syncFromQrz, pushQsoToQrz } from '../qrz';
 import { syncFromEqsl } from '../eqsl';
 import { syncFromLotw } from '../lotw';
 import { pushQsoToClubLog } from '../clublog';
 import { getQrzApiKey, getEqslCredentials, getLotwCredentials, getClublogCredentials } from '../serviceCredentials';
+import { getTrip } from '../trips';
 import { resolveCallsignEntity } from '../dxccPrefixes';
 import { resolveLatLon } from '../maidenhead';
 import { DXCC_ENTITIES } from '../dxccEntities';
@@ -46,9 +47,11 @@ qsoRoutes.get('/', (c) => {
   const rows = db
     .query(
       `SELECT q.id, q.call, q.qso_date, q.time_on, q.band, q.mode, q.freq, q.gridsquare, q.country, q.rst_sent, q.rst_rcvd, q.lotw_qsl_rcvd, q.eqsl_qsl_rcvd,
+              q.trip_id, q.station_callsign, t.label as trip_label,
               s.sfi, s.a_index, s.k_index
        FROM qsos q
        LEFT JOIN solar_data s ON s.date = q.qso_date
+       LEFT JOIN trips t ON t.id = q.trip_id
        ${where}
        ORDER BY q.qso_date DESC, q.time_on DESC
        LIMIT ? OFFSET ?`,
@@ -67,6 +70,9 @@ qsoRoutes.get('/', (c) => {
     rst_rcvd: string | null;
     lotw_qsl_rcvd: string | null;
     eqsl_qsl_rcvd: string | null;
+    trip_id: number | null;
+    station_callsign: string | null;
+    trip_label: string | null;
     sfi: number | null;
     a_index: number | null;
     k_index: number | null;
@@ -89,6 +95,9 @@ qsoRoutes.get('/', (c) => {
       rstRcvd: r.rst_rcvd,
       lotwQslRcvd: r.lotw_qsl_rcvd,
       eqslQslRcvd: r.eqsl_qsl_rcvd,
+      tripId: r.trip_id,
+      tripLabel: r.trip_label,
+      stationCallsign: r.station_callsign,
       sfi: r.sfi,
       aIndex: r.a_index,
       kIndex: r.k_index,
@@ -244,9 +253,13 @@ qsoRoutes.get('/facets', (c) => {
 const GEO_ROW_LIMIT = 20000;
 const GEO_CACHE_TTL_MS = 5 * 60 * 1000;
 
-function computeGeo(from: string | undefined, to: string | undefined, filters: [string, string | undefined][]) {
+function computeGeo(from: string | undefined, to: string | undefined, filters: [string, string | undefined][], tripId: number | null) {
   const clauses = ['lat IS NOT NULL', 'lon IS NOT NULL'];
   const params: (string | number)[] = [];
+  if (tripId != null) {
+    clauses.push('trip_id = ?');
+    params.push(tripId);
+  }
   for (const [column, value] of filters) inClause(column, value, clauses, params);
   if (from) {
     clauses.push('qso_date >= ?');
@@ -282,21 +295,30 @@ function computeGeo(from: string | undefined, to: string | undefined, filters: [
     k_index: number | null;
   }[];
 
+  // A trip's own location stands in for "home" entirely when viewing that
+  // trip's QSOs -- the whole point of a portable/DXpedition operation is
+  // that "home" for those specific contacts is somewhere else, so this
+  // takes priority over both the admin-configured Station Location and the
+  // QSO-inference fallback below.
+  const tripHome = tripId != null ? getTrip(tripId) : null;
+
   // Admin-configured Station Location wins when set, same as
   // /api/conditions/home -- previously this endpoint had its own separate
   // copy of just the QSO-inference fallback, so the map's home marker could
   // disagree with grayline/satellite pages about where "home" is once
   // Station Location existed.
   const configured = getStationLocation();
-  const home = configured
-    ? { lat: configured.lat, lon: configured.lon }
-    : (db
-        .query(
-          `SELECT my_lat as lat, my_lon as lon, COUNT(*) as count
+  const home = tripHome
+    ? { lat: tripHome.lat, lon: tripHome.lon }
+    : configured
+      ? { lat: configured.lat, lon: configured.lon }
+      : (db
+          .query(
+            `SELECT my_lat as lat, my_lon as lon, COUNT(*) as count
        FROM qsos WHERE my_lat IS NOT NULL AND my_lon IS NOT NULL
        GROUP BY my_lat, my_lon ORDER BY count DESC LIMIT 1`,
-        )
-        .get() as { lat: number; lon: number } | null);
+          )
+          .get() as { lat: number; lon: number } | null);
 
   return {
     home,
@@ -320,6 +342,7 @@ function computeGeo(from: string | undefined, to: string | undefined, filters: [
 qsoRoutes.get('/geo', async (c) => {
   const from = c.req.query('from')?.replaceAll('-', '');
   const to = c.req.query('to')?.replaceAll('-', '');
+  const tripId = c.req.query('trip') ? Number(c.req.query('trip')) : null;
   const filters: [string, string | undefined][] = [
     ['band', c.req.query('bands')],
     ['mode', c.req.query('modes')],
@@ -330,7 +353,7 @@ qsoRoutes.get('/geo', async (c) => {
   // QSOs sync (a few times a day), and the set of combinations a real user
   // actually picks is naturally small.
   const queryKey = `qsos:geo:${new URL(c.req.url).search}`;
-  const result = await ttlCached(queryKey, GEO_CACHE_TTL_MS, async () => computeGeo(from, to, filters))();
+  const result = await ttlCached(queryKey, GEO_CACHE_TTL_MS, async () => computeGeo(from, to, filters, tripId))();
   return c.json(result);
 });
 
@@ -542,20 +565,52 @@ qsoRoutes.post('/manual', requireAuth, async (c) => {
     if (cqZone) record.CQZ = String(cqZone);
   }
 
-  const home = db
-    .query(
-      `SELECT my_lat as lat, my_lon as lon, my_gridsquare as grid, COUNT(*) as count
+  // A trip (portable/DXpedition operation, e.g. a week as SP/N1AH from
+  // Poland) overrides "home" entirely for this one QSO -- its own
+  // lat/lon/grid and operating callsign, not the site's usual home
+  // inference. Trip QSOs also get ADIF's STATION_CALLSIGN field set so a
+  // QRZ/Club Log push correctly attributes the contact to the portable
+  // callsign, not the main one.
+  const tripId = body.tripId != null ? Number(body.tripId) : null;
+  const trip = tripId != null ? getTrip(tripId) : null;
+  if (tripId != null && !trip) {
+    return c.json({ error: 'Trip not found' }, 404);
+  }
+
+  if (trip) {
+    const { LAT, LON } = formatAdifLatLon(trip.lat, trip.lon);
+    record.MY_LAT = LAT;
+    record.MY_LON = LON;
+    if (trip.grid) record.MY_GRIDSQUARE = trip.grid;
+    record.STATION_CALLSIGN = trip.callsign;
+  } else {
+    const home = db
+      .query(
+        `SELECT my_lat as lat, my_lon as lon, my_gridsquare as grid, COUNT(*) as count
        FROM qsos WHERE my_lat IS NOT NULL AND my_lon IS NOT NULL
        GROUP BY my_lat, my_lon ORDER BY count DESC LIMIT 1`,
-    )
-    .get() as { lat: number; lon: number; grid: string | null } | null;
-  if (home) {
-    record.MY_LAT = String(home.lat);
-    record.MY_LON = String(home.lon);
-    if (home.grid) record.MY_GRIDSQUARE = home.grid;
+      )
+      .get() as { lat: number; lon: number; grid: string | null } | null;
+    if (home) {
+      const { LAT, LON } = formatAdifLatLon(home.lat, home.lon);
+      record.MY_LAT = LAT;
+      record.MY_LON = LON;
+      if (home.grid) record.MY_GRIDSQUARE = home.grid;
+    }
   }
 
   const imported = importAdifRecords([record]);
+  if (trip) {
+    db.query('UPDATE qsos SET trip_id = ?, station_callsign = ? WHERE call = ? AND qso_date = ? AND time_on = ? AND band = ? AND mode = ?').run(
+      trip.id,
+      trip.callsign,
+      call,
+      qsoDate,
+      timeOn,
+      band,
+      mode,
+    );
+  }
 
   let qrz: { sent: boolean; result?: string; reason?: string | null; error?: string } = { sent: false };
   if (body.sendToQrz) {
@@ -587,7 +642,7 @@ qsoRoutes.post('/manual', requireAuth, async (c) => {
     }
   }
 
-  return c.json({ imported, resolvedEntity: resolved?.entity ?? null, qrz, clublog });
+  return c.json({ imported, resolvedEntity: resolved?.entity ?? null, qrz, clublog, trip });
 });
 
 /**

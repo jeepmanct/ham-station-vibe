@@ -7,7 +7,16 @@ import '../styles/map.css';
   <h1>QSO Map</h1>
   <p class="lede">Great-circle paths from home to every logged contact &mdash; enable a band, mode, country, state, or date range below to plot contacts on the map.</p>
 
-  <FilterPanel />
+  <label style="display:inline-flex;align-items:center;gap:0.5rem;font-size:0.9rem;">
+    View
+    <select id="trip-view-select">
+      <option value="">All QSOs (from home)</option>
+    </select>
+  </label>
+
+  <div id="filter-panel-wrap">
+    <FilterPanel />
+  </div>
 
   <label style="display:inline-flex;align-items:center;gap:0.5rem;margin-top:1rem;font-size:0.9rem;cursor:pointer;">
     <input type="checkbox" id="grayline-toggle" />
@@ -468,18 +477,11 @@ import '../styles/map.css';
           .addTo(map);
       });
 
-    async function loadData(query: string) {
-      dataLayer.clearLayers();
-
-      if (!query) {
-        mapStatus.textContent = 'No filters enabled — select a band, mode, country, state, or date range above to plot contacts.';
-        return;
-      }
-
-      mapStatus.textContent = 'Loading…';
-      const res = await fetch(`/api/qsos/geo?${query}`);
-      const data: GeoResponse = await res.json();
-
+    // Shared by the normal filter-driven view and the trip view below --
+    // both just differ in where `data.home` came from and what query
+    // produced `data.points`, everything about actually drawing them onto
+    // the map is identical.
+    function renderGeoResult(data: GeoResponse) {
       if (!data.home) {
         mapStatus.textContent = `Showing ${data.points.length} contacts (no home location on file)`;
         return;
@@ -548,7 +550,97 @@ import '../styles/map.css';
       if (globeActive) requestGlobeRedraw();
     }
 
+    // Tracks the last filter-panel query so switching the trip-view select
+    // back to "All QSOs (from home)" can restore whatever the filter panel
+    // was showing, without needing to reach into qsoFilters.ts's own state.
+    let currentFilterQuery = '';
+
+    async function loadData(query: string) {
+      currentFilterQuery = query;
+      dataLayer.clearLayers();
+
+      if (!query) {
+        mapStatus.textContent = 'No filters enabled — select a band, mode, country, state, or date range above to plot contacts.';
+        return;
+      }
+
+      mapStatus.textContent = 'Loading…';
+      const res = await fetch(`/api/qsos/geo?${query}`);
+      const data: GeoResponse = await res.json();
+      renderGeoResult(data);
+    }
+
     initQsoFilters(loadData, { colorForBand, startUnselected: true });
+
+    // --- Trip view -- a portable/DXpedition operation (e.g. a week as
+    // SP/N1AH from Poland, defined under Admin) shows a dedicated view of
+    // just that trip's QSOs, with arcs drawn from the trip's own location
+    // instead of home (see /api/qsos/geo's `trip` param). Swaps out the
+    // fixed home marker for one labeled with the trip while active, and
+    // hides the normal band/mode/country/state filter panel since it
+    // doesn't apply here (a trip view is already its own single-purpose
+    // filter). Reverting to "All QSOs" restores whatever the filter panel
+    // was last showing via currentFilterQuery, tracked in loadData() above.
+    const filterPanelWrap = document.getElementById('filter-panel-wrap')!;
+    const tripViewSelect = document.getElementById('trip-view-select') as HTMLSelectElement;
+    let tripMarker: L.CircleMarker | null = null;
+
+    fetch('/api/trips')
+      .then((r) => r.json())
+      .then((trips: { id: number; label: string; callsign: string }[]) => {
+        for (const t of trips) {
+          const opt = document.createElement('option');
+          opt.value = String(t.id);
+          opt.textContent = `${t.label} (${t.callsign})`;
+          tripViewSelect.appendChild(opt);
+        }
+      })
+      .catch(() => {});
+
+    async function loadTripView(tripId: string, tripText: string) {
+      dataLayer.clearLayers();
+      mapStatus.textContent = 'Loading…';
+      const res = await fetch(`/api/qsos/geo?trip=${encodeURIComponent(tripId)}`);
+      const data: GeoResponse = await res.json();
+
+      if (tripMarker) {
+        map.removeLayer(tripMarker);
+        tripMarker = null;
+      }
+      if (data.home) {
+        tripMarker = L.circleMarker([data.home.lat, data.home.lon], {
+          radius: 7,
+          color: ACCENT_COLOR,
+          fillColor: ACCENT_COLOR,
+          fillOpacity: 1,
+          weight: 2,
+          renderer,
+        })
+          .bindTooltip(tripText, { permanent: true, direction: 'top', className: 'home-tooltip' })
+          .addTo(map);
+        map.setView([data.home.lat, data.home.lon], 5);
+      }
+
+      renderGeoResult(data);
+      if (!data.points.length) mapStatus.textContent = `No QSOs logged for this trip yet — log some on /log with "Operating as" set to it.`;
+    }
+
+    tripViewSelect.addEventListener('change', () => {
+      const tripId = tripViewSelect.value;
+      if (tripId) {
+        filterPanelWrap.hidden = true;
+        if (homeMarker) map.removeLayer(homeMarker);
+        loadTripView(tripId, tripViewSelect.options[tripViewSelect.selectedIndex].textContent ?? 'Trip');
+      } else {
+        filterPanelWrap.hidden = false;
+        if (tripMarker) {
+          map.removeLayer(tripMarker);
+          tripMarker = null;
+        }
+        if (homeMarker) homeMarker.addTo(map);
+        loadData(currentFilterQuery);
+      }
+    });
 
     // --- Log growth time-lapse -- reveals the whole (unfiltered) log month
     // by month, oldest first. Independent of the filter panel above: it

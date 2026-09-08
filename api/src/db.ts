@@ -391,12 +391,42 @@ for (const [name, type] of [
   ['iota', 'TEXT'],
   ['eqsl_qsl_rcvd', 'TEXT'],
   ['eqsl_qsl_rcvd_date', 'TEXT'],
+  // Portable/DXpedition operation support (trips.ts) -- trip_id tags a
+  // manually-logged QSO to a defined trip (own callsign/location/dates,
+  // e.g. a week operating as SP/N1AH from Poland) so /map can show a
+  // dedicated view centered on that trip's own location instead of home,
+  // and station_callsign records which callsign was actually used for
+  // that specific QSO (ADIF's own STATION_CALLSIGN field) since it isn't
+  // always the site's main one. Both NULL for the overwhelming majority of
+  // QSOs (synced from home operation), only ever set by POST /qsos/manual
+  // when a trip is selected.
+  ['trip_id', 'INTEGER'],
+  ['station_callsign', 'TEXT'],
 ] as const) {
   if (!existingColumns.has(name)) {
     db.exec(`ALTER TABLE qsos ADD COLUMN ${name} ${type}`);
   }
 }
 db.exec('CREATE INDEX IF NOT EXISTS idx_qsos_band ON qsos(band)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_qsos_trip_id ON qsos(trip_id)');
+
+// Portable/DXpedition operations -- see the trip_id/station_callsign
+// columns above. A trip's own lat/lon/grid stands in for "home" on /map
+// when that trip is selected, since a DXpedition's whole point is that
+// "home" for those specific QSOs is somewhere else entirely.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS trips (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    label TEXT NOT NULL,
+    callsign TEXT NOT NULL,
+    lat REAL NOT NULL,
+    lon REAL NOT NULL,
+    grid TEXT,
+    start_date TEXT,
+    end_date TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
 db.exec('CREATE INDEX IF NOT EXISTS idx_qsos_qso_date ON qsos(qso_date)');
 db.exec('CREATE INDEX IF NOT EXISTS idx_qsos_country ON qsos(country)');
 db.exec('CREATE INDEX IF NOT EXISTS idx_qsos_state ON qsos(state)');

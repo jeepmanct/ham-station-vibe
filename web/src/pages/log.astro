@@ -24,6 +24,11 @@ import FilterPanel from '../components/FilterPanel.astro';
           <h2>Log a QSO</h2>
           <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">Adds a contact directly to the log &mdash; country/continent/CQ zone auto-fill from the callsign.</p>
           <form id="manual-form" class="form-grid">
+            <label class="form-grid-wide">Operating as
+              <select id="mq-trip">
+                <option value="">Home station</option>
+              </select>
+            </label>
             <label>Call<input type="text" id="mq-call" required autocapitalize="characters" placeholder="W1AW" /></label>
             <label>Date (UTC)<input type="date" id="mq-date" required /></label>
             <label>Time (UTC)<input type="time" id="mq-time" required /></label>
@@ -466,6 +471,23 @@ import FilterPanel from '../components/FilterPanel.astro';
     }
     setNowDefaults();
 
+    // Portable operations (Trips, e.g. a week as SP/N1AH from Poland) --
+    // defined under Admin. Picking one here overrides "home" for this one
+    // QSO's location/operating callsign rather than needing a separate
+    // logging flow per trip.
+    const tripSelect = document.getElementById('mq-trip') as HTMLSelectElement;
+    fetch('/api/trips')
+      .then((r) => r.json())
+      .then((trips: { id: number; label: string; callsign: string }[]) => {
+        for (const t of trips) {
+          const opt = document.createElement('option');
+          opt.value = String(t.id);
+          opt.textContent = `${t.label} (${t.callsign})`;
+          tripSelect.appendChild(opt);
+        }
+      })
+      .catch(() => {});
+
     document.getElementById('manual-form')!.addEventListener('submit', async (e) => {
       e.preventDefault();
       const status = document.getElementById('manual-status')!;
@@ -484,6 +506,7 @@ import FilterPanel from '../components/FilterPanel.astro';
         comment: (document.getElementById('mq-comment') as HTMLInputElement).value.trim() || undefined,
         sendToQrz: (document.getElementById('mq-send-qrz') as HTMLInputElement).checked,
         sendToClublog: (document.getElementById('mq-send-clublog') as HTMLInputElement).checked,
+        tripId: tripSelect.value || undefined,
       };
       status.textContent = 'Logging…';
       const res = await fetch('/api/qsos/manual', {
@@ -492,8 +515,9 @@ import FilterPanel from '../components/FilterPanel.astro';
         body: JSON.stringify(body),
       });
       if (res.ok) {
-        const { resolvedEntity, qrz, clublog } = await res.json();
+        const { resolvedEntity, qrz, clublog, trip } = await res.json();
         let msg = resolvedEntity ? `Logged ${call} (${resolvedEntity}).` : `Logged ${call}.`;
+        if (trip) msg += ` Operating as ${trip.callsign} (${trip.label}).`;
         if (body.sendToQrz) {
           if (qrz?.sent) msg += ' Sent to QRZ.com ✓';
           else if (qrz?.result === 'FAIL' && qrz?.reason) msg += ` QRZ: ${qrz.reason}`;

@@ -32,3 +32,27 @@ export function buildAdifRecord(fields: AdifRecord): string {
     .map(([k, v]) => `<${k}:${v.length}>${v}`);
   return parts.join(' ') + ' <EOR>';
 }
+
+/**
+ * Formats decimal-degree coordinates into ADIF's real LAT/LON shape
+ * (`XDDD MM.MMM`, hemisphere letter + degrees + decimal minutes -- see
+ * maidenhead.ts's parseAdifLatLon, which is the reverse of this and is
+ * what resolveLatLon() actually reads). A plain decimal string like
+ * "52.2297" silently fails that parse and falls through to grid-square
+ * precision instead -- caught live while testing the Trips feature: a
+ * QSO logged with an exact GPS-derived lat/lon came back positioned at
+ * its grid square's center (a ~100km box) instead of the real point,
+ * because the earlier `MY_LAT = String(lat)` pattern (both here and in
+ * the pre-existing home-location manual-entry path) never produced
+ * ADIF's expected format in the first place.
+ */
+export function formatAdifLatLon(lat: number, lon: number): { LAT: string; LON: string } {
+  function format(value: number, positiveHemi: string, negativeHemi: string): string {
+    const hemi = value < 0 ? negativeHemi : positiveHemi;
+    const abs = Math.abs(value);
+    const deg = Math.floor(abs);
+    const min = (abs - deg) * 60;
+    return `${hemi}${String(deg).padStart(3, '0')} ${min.toFixed(3)}`;
+  }
+  return { LAT: format(lat, 'N', 'S'), LON: format(lon, 'E', 'W') };
+}

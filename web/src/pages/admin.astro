@@ -57,6 +57,38 @@ import Base from '../layouts/Base.astro';
 
     <section>
       <div class="card">
+        <h2>Portable Operations (Trips)</h2>
+        <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem;">
+          For operating away from home under a different callsign (e.g. a week as SP/N1AH from Poland). Select a trip on the manual QSO entry form on /log to log against it instead of home &mdash; that QSO gets the trip's own location/callsign (correctly attributed on any QRZ/Club Log push too), and /map can show a dedicated view centered on the trip instead of home.
+        </p>
+        <div id="trips-list" style="margin-bottom:1rem;"></div>
+        <form id="trip-form" class="form-grid">
+          <input type="hidden" id="trip-edit-id" />
+          <label>Label<input type="text" id="trip-label" placeholder="e.g. Poland 2026" required /></label>
+          <label>Operating Callsign<input type="text" id="trip-callsign" placeholder="e.g. SP/N1AH" required /></label>
+          <label style="grid-column:1 / -1;">City/Place
+            <span style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+              <input type="text" id="trip-place" placeholder="e.g. Warsaw, Poland" style="flex:1;min-width:180px;max-width:320px;" />
+              <button type="button" id="trip-locate-place" class="btn secondary" style="white-space:nowrap;">Locate</button>
+              <button type="button" id="trip-locate-gps" class="btn secondary" style="white-space:nowrap;">📍 Use My Current Location</button>
+            </span>
+          </label>
+          <label>Latitude<input type="text" id="trip-lat" placeholder="e.g. 52.2297" required /></label>
+          <label>Longitude<input type="text" id="trip-lon" placeholder="e.g. 21.0122" required /></label>
+          <label>Grid Square<input type="text" id="trip-grid" placeholder="auto-computed" /></label>
+          <label>Start Date<input type="date" id="trip-start" /></label>
+          <label>End Date<input type="date" id="trip-end" /></label>
+          <p id="trip-status" class="status-line" style="grid-column:1 / -1;"></p>
+          <div style="grid-column:1 / -1;display:flex;gap:0.5rem;">
+            <button type="submit" class="btn" id="trip-submit">Save Trip</button>
+            <button type="button" id="trip-cancel-edit" class="btn secondary" hidden>Cancel Edit</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;">
           <h2 style="margin:0;">Page Layout</h2>
           <button type="button" class="btn secondary" id="tl-toggle">Show</button>
@@ -570,6 +602,7 @@ import Base from '../layouts/Base.astro';
     import { makeDraggable } from '../lib/tileLayout';
 
     import { TOKEN_KEY } from '../lib/auth';
+    import { latLonToGrid } from '../lib/maidenhead';
 
     const loginSection = document.getElementById('login-section')!;
     const adminTools = document.getElementById('admin-tools')!;
@@ -715,6 +748,163 @@ import Base from '../layouts/Base.astro';
         renderStationInfoStatus(data);
       } else {
         stationLocationStatus.textContent = 'Clear failed.';
+      }
+    });
+
+    // --- Portable Operations (Trips) -- e.g. a week operating as SP/N1AH
+    // from Poland. GET is public (same convention as /api/station-location
+    // above -- only the write endpoints need the admin token), so the list
+    // loads even before any login state is checked. ---
+    type Trip = { id: number; label: string; callsign: string; lat: number; lon: number; grid: string | null; startDate: string | null; endDate: string | null };
+
+    const tripEditId = document.getElementById('trip-edit-id') as HTMLInputElement;
+    const tripLabel = document.getElementById('trip-label') as HTMLInputElement;
+    const tripCallsign = document.getElementById('trip-callsign') as HTMLInputElement;
+    const tripPlace = document.getElementById('trip-place') as HTMLInputElement;
+    const tripLat = document.getElementById('trip-lat') as HTMLInputElement;
+    const tripLon = document.getElementById('trip-lon') as HTMLInputElement;
+    const tripGrid = document.getElementById('trip-grid') as HTMLInputElement;
+    const tripStart = document.getElementById('trip-start') as HTMLInputElement;
+    const tripEnd = document.getElementById('trip-end') as HTMLInputElement;
+    const tripStatus = document.getElementById('trip-status')!;
+    const tripSubmitBtn = document.getElementById('trip-submit') as HTMLButtonElement;
+    const tripCancelBtn = document.getElementById('trip-cancel-edit') as HTMLButtonElement;
+    const tripsList = document.getElementById('trips-list')!;
+
+    function resetTripForm() {
+      tripEditId.value = '';
+      tripLabel.value = '';
+      tripCallsign.value = '';
+      tripPlace.value = '';
+      tripLat.value = '';
+      tripLon.value = '';
+      tripGrid.value = '';
+      tripStart.value = '';
+      tripEnd.value = '';
+      tripStatus.textContent = '';
+      tripSubmitBtn.textContent = 'Save Trip';
+      tripCancelBtn.hidden = true;
+    }
+
+    async function loadTrips() {
+      const res = await fetch('/api/trips');
+      const trips: Trip[] = res.ok ? await res.json() : [];
+      if (!trips.length) {
+        tripsList.innerHTML = '<p class="chart-desc" style="margin:0;">No trips defined yet.</p>';
+        return;
+      }
+      tripsList.innerHTML = '';
+      for (const t of trips) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid var(--border);font-size:0.9rem;';
+        const dates = [t.startDate, t.endDate].filter(Boolean).join(' – ');
+        row.innerHTML = `
+          <span><strong>${t.label}</strong> <span style="color:var(--muted);">&middot; ${t.callsign}${t.grid ? ` &middot; ${t.grid}` : ''}${dates ? ` &middot; ${dates}` : ''}</span></span>
+          <span style="display:flex;gap:0.4rem;">
+            <button type="button" class="btn secondary" data-edit="${t.id}" style="padding:0.25rem 0.6rem;font-size:0.8rem;">Edit</button>
+            <button type="button" class="btn secondary" data-delete="${t.id}" style="padding:0.25rem 0.6rem;font-size:0.8rem;">Delete</button>
+          </span>
+        `;
+        tripsList.appendChild(row);
+        row.querySelector(`[data-edit="${t.id}"]`)!.addEventListener('click', () => {
+          tripEditId.value = String(t.id);
+          tripLabel.value = t.label;
+          tripCallsign.value = t.callsign;
+          tripLat.value = String(t.lat);
+          tripLon.value = String(t.lon);
+          tripGrid.value = t.grid ?? '';
+          tripStart.value = t.startDate ?? '';
+          tripEnd.value = t.endDate ?? '';
+          tripStatus.textContent = `Editing "${t.label}".`;
+          tripSubmitBtn.textContent = 'Save Changes';
+          tripCancelBtn.hidden = false;
+          tripLabel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+        row.querySelector(`[data-delete="${t.id}"]`)!.addEventListener('click', async () => {
+          if (!confirm(`Delete trip "${t.label}"? QSOs already logged against it keep their own data — this only removes it from the picker.`)) return;
+          await fetch(`/api/trips/${t.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` } });
+          if (tripEditId.value === String(t.id)) resetTripForm();
+          loadTrips();
+        });
+      }
+    }
+    loadTrips();
+
+    document.getElementById('trip-locate-place')!.addEventListener('click', async () => {
+      const place = tripPlace.value.trim();
+      if (!place) {
+        tripStatus.textContent = 'Type a city/place first.';
+        return;
+      }
+      tripStatus.textContent = 'Looking up…';
+      const res = await fetch(`/api/geocode?q=${encodeURIComponent(place)}`);
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !body) {
+        tripStatus.textContent = 'Lookup failed.';
+        return;
+      }
+      tripLat.value = String(body.lat);
+      tripLon.value = String(body.lon);
+      tripGrid.value = latLonToGrid(body.lat, body.lon) ?? '';
+      tripStatus.textContent = `Found: ${body.displayName}.`;
+    });
+
+    // Real GPS, not a place-name lookup -- meant to be tapped once actually
+    // standing at the operating location (this is a mobile-first site, same
+    // "updatable from an iPhone" design goal as everything else in Admin),
+    // same navigator.geolocation pattern already used on /tools.
+    document.getElementById('trip-locate-gps')!.addEventListener('click', () => {
+      if (!navigator.geolocation) {
+        tripStatus.textContent = 'Geolocation is not supported by this browser.';
+        return;
+      }
+      tripStatus.textContent = 'Getting your current location…';
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          tripLat.value = pos.coords.latitude.toFixed(5);
+          tripLon.value = pos.coords.longitude.toFixed(5);
+          tripGrid.value = latLonToGrid(pos.coords.latitude, pos.coords.longitude) ?? '';
+          tripStatus.textContent = `Located within ${Math.round(pos.coords.accuracy)} m — grid square filled in below.`;
+        },
+        (err) => {
+          tripStatus.textContent = `Could not get location: ${err.message}`;
+        },
+        { enableHighAccuracy: true, timeout: 10000 },
+      );
+    });
+
+    document.getElementById('trip-cancel-edit')!.addEventListener('click', resetTripForm);
+
+    document.getElementById('trip-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const lat = Number(tripLat.value);
+      const lon = Number(tripLon.value);
+      if (!tripLabel.value.trim() || !tripCallsign.value.trim() || !Number.isFinite(lat) || !Number.isFinite(lon)) {
+        tripStatus.textContent = 'Label, callsign, latitude, and longitude are required.';
+        return;
+      }
+      tripStatus.textContent = 'Saving…';
+      const body = {
+        label: tripLabel.value.trim(),
+        callsign: tripCallsign.value.trim(),
+        lat,
+        lon,
+        grid: tripGrid.value.trim() || latLonToGrid(lat, lon) || undefined,
+        startDate: tripStart.value || undefined,
+        endDate: tripEnd.value || undefined,
+      };
+      const editId = tripEditId.value;
+      const res = await fetch(editId ? `/api/trips/${editId}` : '/api/trips', {
+        method: editId ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        resetTripForm();
+        loadTrips();
+      } else {
+        const errBody = await res.json().catch(() => ({}));
+        tripStatus.textContent = errBody.error ?? 'Save failed.';
       }
     });
 
