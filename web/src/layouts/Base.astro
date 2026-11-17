@@ -3,9 +3,64 @@ import '../styles/base.css';
 
 interface Props {
   title: string;
-  active?: 'home' | 'photos' | 'log' | 'map' | 'awards' | 'stats' | 'activations' | 'tools' | 'electronics' | 'reference' | 'conditions' | 'radio' | 'satellites' | 'kiwisdr' | 'about' | 'admin' | 'status' | 'guestbook';
+  active?: 'home' | 'photos' | 'log' | 'map' | 'awards' | 'stats' | 'activations' | 'tools' | 'electronics' | 'reference' | 'conditions' | 'radio' | 'satellites' | 'kiwisdr' | 'digital-voice' | 'about' | 'admin' | 'status' | 'guestbook';
 }
 const { title, active } = Astro.props;
+
+// The nav is grouped rather than one flat row of 18 links: dropdowns on
+// desktop, a bottom tab bar + sheet on phones (same DOM, restyled in
+// base.css). Each link keeps its data-tile-id so /admin's nav hide/reorder
+// still applies -- within its group, since applyTileLayout runs per
+// container. Icons are 24px stroke paths, drawn inline like the theme toggle.
+const NAV_GROUPS = [
+  {
+    id: 'log',
+    label: 'Log',
+    icon: 'M4 4h16v16H4zM8 9h8M8 13h8M8 17h5',
+    links: [
+      { id: 'log', href: '/log', label: 'QSO Log' },
+      { id: 'map', href: '/map', label: 'QSO Map' },
+      { id: 'awards', href: '/awards', label: 'Awards' },
+      { id: 'stats', href: '/stats', label: 'Stats' },
+      { id: 'activations', href: '/activations', label: 'Activations' },
+    ],
+  },
+  {
+    id: 'onair',
+    label: 'On Air',
+    icon: 'M12 13v8M9 21h6M8.5 9.5a5 5 0 0 1 7 0M5.6 6.6a9 9 0 0 1 12.8 0M12 12.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+    links: [
+      { id: 'conditions', href: '/conditions', label: 'Conditions' },
+      { id: 'radio', href: '/radio', label: 'Radio' },
+      { id: 'kiwisdr', href: '/kiwisdr', label: 'KiwiSDR' },
+      { id: 'digital-voice', href: '/digital-voice', label: 'Digital Voice' },
+      { id: 'satellites', href: '/satellites', label: 'Satellites' },
+    ],
+  },
+  {
+    id: 'tools',
+    label: 'Tools',
+    icon: 'M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z',
+    links: [
+      { id: 'tools', href: '/tools', label: 'Tools' },
+      { id: 'electronics', href: '/electronics', label: 'Electronics' },
+      { id: 'reference', href: '/reference', label: 'Reference' },
+    ],
+  },
+  {
+    id: 'station',
+    label: 'Station',
+    icon: 'M3 21h18M5 21V10l7-6 7 6v11M10 21v-6h4v6',
+    links: [
+      { id: 'about', href: '/about', label: 'About' },
+      { id: 'photos', href: '/photos', label: 'Photos' },
+      { id: 'guestbook', href: '/guestbook', label: 'Guestbook' },
+      { id: 'status', href: '/status', label: 'Status' },
+      { id: 'admin', href: '/admin', label: 'Admin' },
+    ],
+  },
+];
+const activeGroup = NAV_GROUPS.find((g) => g.links.some((l) => l.id === active))?.id;
 ---
 <!doctype html>
 <html lang="en">
@@ -43,25 +98,26 @@ const { title, active } = Astro.props;
   <body>
     <header>
       <a class="brand" href="/"><span class="dot"></span><span id="brand-text">Ham Station</span></a>
-      <nav id="site-nav">
-        <a data-tile-id="about" href="/about" aria-current={active === 'about' ? 'page' : undefined}>About</a>
-        <a data-tile-id="guestbook" href="/guestbook" aria-current={active === 'guestbook' ? 'page' : undefined}>Guestbook</a>
-        <a data-tile-id="photos" href="/photos" aria-current={active === 'photos' ? 'page' : undefined}>Photos</a>
-        <a data-tile-id="log" href="/log" aria-current={active === 'log' ? 'page' : undefined}>QSO Log</a>
-        <a data-tile-id="map" href="/map" aria-current={active === 'map' ? 'page' : undefined}>QSO Map</a>
-        <a data-tile-id="awards" href="/awards" aria-current={active === 'awards' ? 'page' : undefined}>Awards</a>
-        <a data-tile-id="stats" href="/stats" aria-current={active === 'stats' ? 'page' : undefined}>Stats</a>
-        <a data-tile-id="activations" href="/activations" aria-current={active === 'activations' ? 'page' : undefined}>Activations</a>
-        <a data-tile-id="conditions" href="/conditions" aria-current={active === 'conditions' ? 'page' : undefined}>Conditions</a>
-        <a data-tile-id="radio" href="/radio" aria-current={active === 'radio' ? 'page' : undefined}>Radio</a>
-        <a data-tile-id="digital-voice" href="/digital-voice" aria-current={active === 'digital-voice' ? 'page' : undefined}>Digital Voice</a>
-        <a data-tile-id="kiwisdr" href="/kiwisdr" aria-current={active === 'kiwisdr' ? 'page' : undefined}>KiwiSDR</a>
-        <a data-tile-id="satellites" href="/satellites" aria-current={active === 'satellites' ? 'page' : undefined}>Satellites</a>
-        <a data-tile-id="tools" href="/tools" aria-current={active === 'tools' ? 'page' : undefined}>Tools</a>
-        <a data-tile-id="electronics" href="/electronics" aria-current={active === 'electronics' ? 'page' : undefined}>Electronics</a>
-        <a data-tile-id="reference" href="/reference" aria-current={active === 'reference' ? 'page' : undefined}>Reference</a>
-        <a data-tile-id="status" href="/status" aria-current={active === 'status' ? 'page' : undefined}>Status</a>
-        <a data-tile-id="admin" href="/admin" aria-current={active === 'admin' ? 'page' : undefined}>Admin</a>
+      <nav id="site-nav" aria-label="Main">
+        <a class="nav-home" href="/" aria-current={active === 'home' ? 'page' : undefined}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7M5 10v10h14V10"/></svg>
+          <span>Home</span>
+        </a>
+        {NAV_GROUPS.map((g) => (
+          <div class="nav-group" data-group={g.id}>
+            <button type="button" class="nav-group-btn" aria-expanded="false" aria-controls={`nav-menu-${g.id}`} data-active={g.id === activeGroup ? 'true' : undefined}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={g.icon} /></svg>
+              <span>{g.label}</span>
+              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="nav-menu" id={`nav-menu-${g.id}`} hidden>
+              <div class="nav-menu-title">{g.label}</div>
+              {g.links.map((l) => (
+                <a data-tile-id={l.id} href={l.href} aria-current={active === l.id ? 'page' : undefined}>{l.label}</a>
+              ))}
+            </div>
+          </div>
+        ))}
       </nav>
       <div class="text-size-picker" role="group" aria-label="Text size">
         <button type="button" class="text-size-btn" id="text-size-normal" aria-label="Normal text size">A</button>
@@ -74,10 +130,8 @@ const { title, active } = Astro.props;
         </button>
         <div class="theme-menu" id="theme-menu" role="menu" hidden></div>
       </div>
-      <button type="button" class="nav-toggle" id="nav-toggle" aria-label="Menu" aria-expanded="false" aria-controls="site-nav">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
-      </button>
     </header>
+    <div class="nav-scrim" id="nav-scrim" hidden></div>
     <main>
       <slot />
     </main>
@@ -86,22 +140,48 @@ const { title, active } = Astro.props;
     <script>
       import { applyTileLayout } from '../lib/tileLayout';
 
-      const navToggle = document.getElementById('nav-toggle')!;
       const siteNav = document.getElementById('site-nav')!;
-      applyTileLayout('nav', siteNav);
+      const navScrim = document.getElementById('nav-scrim')!;
+      const navGroups = Array.from(siteNav.querySelectorAll<HTMLElement>('.nav-group'));
 
-      navToggle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const willOpen = !siteNav.classList.contains('nav-open');
-        siteNav.classList.toggle('nav-open', willOpen);
-        navToggle.setAttribute('aria-expanded', String(willOpen));
-      });
-      document.addEventListener('click', (e) => {
-        if (siteNav.classList.contains('nav-open') && !siteNav.contains(e.target as Node) && e.target !== navToggle) {
-          siteNav.classList.remove('nav-open');
-          navToggle.setAttribute('aria-expanded', 'false');
+      // Admin hide/reorder, applied per group; a group whose links are all
+      // hidden disappears instead of opening an empty menu.
+      for (const group of navGroups) {
+        const menu = group.querySelector<HTMLElement>('.nav-menu')!;
+        applyTileLayout('nav', menu).then(() => {
+          group.hidden = !menu.querySelector('a[data-tile-id]:not([hidden])');
+        });
+      }
+
+      function closeNavMenus(except?: HTMLElement) {
+        for (const group of navGroups) {
+          if (group === except) continue;
+          group.querySelector('.nav-group-btn')!.setAttribute('aria-expanded', 'false');
+          group.querySelector<HTMLElement>('.nav-menu')!.hidden = true;
         }
+        if (!except) navScrim.hidden = true;
+      }
+      for (const group of navGroups) {
+        const btn = group.querySelector<HTMLButtonElement>('.nav-group-btn')!;
+        const menu = group.querySelector<HTMLElement>('.nav-menu')!;
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const willOpen = menu.hidden;
+          closeNavMenus(group);
+          menu.hidden = !willOpen;
+          btn.setAttribute('aria-expanded', String(willOpen));
+          navScrim.hidden = !willOpen;
+        });
+      }
+      document.addEventListener('click', (e) => {
+        if (!(e.target as HTMLElement).closest('.nav-menu')) closeNavMenus();
       });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeNavMenus();
+      });
+      // Pages restored from the back/forward cache keep whatever menu was
+      // open when the user tapped away.
+      window.addEventListener('pageshow', () => closeNavMenus());
 
       // Text size -- three plain always-visible buttons rather than a
       // dropdown (like the theme picker), since there are only three states

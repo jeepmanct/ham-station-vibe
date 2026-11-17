@@ -1,6 +1,91 @@
 // Minimal hand-rolled SVG bar/line charts — no charting library, consistent
-// with the rest of this site staying dependency-light. Native <title> gives
-// a browser tooltip on hover per bar/point without needing custom JS for it.
+// with the rest of this site staying dependency-light. attachHover() adds a
+// shared crosshair/tooltip layer (pointer events, so it works on touch too);
+// the native <title> per mark stays as the no-JS/screen-reader fallback.
+
+type HoverTarget = {
+  /** Mark center in SVG viewBox units. */
+  x: number;
+  heading: string;
+  rows: { color: string; label?: string; value: string; y?: number }[];
+  barIndex?: number;
+};
+
+/**
+ * Snaps to the nearest target by x as the pointer moves over the chart and
+ * shows an HTML tooltip -- a crosshair + ringed points for line charts, a
+ * highlighted bar for bar charts. The hit area is the whole plot, not just
+ * the 2.5px dots, so it's usable with a finger.
+ */
+function attachHover(container: HTMLElement, targets: HoverTarget[], plot: { top: number; bottom: number }) {
+  const svg = container.querySelector('svg');
+  if (!svg || !targets.length) return;
+  container.classList.add('chart-hoverable');
+  const ns = 'http://www.w3.org/2000/svg';
+  const layer = document.createElementNS(ns, 'g');
+  layer.setAttribute('class', 'chart-hover-layer');
+  layer.style.display = 'none';
+  svg.appendChild(layer);
+  const tip = document.createElement('div');
+  tip.className = 'chart-tip';
+  tip.hidden = true;
+  container.appendChild(tip);
+  const bars = Array.from(svg.querySelectorAll<SVGRectElement>('rect.bar'));
+  const vb = svg.viewBox.baseVal;
+
+  function show(clientX: number) {
+    const box = svg!.getBoundingClientRect();
+    const scale = box.width / vb.width;
+    const x = (clientX - box.left) / scale;
+    const t = targets.reduce((a, b) => (Math.abs(b.x - x) < Math.abs(a.x - x) ? b : a));
+    let markup = '';
+    if (t.barIndex == null) {
+      markup += `<line x1="${t.x}" x2="${t.x}" y1="${plot.top}" y2="${plot.bottom}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3"/>`;
+      for (const r of t.rows) {
+        if (r.y != null) markup += `<circle cx="${t.x}" cy="${r.y}" r="4.5" fill="${r.color}" stroke="var(--card)" stroke-width="2"/>`;
+      }
+    }
+    layer.innerHTML = markup;
+    layer.style.display = '';
+    bars.forEach((b, i) => b.classList.toggle('bar-dim', t.barIndex != null && i !== t.barIndex));
+
+    tip.innerHTML =
+      `<div class="chart-tip-head">${t.heading}</div>` +
+      t.rows
+        .map((r) => `<div class="chart-tip-row"><span class="chart-tip-swatch" style="background:${r.color}"></span>${r.label ? `<span class="chart-tip-label">${r.label}</span>` : ''}<span class="chart-tip-value">${r.value}</span></div>`)
+        .join('');
+    tip.hidden = false;
+    const cBox = container.getBoundingClientRect();
+    const px = box.left - cBox.left + t.x * scale;
+    const left = Math.min(Math.max(px - tip.offsetWidth / 2, 0), cBox.width - tip.offsetWidth);
+    tip.style.left = `${left}px`;
+    tip.style.top = `${box.top - cBox.top + plot.top * scale - tip.offsetHeight - 6}px`;
+  }
+  function hide() {
+    layer.style.display = 'none';
+    tip.hidden = true;
+    bars.forEach((b) => b.classList.remove('bar-dim'));
+  }
+  svg.addEventListener('pointermove', (e) => show(e.clientX));
+  svg.addEventListener('pointerdown', (e) => show(e.clientX));
+  svg.addEventListener('pointerleave', (e) => {
+    if (e.pointerType === 'mouse') hide();
+  });
+  // Touch: a tap shows the tooltip; tapping elsewhere dismisses it. Charts
+  // re-render in place (metric pickers, resizes), so the previous render's
+  // document listener is aborted rather than left to pile up.
+  hoverAborts.get(container)?.abort();
+  const abort = new AbortController();
+  hoverAborts.set(container, abort);
+  document.addEventListener(
+    'pointerdown',
+    (e) => {
+      if (!container.contains(e.target as Node)) hide();
+    },
+    { signal: abort.signal },
+  );
+}
+const hoverAborts = new WeakMap<HTMLElement, AbortController>();
 
 export type BarDatum = { label: string; value: number; title?: string; color?: string };
 
@@ -28,6 +113,16 @@ export function renderBarChart(container: HTMLElement, data: BarDatum[], color: 
   svg += `<text x="${padding.left}" y="${padding.top - 4}" font-size="10" fill="var(--muted)">${formatValue(max)}</text>`;
   svg += '</svg>';
   container.innerHTML = svg;
+  attachHover(
+    container,
+    data.map((d, i) => ({
+      x: padding.left + i * barSlot + barSlot / 2,
+      heading: d.label,
+      rows: [{ color: d.color ?? color, value: d.title ?? formatValue(d.value) }],
+      barIndex: i,
+    })),
+    { top: padding.top, bottom: padding.top + plotH },
+  );
 }
 
 export type LinePoint = { x: number; y: number };
@@ -72,6 +167,15 @@ export function renderLineChart(
   svg += `<text x="${width - padding.right}" y="${height - 4}" font-size="10" fill="var(--muted)" text-anchor="end">${formatX(maxX)}</text>`;
   svg += '</svg>';
   container.innerHTML = svg;
+  attachHover(
+    container,
+    data.map((d) => ({
+      x: xScale(d.x),
+      heading: formatX(d.x),
+      rows: [{ color, value: `${d.y.toFixed(1)}${opts.suffix ?? ''}`, y: yScale(d.y) }],
+    })),
+    { top: padding.top, bottom: padding.top + plotH },
+  );
 }
 
 export type LineSeries = { label: string; color: string; data: LinePoint[] };
@@ -129,4 +233,14 @@ export function renderMultiLineChart(
     .map((s) => `<span class="chart-legend-item"><span class="chart-legend-dot" style="background:${s.color};"></span>${s.label}</span>`)
     .join('');
   container.innerHTML = `<div class="chart-legend">${legend}</div>${svg}`;
+  // One target per distinct x, listing every series that has a value there.
+  const byX = new Map<number, HoverTarget>();
+  for (const s of nonEmpty) {
+    for (const d of s.data) {
+      const t = byX.get(d.x) ?? { x: xScale(d.x), heading: formatX(d.x), rows: [] };
+      t.rows.push({ color: s.color, label: s.label, value: `${d.y.toFixed(1)}${opts.suffix ?? ''}`, y: yScale(d.y) });
+      byX.set(d.x, t);
+    }
+  }
+  attachHover(container, [...byX.values()], { top: padding.top, bottom: padding.top + plotH });
 }

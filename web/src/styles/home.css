@@ -1,0 +1,118 @@
+/* --- Home dashboard --- */
+.home-hero h1 { margin-bottom: 0.4rem; }
+.ota-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--status-good); display: inline-block; }
+
+.now-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+}
+.now-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.now-tile:hover { background: var(--card-hover); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.now-tile .label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.now-tile .value { font-family: var(--font-mono); font-size: 1.7rem; font-weight: 700; line-height: 1.2; }
+.now-tile .value small { font-size: 0.8rem; font-weight: 400; color: var(--muted); }
+.now-tile .sub { font-size: 0.78rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 720px) {
+  .now-strip { grid-template-columns: repeat(2, 1fr); }
+}
+
+.home-feeds {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.feed-card { padding: 1rem 1.25rem; }
+.feed-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 0.25rem; }
+.feed-head h2 { margin: 0; }
+.feed-head a { font-size: 0.8rem; color: var(--accent); text-decoration: none; white-space: nowrap; }
+.feed-head a:hover { text-decoration: underline; }
+.feed-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+.feed-row:last-child { border-bottom: 0; }
+.feed-main { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 0.4rem; }
+.feed-main strong { font-family: var(--font-mono); }
+.feed-sub { flex-basis: 100%; color: var(--muted); font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feed-meta { flex: none; text-align: right; color: var(--muted); font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.45; }
+.feed-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+.feed-badge.needed { background: color-mix(in srgb, var(--accent-2) 20%, transparent); color: var(--accent-2); }
+
+.home-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+.home-tile {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+.home-tile[hidden] { display: none; }
+.home-tile:hover { background: var(--card-hover); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.home-tile:active { transform: scale(0.98); }
+.home-tile-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+.home-tile-icon svg { width: 21px; height: 21px; }
+.home-tile-text { display: flex; flex-direction: column; min-width: 0; }
+.home-tile-label { font-weight: 600; font-size: 0.95rem; }
+.home-tile-desc { font-size: 0.8rem; color: var(--muted); line-height: 1.35; }
+
+/* Phone: app-style icon grid, labels only. */
+@media (max-width: 720px) {
+  .home-tiles { grid-template-columns: repeat(4, 1fr); gap: 0.9rem 0.5rem; }
+  .home-tile {
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0;
+    background: none;
+    border: 0;
+    text-align: center;
+  }
+  .home-tile:hover { background: none; }
+  .home-tile-icon { width: 56px; height: 56px; border-radius: 16px; background: var(--card); border: 1px solid var(--border); }
+  .home-tile-icon svg { width: 26px; height: 26px; }
+  .home-tile-label { font-size: 0.72rem; font-weight: 500; line-height: 1.2; }
+  .home-tile-desc { display: none; }
+}

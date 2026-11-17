@@ -77,6 +77,21 @@ function neededStatus(dxCall: string | undefined, worked: Set<string>): 'needed'
   return worked.has(resolved.entity) ? 'worked' : 'needed';
 }
 
+// dxheat serves spot comments already HTML-entity-encoded (e.g. "&lt;TR&gt;"),
+// and every page escapes them again on render -- decode once here so the
+// API returns plain text and pages show "<TR>" rather than "&lt;TR&gt;".
+function decodeEntities(text: unknown): unknown {
+  if (typeof text !== 'string') return text;
+  return text
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+}
+
 async function fetchSpots() {
   const res = await fetch('https://dxheat.com/source/spots/', { signal: AbortSignal.timeout(8000) });
   if (!res.ok) throw new Error(`dxheat HTTP ${res.status}`);
@@ -88,7 +103,7 @@ async function fetchSpots() {
     frequency: s.Frequency,
     band: s.Band,
     mode: s.Mode,
-    comment: s.Comment,
+    comment: decodeEntities(s.Comment),
     time: s.Time,
     continent: s.Continent_dx,
     grid: s.DXLocator,
@@ -469,5 +484,74 @@ conditionsRoutes.get('/ptp', async (c) => {
     return c.json({ fromGrid, toGrid, resolvedVia, hours });
   } catch (err) {
     return c.json({ error: err instanceof Error ? err.message : 'Point-to-point prediction failed' }, 502);
+  }
+});
+
+// Interactive MUF map data -- the same prop.kc2g.com model the static SVG
+// embed showed, but as raw contour GeoJSON + per-ionosonde readings so the
+// frontend can draw it on our own themed Leaflet map (QTH marker, band
+// picker, spot overlay) instead of a fixed-palette picture. Still the
+// "don't reinvent real domain science" call made for the SVG: contours come
+// straight from kc2g's model, nothing is interpolated here. kc2g re-renders
+// every ~15 min, so a 10 min cache keeps us at most one render behind.
+const MUF_TTL_MS = 10 * 60 * 1000;
+// stations.json also lists ionosondes that went silent months ago (stale
+// readings never age out of it) -- only the ones that reported recently
+// actually fed the current contours.
+const MUF_STATION_MAX_AGE_MS = 3 * 60 * 60 * 1000;
+
+type KcStation = {
+  station: { name: string; code: string; latitude: string; longitude: string };
+  time: string;
+  mufd: number | null;
+  fof2: number | null;
+  cs: number | null;
+};
+
+async function fetchMuf() {
+  const get = async (path: string) => {
+    const res = await fetch(`https://prop.kc2g.com${path}`, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) throw new Error(`prop.kc2g.com ${path} HTTP ${res.status}`);
+    return res.json();
+  };
+  const [contours, rawStations, runs] = await Promise.all([
+    get('/renders/current/mufd-normal-now.geojson') as Promise<{ type: string; features: unknown[] }>,
+    get('/api/stations.json') as Promise<KcStation[]>,
+    get('/api/available_maps.json') as Promise<{ ts: number; esfi: number; essn: number; filesuffix: string }[]>,
+  ]);
+  const now = Date.now();
+  const stations = rawStations
+    .map((s) => {
+      // kc2g's times are UTC without a zone suffix; longitudes are 0-360.
+      const at = Date.parse(`${s.time}Z`);
+      const lon = Number(s.station.longitude);
+      return {
+        name: s.station.name,
+        code: s.station.code,
+        lat: Number(s.station.latitude),
+        lon: lon > 180 ? lon - 360 : lon,
+        mufd: s.mufd,
+        fof2: s.fof2,
+        confidence: s.cs,
+        time: Number.isNaN(at) ? null : at,
+      };
+    })
+    .filter((s) => s.time != null && now - s.time < MUF_STATION_MAX_AGE_MS && s.mufd != null);
+  const current = runs.filter((r) => r.filesuffix === 'now').sort((a, b) => b.ts - a.ts)[0] ?? null;
+  return {
+    contours,
+    stations,
+    runAt: current ? current.ts * 1000 : null,
+    esfi: current ? Math.round(current.esfi * 10) / 10 : null,
+    essn: current ? Math.round(current.essn * 10) / 10 : null,
+  };
+}
+
+conditionsRoutes.get('/muf', async (c) => {
+  c.header('Cache-Control', 'no-store');
+  try {
+    return c.json(await ttlCached('conditions:muf', MUF_TTL_MS, fetchMuf)());
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : 'MUF data unavailable' }, 502);
   }
 });

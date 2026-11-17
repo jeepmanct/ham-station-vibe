@@ -60,9 +60,9 @@
   font-weight: 700;
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 0.15rem 0.55rem;
+  padding: 0.15rem 1.7rem 0.15rem 0.55rem;
   margin-left: 0.3rem;
-  background: var(--bg);
+  background-color: var(--bg);
   cursor: pointer;
 }
 

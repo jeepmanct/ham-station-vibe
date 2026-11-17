@@ -66,8 +66,27 @@ import '../styles/lastHeardTable.css';
 
   <div class="card" style="margin-top:1.5rem;" data-tile-id="muf-map">
     <h2>Real-Time MUF Map</h2>
-    <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.85rem;">Maximum Usable Frequency for a 3000km hop, via <a href="https://prop.kc2g.com" target="_blank" rel="noopener">prop.kc2g.com</a>. A "16" contour means a long-hop 20m path may be open there; higher numbers mean higher bands are open.</p>
-    <img id="muf-map" alt="Live worldwide MUF map" style="width:100%;border-radius:var(--radius);border:1px solid var(--border);display:block;" />
+    <p class="card-note">Maximum Usable Frequency for a 3000&nbsp;km hop, from live ionosonde data via <a href="https://prop.kc2g.com" target="_blank" rel="noopener">prop.kc2g.com</a>. Pick a band to see where it&rsquo;s open: inside its line, a single hop on that band should work.</p>
+    <div class="muf-nearest" id="muf-nearest"></div>
+    <div class="muf-controls">
+      <div class="seg" id="muf-bands" role="group" aria-label="Band"></div>
+      <div class="muf-toggles">
+        <label><input type="checkbox" id="muf-show-ring" checked /> QTH &amp; hop ring</label>
+        <label><input type="checkbox" id="muf-show-spots" checked /> DX spots</label>
+        <label><input type="checkbox" id="muf-show-qsos" /> My QSOs (7 days)</label>
+      </div>
+    </div>
+    <div id="muf-map" class="muf-map"></div>
+    <img id="muf-fallback" class="muf-map-fallback" alt="Live worldwide MUF map" hidden />
+    <div class="muf-legend">
+      <span><i class="lg-line"></i> MUF contour (MHz)</span>
+      <span><i class="lg-dot lg-open"></i> Ionosonde, band open</span>
+      <span><i class="lg-dot lg-closed"></i> Ionosonde, band closed</span>
+      <span><i class="lg-dot lg-spot"></i> DX spot</span>
+      <span><i class="lg-dot lg-qso"></i> My QSO</span>
+      <span><i class="lg-ring"></i> Midpoints of 3000&nbsp;km hops from home</span>
+    </div>
+    <p class="card-note" id="muf-status" style="margin-top:0.5rem;"></p>
   </div>
 
   <div class="card" style="margin-top:1.5rem;" data-tile-id="ptp-predictor">
@@ -211,6 +230,7 @@ import '../styles/lastHeardTable.css';
     import { formatDate } from '../lib/dates';
     import 'leaflet/dist/leaflet.css';
     import L from 'leaflet';
+    import { initMufMap } from '../lib/mufMap';
     import { fetchDistanceUnit, formatDistance, dbmToSUnit, type DistanceUnit } from '../lib/units';
     import { pollWhileVisible } from '../lib/polling';
     import { greatCircleArc } from '../lib/geo';
@@ -282,21 +302,22 @@ import '../styles/lastHeardTable.css';
       });
     document.getElementById('forecast-metric')!.addEventListener('change', renderForecastChart);
 
-    // Live SVG re-rendered server-side by prop.kc2g.com roughly every 15
-    // minutes from real ionosonde network data -- embedded directly rather
-    // than reimplemented client-side, since correctly computing MUF from
-    // raw foF2 station data requires real ionospheric-propagation formulas
-    // this project has no way to verify independently, unlike e.g. the
-    // antenna-takeoff-angle calculator which had textbook reference values
-    // to check against. Cache-busted on each refresh since it's a plain
-    // <img>, not a fetch(), so the browser would otherwise keep serving a
-    // stale cached copy for the image's own cache lifetime.
-    function refreshMufMap() {
-      const img = document.getElementById('muf-map') as HTMLImageElement;
-      img.src = `https://prop.kc2g.com/renders/current/mufd-normal-now.svg?_=${Date.now()}`;
-    }
-    refreshMufMap();
-    pollWhileVisible(refreshMufMap, 5 * 60 * 1000);
+    const mufMap = initMufMap({
+      map: document.getElementById('muf-map')!,
+      bandPicker: document.getElementById('muf-bands')!,
+      layerToggles: {
+        spots: document.getElementById('muf-show-spots') as HTMLInputElement,
+        qsos: document.getElementById('muf-show-qsos') as HTMLInputElement,
+        ring: document.getElementById('muf-show-ring') as HTMLInputElement,
+      },
+      status: document.getElementById('muf-status')!,
+      nearest: document.getElementById('muf-nearest')!,
+      fallback: document.getElementById('muf-fallback') as HTMLImageElement,
+    });
+    mufMap.refreshMuf();
+    mufMap.refreshSpots();
+    pollWhileVisible(mufMap.refreshMuf, 10 * 60 * 1000);
+    pollWhileVisible(mufMap.refreshSpots, 60 * 1000);
 
     // NCDXF/IARU beacon schedule, verified against the official schedule
     // table at ncdxf.org/beacon/beaconschedule.html (2026-08-10) -- no live

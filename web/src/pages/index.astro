@@ -1,80 +1,82 @@
 ---
 import Base from '../layouts/Base.astro';
+import '../styles/home.css';
+
+// Section tiles: data-tile-id keeps /admin + inline "Edit Layout"
+// hide/reorder working exactly as before. Icons are 24px stroke paths.
+const TILES = [
+  { id: 'log', href: '/log', label: 'QSO Log', desc: 'Every contact, synced from LoTW, QRZ & eQSL.', icon: 'M4 4h16v16H4zM8 9h8M8 13h8M8 17h5' },
+  { id: 'map', href: '/map', label: 'QSO Map', desc: 'Great-circle paths to every contact.', icon: 'M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14' },
+  { id: 'awards', href: '/awards', label: 'Awards', desc: 'DXCC, WAS, WAZ, VUCC, WPX and more.', icon: 'M12 15a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM8.5 14 7 22l5-3 5 3-1.5-8' },
+  { id: 'stats', href: '/stats', label: 'Stats', desc: 'Trends, streaks, and solar-cycle history.', icon: 'M4 20V10M10 20V4M16 20v-7M22 20H2' },
+  { id: 'activations', href: '/activations', label: 'Activations', desc: 'POTA & SOTA activity.', icon: 'M3 20 9.5 8l4 7 2.5-4 5 9zM16 4.5a1.5 1.5 0 1 0 0 .01' },
+  { id: 'conditions', href: '/conditions', label: 'Conditions', desc: 'MUF map, solar data, spots, contests.', icon: 'M12 3v2M12 19v2M5 5l1.5 1.5M17.5 17.5 19 19M3 12h2M19 12h2M5 19l1.5-1.5M17.5 6.5 19 5M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z' },
+  { id: 'radio', href: '/radio', label: 'Radio', desc: 'FlexRadio status, tuning & audio.', icon: 'M3 9h18v11H3zM7 9l10-5M8 15.5a1.5 1.5 0 1 0 0-.01M14 13h4M14 17h4' },
+  { id: 'kiwisdr', href: '/kiwisdr', label: 'KiwiSDR', desc: 'Live waterfall and receive audio.', icon: 'M2 12h3l2-6 3 12 3-9 2 5 2-2h5' },
+  { id: 'digital-voice', href: '/digital-voice', label: 'Digital Voice', desc: 'DMR & D-STAR last heard.', icon: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3' },
+  { id: 'satellites', href: '/satellites', label: 'Satellites', desc: 'Live tracking & pass predictions.', icon: 'm13 7 4 4-6 6-4-4zM7 13l-4 4 4 4 4-4M17 11l4-4-4-4-4 4M14.5 19.5a5 5 0 0 0 5-5' },
+  { id: 'tools', href: '/tools', label: 'Tools', desc: 'Grid, distance, antenna & lookups.', icon: 'M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z' },
+  { id: 'electronics', href: '/electronics', label: 'Electronics', desc: 'Bench calculators.', icon: 'M7 7h10v10H7zM10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4' },
+  { id: 'reference', href: '/reference', label: 'Reference', desc: 'Morse trainer, band plan, Q-codes.', icon: 'M4 5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2zM4 21a2 2 0 0 1 2-2h14v2' },
+  { id: 'about', href: '/about', label: 'About', desc: 'Station, rig, and operator.', icon: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0' },
+  { id: 'photos', href: '/photos', label: 'Photos', desc: 'Shack, antennas, and field ops.', icon: 'M3 7h4l2-3h6l2 3h4v13H3zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z' },
+  { id: 'guestbook', href: '/guestbook', label: 'Guestbook', desc: 'Passing through? Leave a note.', icon: 'M4 4h16v12H8l-4 4zM8 9h8M8 12h5' },
+];
 ---
 <Base title="Home" active="home">
-  <section>
+  <section class="home-hero">
     <h1 id="home-callsign">Ham Station</h1>
     <p class="lede">Amateur radio log, QSL data, live station control, and propagation tools &mdash; served from a Raspberry Pi.</p>
-    <div id="ota-badge" hidden>
-      <span style="width:8px;height:8px;border-radius:50%;background:var(--status-good);display:inline-block;"></span>
+    <div id="ota-badge" class="ota-badge" hidden>
+      <span class="ota-dot"></span>
       On the air now &mdash; <span id="ota-detail"></span>
     </div>
   </section>
-  <section id="home-tiles" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;">
-    <a class="card" data-tile-id="about" href="/about" style="text-decoration:none;display:block;">
-      <h2 style="margin-bottom:0.35rem;">About</h2>
-      <p style="margin:0;color:var(--muted);">Station info, rig, and the operator's story.</p>
+
+  <section class="now-strip" aria-label="Right now">
+    <a class="now-tile" href="/conditions">
+      <span class="label">Solar flux</span>
+      <span class="value" id="now-sfi">&mdash;</span>
+      <span class="sub" id="now-sfi-sub">&nbsp;</span>
     </a>
-    <a class="card" data-tile-id="guestbook" href="/guestbook" style="text-decoration:none;display:block;">
-      <h2 style="margin-bottom:0.35rem;">Guestbook</h2>
-      <p style="margin:0;color:var(--muted);">Passing through? Leave a note.</p>
+    <a class="now-tile" href="/conditions">
+      <span class="label">K-index</span>
+      <span class="value" id="now-k">&mdash;</span>
+      <span class="sub" id="now-k-sub">&nbsp;</span>
     </a>
-    <a class="card" data-tile-id="photos" href="/photos" style="text-decoration:none;display:block;">
-      <h2 style="margin-bottom:0.35rem;">Photos</h2>
-      <p style="margin:0;color:var(--muted);">Gallery of shack, antenna, and field photos.</p>
+    <a class="now-tile" href="/conditions#muf-map">
+      <span class="label">Local MUF</span>
+      <span class="value" id="now-muf">&mdash;</span>
+      <span class="sub" id="now-muf-sub">&nbsp;</span>
     </a>
-    <a class="card" data-tile-id="log" href="/log" style="text-decoration:none;display:block;">
-      <h2 style="margin-bottom:0.35rem;">QSO Log</h2>
-      <p style="margin:0;color:var(--muted);">Full station log &mdash; imported from LoTW/QRZ, or logged directly.</p>
+    <a class="now-tile" href="/log">
+      <span class="label">QSOs this week</span>
+      <span class="value" id="now-week">&mdash;</span>
+      <span class="sub" id="now-total">&nbsp;</span>
     </a>
-    <a class="card" data-tile-id="map" href="/map" style="text-decoration:none;display:block;">
-      <h2 style="margin-bottom:0.35rem;">QSO Map</h2>
-      <p style="margin:0;color:var(--muted);">Great-circle paths to your logged contacts &mdash; pick a band, mode, or country to plot.</p>
-    </a>
-    <a class="card" data-tile-id="awards" href="/awards" style="text-decoration:none;display:block;">
-      <h2 style="margin-bottom:0.35rem;">Awards</h2>
-      <p style="margin:0;color:var(--muted);">DXCC, WAS, WAC, VUCC, WAZ, WPX, and more.</p>
-    </a>
-    <a class="card" data-tile-id="stats" href="/stats" style="text-decoration:none;display:block;">
-      <h2 style="margin-bottom:0.35rem;">Stats</h2>
-      <p style="margin:0;color:var(--muted);">QSO trends, breakdowns, and solar cycle history.</p>
-    </a>
-    <a class="card" data-tile-id="activations" href="/activations" style="text-decoration:none;display:block;">
-      <h2 style="margin-bottom:0.35rem;">Activations</h2>
-      <p style="margin:0;color:var(--muted);">POTA activator &amp; hunter activity.</p>
-    </a>
-    <a class="card" data-tile-id="conditions" href="/conditions" style="text-decoration:none;display:block;">
-      <h2 style="margin-bottom:0.35rem;">Conditions</h2>
-      <p style="margin:0;color:var(--muted);">Live solar data, DX spots, and contests.</p>
-    </a>
-    <a class="card" data-tile-id="radio" href="/radio" style="text-decoration:none;display:block;">
-      <h2 style="margin-bottom:0.35rem;">Radio</h2>
-      <p style="margin:0;color:var(--muted);">Live status from the FlexRadio 6400, remote tuning, and receive audio.</p>
-    </a>
-    <a class="card" data-tile-id="digital-voice" href="/digital-voice" style="text-decoration:none;display:block;">
-      <h2 style="margin-bottom:0.35rem;">Digital Voice</h2>
-      <p style="margin:0;color:var(--muted);">DMR and D-STAR last-heard activity, plus a repeater offset lookup.</p>
-    </a>
-    <a class="card" data-tile-id="kiwisdr" href="/kiwisdr" style="text-decoration:none;display:block;">
-      <h2 style="margin-bottom:0.35rem;">KiwiSDR</h2>
-      <p style="margin:0;color:var(--muted);">Live waterfall, spectrum, and receive audio from the shack.</p>
-    </a>
-    <a class="card" data-tile-id="satellites" href="/satellites" style="text-decoration:none;display:block;">
-      <h2 style="margin-bottom:0.35rem;">Satellites</h2>
-      <p style="margin:0;color:var(--muted);">Live tracking &amp; pass predictions for Voice ham satellites.</p>
-    </a>
-    <a class="card" data-tile-id="tools" href="/tools" style="text-decoration:none;display:block;">
-      <h2 style="margin-bottom:0.35rem;">Tools</h2>
-      <p style="margin:0;color:var(--muted);">Grid converter, distance/bearing, log lookup.</p>
-    </a>
-    <a class="card" data-tile-id="electronics" href="/electronics" style="text-decoration:none;display:block;">
-      <h2 style="margin-bottom:0.35rem;">Electronics</h2>
-      <p style="margin:0;color:var(--muted);">Resistor codes, Ohm's Law, and other bench calculators.</p>
-    </a>
-    <a class="card" data-tile-id="reference" href="/reference" style="text-decoration:none;display:block;">
-      <h2 style="margin-bottom:0.35rem;">Reference</h2>
-      <p style="margin:0;color:var(--muted);">Morse code trainer, band plan, Q-codes, and external resources.</p>
-    </a>
+  </section>
+
+  <section class="home-feeds">
+    <div class="card feed-card">
+      <div class="feed-head"><h2>DX Spots</h2><a href="/conditions">All spots &rarr;</a></div>
+      <div id="home-spots" class="feed-list"><p class="status-line">Loading…</p></div>
+    </div>
+    <div class="card feed-card">
+      <div class="feed-head"><h2>Recent QSOs</h2><a href="/log">Full log &rarr;</a></div>
+      <div id="home-qsos" class="feed-list"><p class="status-line">Loading…</p></div>
+    </div>
+  </section>
+
+  <section id="home-tiles" class="home-tiles">
+    {TILES.map((t) => (
+      <a class="home-tile" data-tile-id={t.id} href={t.href}>
+        <span class="home-tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={t.icon} /></svg></span>
+        <span class="home-tile-text">
+          <span class="home-tile-label">{t.label}</span>
+          <span class="home-tile-desc">{t.desc}</span>
+        </span>
+      </a>
+    ))}
   </section>
 
   <section style="margin-top:2.5rem;">
@@ -86,6 +88,9 @@ import Base from '../layouts/Base.astro';
 
   <script>
     import { applyTileLayout, enableInlineTileEditing } from '../lib/tileLayout';
+    import { pollWhileVisible } from '../lib/polling';
+    import { escapeHtml } from '../lib/escapeHtml';
+    import { distanceKm } from '../lib/maidenhead';
 
     applyTileLayout('home', document.getElementById('home-tiles')!);
     enableInlineTileEditing('home', [document.getElementById('home-tiles')!]);
@@ -132,6 +137,93 @@ import Base from '../layouts/Base.astro';
         document.getElementById('ota-badge')!.hidden = false;
       })
       .catch(() => {});
+
+    // --- "Right now" strip + feeds ---
+    fetch('/api/conditions/today')
+      .then((r) => r.json())
+      .then((t: { date: string; sfi: number | null; kIndex: number | null } | null) => {
+        if (!t) return;
+        if (t.sfi != null) {
+          document.getElementById('now-sfi')!.textContent = String(Math.round(t.sfi));
+          document.getElementById('now-sfi-sub')!.textContent = t.sfi >= 150 ? 'High bands lively' : t.sfi >= 100 ? 'Decent' : 'Low';
+        }
+        if (t.kIndex != null) {
+          document.getElementById('now-k')!.textContent = t.kIndex.toFixed(1);
+          document.getElementById('now-k-sub')!.textContent = t.kIndex >= 5 ? 'Storm' : t.kIndex >= 4 ? 'Unsettled' : 'Quiet';
+        }
+      })
+      .catch(() => {});
+
+    // Nearest reporting ionosonde to the home QTH, same data as the
+    // /conditions MUF map.
+    Promise.all([fetch('/api/conditions/muf').then((r) => r.json()), fetch('/api/conditions/home').then((r) => r.json())])
+      .then(([muf, home]: [{ stations?: { name: string; lat: number; lon: number; mufd: number }[] }, { lat: number; lon: number } | null]) => {
+        if (!home || !muf.stations?.length) return;
+        const nearest = muf.stations.reduce((a, b) => (distanceKm(home, a) < distanceKm(home, b) ? a : b));
+        document.getElementById('now-muf')!.innerHTML = `${nearest.mufd.toFixed(1)}<small> MHz</small>`;
+        document.getElementById('now-muf-sub')!.textContent = nearest.name.split(',')[0];
+      })
+      .catch(() => {});
+
+    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+    fetch(`/api/qsos?limit=1&from=${weekAgo}`)
+      .then((r) => r.json())
+      .then((d: { total: number }) => {
+        document.getElementById('now-week')!.textContent = d.total.toLocaleString();
+      })
+      .catch(() => {});
+
+    type RecentQso = { call: string; qsoDate: string; timeOn: string | null; band: string | null; mode: string | null; country: string | null; lotwQslRcvd: string | null };
+    fetch('/api/qsos?limit=6')
+      .then((r) => r.json())
+      .then((d: { qsos: RecentQso[]; total: number }) => {
+        document.getElementById('now-total')!.textContent = `${d.total.toLocaleString()} total`;
+        const list = document.getElementById('home-qsos')!;
+        if (!d.qsos.length) {
+          list.innerHTML = '<p class="status-line">No contacts yet.</p>';
+          return;
+        }
+        list.innerHTML = d.qsos
+          .map((q) => {
+            const when = `${q.qsoDate.slice(4, 6)}/${q.qsoDate.slice(6, 8)}${q.timeOn ? ` ${q.timeOn.slice(0, 2)}:${q.timeOn.slice(2, 4)}z` : ''}`;
+            return `<div class="feed-row">
+              <span class="feed-main"><strong>${escapeHtml(q.call)}</strong>${q.lotwQslRcvd === 'Y' ? '<span class="feed-badge" title="Confirmed on LoTW">LoTW</span>' : ''}<span class="feed-sub">${escapeHtml(q.country ?? '')}</span></span>
+              <span class="feed-meta">${escapeHtml(q.band ?? '')} ${escapeHtml(q.mode ?? '')}<br>${when}</span>
+            </div>`;
+          })
+          .join('');
+      })
+      .catch(() => {
+        document.getElementById('home-qsos')!.innerHTML = '<p class="status-line">Could not load.</p>';
+      });
+
+    type Spot = { call: string; frequency: string; mode: string | null; comment: string | null; time: string | null; needed: 'needed' | 'worked' | null };
+    function loadSpots() {
+      fetch('/api/conditions/spots')
+        .then((r) => r.json())
+        .then((spots: Spot[]) => {
+          const list = document.getElementById('home-spots')!;
+          if (!spots.length) {
+            list.innerHTML = '<p class="status-line">No spots right now.</p>';
+            return;
+          }
+          // Needed entities float to the top -- that's what's worth chasing.
+          const sorted = [...spots].sort((a, b) => Number(b.needed === 'needed') - Number(a.needed === 'needed')).slice(0, 6);
+          list.innerHTML = sorted
+            .map(
+              (s) => `<div class="feed-row">
+                <span class="feed-main"><strong>${escapeHtml(s.call)}</strong>${s.needed === 'needed' ? '<span class="feed-badge needed">Needed</span>' : ''}<span class="feed-sub">${escapeHtml(s.comment ?? '')}</span></span>
+                <span class="feed-meta">${escapeHtml(String(s.frequency))}<br>${escapeHtml(s.mode ?? '')} ${escapeHtml(s.time ?? '')}</span>
+              </div>`,
+            )
+            .join('');
+        })
+        .catch(() => {
+          document.getElementById('home-spots')!.innerHTML = '<p class="status-line">Spots unavailable.</p>';
+        });
+    }
+    loadSpots();
+    pollWhileVisible(loadSpots, 60 * 1000);
 
     type Qso = { call: string; qsoDate: string; band: string | null; mode: string | null; country: string | null; gridsquare: string | null };
 

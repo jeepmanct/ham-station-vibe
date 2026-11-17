@@ -151,10 +151,10 @@
   color: var(--muted);
 }
 .award-field select {
-  padding: 0.55rem 0.7rem;
+  padding: 0.55rem 2rem 0.55rem 0.7rem;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: var(--bg-2);
+  background-color: var(--bg-2);
   color: var(--fg);
   font-size: 0.9rem;
   min-width: 160px;

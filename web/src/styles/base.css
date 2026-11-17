@@ -308,9 +308,6 @@ header {
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
-  backdrop-filter: blur(10px) saturate(140%);
-  -webkit-backdrop-filter: blur(10px) saturate(140%);
   /* `position: sticky` + z-index makes header its own stacking context, so
      its dropdown children (nav#site-nav, .theme-menu, both z-index: 20
      below) only rank against each other -- the header as a whole competes
@@ -320,6 +317,19 @@ header {
      value of 10 let map content paint over the nav dropdown on any page
      with a map. Comfortably above that ceiling. */
   z-index: 2000;
+}
+/* The frosted backdrop lives on a pseudo-element rather than header itself:
+   backdrop-filter on an element makes it the containing block for its
+   position:fixed descendants, which would pin the phone tab bar (nav,
+   inside header) to the header instead of the bottom of the screen. */
+header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
 }
 header .brand {
   display: flex;
@@ -339,71 +349,141 @@ header .brand .dot {
   box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 80%, transparent);
   display: inline-block;
 }
-nav { display: flex; flex-wrap: wrap; gap: 0.15rem; }
-nav a {
-  color: var(--muted);
-  text-decoration: none;
-  font-size: 0.86rem;
-  font-weight: 500;
-  padding: 0.45rem 0.6rem;
+/* --- Grouped nav: header dropdowns on desktop, bottom tab bar on phones --- */
+nav#site-nav { display: flex; align-items: center; gap: 0.15rem; margin-right: auto; margin-left: 1.25rem; }
+.nav-group { position: relative; }
+.nav-group-btn, .nav-home {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.75rem;
+  border: 0;
   border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
   white-space: nowrap;
   transition: color 0.15s ease, background 0.15s ease;
 }
-nav a:hover { color: var(--fg); background: var(--card); }
-nav a[aria-current="page"] { color: var(--bg); background: var(--accent); }
+.nav-group-btn svg, .nav-home svg { width: 17px; height: 17px; flex: none; }
+.nav-group-btn .chev { width: 13px; height: 13px; opacity: 0.6; transition: transform 0.15s ease; }
+.nav-group-btn[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.nav-group-btn:hover, .nav-home:hover, .nav-group-btn[aria-expanded="true"] { color: var(--fg); background: var(--card); }
+.nav-group-btn[data-active="true"], .nav-home[aria-current="page"] { color: var(--accent); }
+.nav-group-btn:focus-visible, .nav-home:focus-visible, .nav-menu a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Desktop: Home lives on the brand link already. */
+.nav-home { display: none; }
 
-.nav-toggle {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border-radius: 50%;
+.nav-menu {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  z-index: 20;
+  min-width: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.4rem;
+  border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--card);
-  color: var(--muted);
-  cursor: pointer;
-  flex-shrink: 0;
+  box-shadow: var(--shadow);
 }
-.nav-toggle:hover { color: var(--fg); }
-.nav-toggle svg { width: 18px; height: 18px; }
+.nav-menu[hidden] { display: none; }
+.nav-menu-title { display: none; }
+.nav-menu a {
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  color: var(--fg);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+.nav-menu a[hidden] { display: none; }
+.nav-menu a:hover { background: var(--card-hover); }
+.nav-menu a[aria-current="page"] { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); font-weight: 600; }
+.nav-scrim { display: none; }
 
-/* Below this width the link list collapses behind the toggle button above --
-   with 15 nav items, letting it wrap freely (the desktop behavior) ate up
-   to a quarter of the screen on a phone. Since every link is a full page
-   navigation here (no client-side routing), the menu naturally re-collapses
-   on its own the moment a page loads — no "close after picking" JS needed. */
 @media (max-width: 720px) {
-  .nav-toggle { display: inline-flex; }
-  /* Floating compact dropdown, anchored under the toggle button — same
-     pattern as .theme-menu, rather than a full-width list pushed into the
-     normal document flow (that was the original fix, but still read as
-     "the whole menu, just stacked" rather than an actually small popover). */
+  header { padding: 0.75rem 1rem; }
+  header .text-size-picker { margin-left: auto; margin-right: 0.5rem; }
   nav#site-nav {
-    display: none;
-    position: absolute;
-    top: calc(100% + 0.5rem);
-    right: 1.5rem;
-    z-index: 20;
-    min-width: 170px;
-    max-width: 220px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    z-index: 2100;
+    justify-content: space-around;
+    gap: 0;
+    padding: 0.3rem 0.25rem calc(0.3rem + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+  }
+  .nav-group { position: static; flex: 1; display: flex; }
+  .nav-group[hidden] { display: none; }
+  .nav-home { display: inline-flex; flex: 1; }
+  .nav-group-btn, .nav-home {
+    flex: 1;
     flex-direction: column;
-    gap: 0.1rem;
-    padding: 0.4rem;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    background: var(--card);
-    box-shadow: var(--shadow);
+    gap: 0.15rem;
+    padding: 0.35rem 0.25rem;
+    border-radius: 10px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    -webkit-tap-highlight-color: transparent;
   }
-  nav#site-nav.nav-open { display: flex; }
-  nav#site-nav a {
-    width: 100%;
-    padding: 0.5rem 0.6rem;
-    border-radius: 8px;
-    font-size: 0.85rem;
+  .nav-group-btn svg, .nav-home svg { width: 23px; height: 23px; }
+  .nav-group-btn .chev { display: none; }
+  .nav-group-btn:hover, .nav-home:hover { background: transparent; }
+  .nav-group-btn[aria-expanded="true"] { background: var(--card); }
+
+  /* Bottom sheet above the tab bar */
+  .nav-menu {
+    position: fixed;
+    top: auto;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: calc(4.4rem + env(safe-area-inset-bottom, 0px));
+    min-width: 0;
+    padding: 0.5rem;
+    border-radius: 18px;
+    animation: nav-sheet-in 0.18s ease-out;
   }
+  .nav-menu-title {
+    display: block;
+    padding: 0.35rem 0.75rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .nav-menu a { padding: 0.8rem 0.75rem; font-size: 1rem; border-radius: 10px; }
+  .nav-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 2050;
+    background: rgba(0, 0, 0, 0.35);
+  }
+  .nav-scrim[hidden] { display: none; }
+
+  .tile-edit-toolbar { bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
+  /* Room for the fixed tab bar */
+  footer { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); }
+}
+@keyframes nav-sheet-in {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-menu { animation: none; }
 }
 
 /* Scales every rem-based size on the site (nearly everything) from one
@@ -559,6 +639,36 @@ section + section { margin-top: 2.5rem; }
   border: 1px solid var(--border);
   color: var(--fg);
 }
+
+/* Segmented control: one-of-N choice (band picker, view switcher). Buttons
+   carry aria-pressed so the selected state is exposed, not just colored. */
+.seg {
+  display: inline-flex;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+}
+.seg-btn {
+  flex: none;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.seg-btn:hover { color: var(--fg); }
+.seg-btn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.seg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 input[type="text"],
 input[type="password"],
@@ -972,3 +1082,69 @@ footer a:hover { text-decoration: underline; }
   border-radius: 999px;
   cursor: pointer;
 }
+
+/* Secondary explanatory text under a card heading. */
+.card-note { margin: 0 0 0.75rem; color: var(--muted); font-size: 0.85rem; }
+
+/* Leaflet chrome (zoom buttons, attribution, tooltips) follows the site
+   theme instead of Leaflet's fixed white -- every map on the site. */
+.leaflet-container { font-family: inherit; background: var(--bg-2); }
+.leaflet-bar { border: 1px solid var(--border) !important; box-shadow: var(--shadow) !important; border-radius: 10px !important; overflow: hidden; }
+.leaflet-bar a, .leaflet-bar a:hover { background: var(--card); color: var(--fg); border-bottom-color: var(--border); }
+.leaflet-bar a:hover { background: var(--card-hover); }
+.leaflet-bar a.leaflet-disabled { background: var(--card); color: var(--muted); opacity: 0.5; }
+.leaflet-control-attribution { background: color-mix(in srgb, var(--card) 80%, transparent) !important; color: var(--muted); }
+.leaflet-control-attribution a { color: var(--accent); }
+.leaflet-tooltip { background: var(--card); color: var(--fg); border: 1px solid var(--border); box-shadow: var(--shadow); border-radius: 8px; }
+.leaflet-tooltip-top::before { border-top-color: var(--border); }
+.leaflet-tooltip-bottom::before { border-bottom-color: var(--border); }
+.leaflet-tooltip-left::before { border-left-color: var(--border); }
+.leaflet-tooltip-right::before { border-right-color: var(--border); }
+.leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--card); color: var(--fg); }
+
+/* Chart hover layer (lib/charts.ts attachHover) */
+.chart-hoverable { position: relative; }
+.chart-hoverable svg { touch-action: pan-y; cursor: crosshair; }
+.chart-svg-wrap rect.bar.bar-dim { opacity: 0.35; }
+.chart-tip {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  min-width: 90px;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+.chart-tip[hidden] { display: none; }
+.chart-tip-head { color: var(--muted); font-size: 0.72rem; margin-bottom: 0.15rem; }
+.chart-tip-row { display: flex; align-items: center; gap: 0.4rem; }
+.chart-tip-swatch { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.chart-tip-label { color: var(--muted); }
+.chart-tip-value { margin-left: auto; font-family: var(--font-mono); font-weight: 700; color: var(--fg); }
+
+/* Themed native selects + checkboxes site-wide (they were browser-default
+   gray boxes that ignored every theme). */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0.45rem 2rem 0.45rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background-color: var(--bg-2);
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+select:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color: var(--accent); }
+.form-grid select { padding-right: 2rem; }
